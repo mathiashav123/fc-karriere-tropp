@@ -1,0 +1,4688 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#121814">
+<title>FC Karriere-tropp</title>
+<style>
+:root {
+  --bg: #121814;
+  --bg2: #1a211c;
+  --card: #222a25;
+  --card2: #2a342e;
+  --border: #334038;
+  --text: #e8efe9;
+  --muted: #9aab9e;
+  --accent: #3d9a5f;
+  --accent2: #2d7a4a;
+  --accent-soft: rgba(61, 154, 95, 0.18);
+  --danger: #d45454;
+  --danger-soft: rgba(212, 84, 84, 0.15);
+  --warn: #d4a054;
+  --pitch1: #1e4a2e;
+  --pitch2: #245536;
+  --pitch-line: rgba(255,255,255,0.12);
+  --radius: 14px;
+  --tap: 44px;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --shadow: 0 2px 12px rgba(0,0,0,0.35);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg); color: var(--text);
+  min-height: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  padding-left: var(--safe-l);
+  padding-right: var(--safe-r);
+  padding-bottom: calc(24px + var(--safe-b));
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button {
+  cursor: pointer; border: none;
+  min-height: var(--tap);
+  border-radius: 10px;
+  padding: 0 14px;
+  background: var(--card2);
+  color: var(--text);
+  transition: background .15s, opacity .15s;
+}
+button:active { opacity: .85; }
+button.primary { background: var(--accent); color: #fff; font-weight: 600; }
+button.primary:hover { background: var(--accent2); }
+button.ghost { background: transparent; border: 1px solid var(--border); }
+button.danger { background: var(--danger-soft); color: #ff8a8a; }
+button.icon {
+  width: var(--tap); min-width: var(--tap); padding: 0;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 18px;
+}
+input, select, textarea {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px; min-height: var(--tap); width: 100%;
+}
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
+label {
+  display: block; font-size: 12px; color: var(--muted);
+  margin-bottom: 4px; font-weight: 500;
+}
+.field { margin-bottom: 10px; }
+
+.header {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(18, 24, 20, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: calc(10px + var(--safe-t)) 14px 10px;
+}
+.header-inner {
+  max-width: 1360px; margin: 0 auto;
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+}
+.header h1 {
+  margin: 0; font-size: 17px; font-weight: 700;
+  letter-spacing: -0.02em; flex: 1 1 auto; min-width: 140px;
+}
+.header .actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.header select { width: auto; min-width: 120px; background: var(--card); }
+.persist-hint {
+  width: 100%; margin: 6px 0 0; font-size: 12px; color: var(--warn);
+  line-height: 1.35;
+}
+.persist-hint[hidden] { display: none !important; }
+
+.wrap { max-width: 1360px; margin: 0 auto; padding: 14px; }
+
+.card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px; margin-bottom: 14px;
+  box-shadow: var(--shadow);
+}
+.card h2 {
+  margin: 0 0 12px; font-size: 14px; font-weight: 650;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
+}
+
+.summary {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px;
+}
+.stat {
+  background: var(--bg2); border-radius: 12px; padding: 12px 10px; text-align: center;
+}
+.stat .val { font-size: 22px; font-weight: 700; color: var(--accent); line-height: 1.1; }
+.stat .lbl { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.weak-spots { font-size: 13px; color: var(--warn); min-height: 1.2em; }
+.weak-spots.ok { color: var(--accent); }
+.weak-spots:empty { display: none; }
+.tips {
+  margin-top: 10px; padding: 10px 12px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 12px; font-size: 13px; line-height: 1.45;
+}
+.tips[hidden] { display: none !important; }
+.tips h3 {
+  margin: 0 0 6px; font-size: 12px; font-weight: 700;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
+}
+.tips ul { margin: 0; padding: 0; list-style: none; }
+.tips li {
+  padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+  color: var(--text);
+}
+.tips li:last-child { border-bottom: none; padding-bottom: 0; }
+.tips .tip-tag {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  padding: 1px 6px; border-radius: 6px; margin-right: 6px;
+  vertical-align: 1px; letter-spacing: .03em;
+}
+.tips .tip-tag.selg { background: var(--danger-soft); color: #ff8a8a; }
+.tips .tip-tag.lan { background: rgba(106,154,212,.22); color: #9bc0ea; }
+.tips .tip-tag.fokus { background: var(--accent-soft); color: #7ddea0; }
+.tips .tip-tag.info { background: rgba(255,255,255,.08); color: var(--muted); }
+.view-tabs {
+  display: flex; gap: 6px; max-width: 1360px; margin: 0 auto;
+  padding: 10px 14px 0;
+}
+.view-tab {
+  flex: 1; max-width: 200px; min-height: 40px;
+  border-radius: 10px; font-weight: 650; font-size: 14px;
+  background: var(--card); border: 1px solid var(--border); color: var(--muted);
+}
+.view-tab.active {
+  background: var(--accent-soft); border-color: var(--accent); color: #7ddea0;
+}
+.view-tab .tab-n {
+  font-size: 11px; font-weight: 700; opacity: .85; margin-left: 4px;
+}
+.verdict {
+  display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  font-size: 12px; line-height: 1.35; margin-top: 4px;
+}
+.verdict-chip {
+  font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 999px;
+  letter-spacing: .03em; text-transform: uppercase; white-space: nowrap;
+}
+.verdict-chip.sign { background: var(--accent-soft); color: #7ddea0; }
+.verdict-chip.keep { background: rgba(212,160,84,.2); color: #f0d8a0; }
+.verdict-chip.drop { background: var(--danger-soft); color: #ff8a8a; }
+.verdict-reason { color: var(--muted); font-size: 12px; }
+.akademi-row {
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px;
+  padding: 12px 8px; border-bottom: 1px solid var(--border);
+}
+.akademi-row .p-info { flex: 1; min-width: 140px; }
+.akademi-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.akademi-actions button { min-height: 36px; font-size: 12px; font-weight: 600; }
+
+.verdict-chip.watch { background: rgba(154,171,158,.22); color: #c5d4c8; }
+.verdict-sub { display: block; width: 100%; font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.35; }
+.add-mode-switch {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  margin: 0 0 12px; padding: 4px;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+}
+.add-mode-btn {
+  min-height: 48px; border-radius: 10px; font-weight: 700; font-size: 15px;
+  background: transparent; color: var(--muted); border: 1px solid transparent;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.add-mode-btn.active {
+  background: var(--accent-soft); color: #7ddea0; border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(61,154,95,.25);
+}
+.btn-from-image {
+  width: 100%; min-height: 52px; font-weight: 700; font-size: 16px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  border: 1px dashed rgba(61,154,95,.45); background: var(--accent-soft); color: #7ddea0;
+}
+.btn-from-image:active { opacity: .9; }
+.ocr-panel {
+  margin-bottom: 12px; padding: 12px;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+}
+.ocr-panel[hidden] { display: none !important; }
+.ocr-panel .ocr-hint { margin: 0 0 10px; font-size: 12px; color: var(--muted); line-height: 1.4; }
+.ocr-preview {
+  margin-top: 10px; border-radius: 12px; overflow: hidden;
+  border: 1px solid var(--border); background: #0a0e0b;
+  max-height: 180px; position: relative;
+}
+.ocr-preview img {
+  display: block; width: 100%; max-height: 180px; object-fit: contain; background: #0a0e0b;
+}
+.ocr-preview .ocr-spin {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(18,24,20,.72); font-size: 14px; font-weight: 650; color: var(--text);
+  gap: 8px;
+}
+.ocr-preview.hidden, .ocr-file { display: none !important; }
+.ocr-status { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.4; min-height: 1.2em; }
+.ocr-status.warn { color: var(--warn); }
+.ocr-status.ok { color: #7ddea0; }
+
+.sync-status-bar {
+  font-size: 12px; color: var(--muted); margin: 0 0 10px; line-height: 1.4;
+}
+.sync-status-bar strong { color: var(--text); }
+.sync-device-chip {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  padding: 2px 8px; border-radius: 999px; margin-left: 6px;
+  background: rgba(255,255,255,.08); color: var(--muted); vertical-align: 1px;
+}
+.sync-warn {
+  background: rgba(212,160,84,.15); border: 1px solid rgba(212,160,84,.35);
+  color: #f0d8a0; border-radius: 10px; padding: 10px 12px; font-size: 13px;
+  line-height: 1.4; margin-bottom: 12px;
+}
+.sync-code-box {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 22px; font-weight: 800; letter-spacing: .18em;
+  text-align: center; padding: 14px; border-radius: 12px;
+  background: var(--bg2); border: 1px dashed var(--accent);
+  color: #7ddea0; margin: 8px 0 12px;
+}
+.sync-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.sync-actions button { flex: 1 1 140px; min-height: 48px; font-weight: 650; }
+.sync-logged-out .sync-logged-in-only { display: none !important; }
+.sync-logged-in .sync-logged-out-only { display: none !important; }
+#view-sky .field { margin-bottom: 12px; }
+
+.ocr-fields-label {
+  margin: 12px 0 6px; font-size: 12px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.form-grid.add-grid .field-pot-min,
+.form-grid.add-grid .field-pot-max { grid-column: auto; }
+@media (min-width: 640px) {
+  .form-grid.add-grid .field-pot-min,
+  .form-grid.add-grid .field-pot-max { grid-column: auto; }
+}
+@media (min-width: 900px) {
+  .form-grid.add-grid .field-pot-min,
+  .form-grid.add-grid .field-pot-max { grid-column: auto; }
+}
+
+.btn-sign {
+  background: var(--accent-soft); color: #7ddea0;
+  border: 1px solid rgba(61,154,95,.35);
+}
+#view-akademi .form-grid.add-grid { margin-bottom: 4px; }
+.hint { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+@media (min-width: 900px) {
+  .view-tabs { padding: 12px 20px 0; max-width: 1360px; }
+  .view-tab { flex: 0 0 auto; min-width: 140px; }
+}
+.slot.thin { border-color: rgba(212, 84, 84, 0.5); box-shadow: inset 0 0 0 1px rgba(212, 84, 84, 0.18); }
+.cell .miss-opt {
+  color: var(--muted); font-size: 9px; font-weight: 500;
+  padding: 2px 0; text-align: center; opacity: .7;
+}
+
+.form-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.form-grid .span2 { grid-column: 1 / -1; }
+@media (min-width: 640px) {
+  .form-grid.add-grid {
+    grid-template-columns: 2fr 64px 64px 64px 64px 1fr;
+    align-items: end;
+  }
+  .form-grid.add-grid .span2 { grid-column: auto; }
+  .form-grid.add-grid .ekstra-field,
+  .form-grid.add-grid .assign-row,
+  .form-grid.add-grid .btn-add { grid-column: 1 / -1; }
+  .form-grid.add-grid .btn-add { align-self: end; }
+}
+
+.assign-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  grid-column: 1 / -1;
+}
+
+.pitch {
+  background: linear-gradient(180deg, var(--pitch2) 0%, var(--pitch1) 50%, var(--pitch2) 100%);
+  border-radius: var(--radius); padding: 14px 6px 18px;
+  position: relative; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.pitch::before {
+  content: ""; position: absolute; inset: 10%;
+  border: 1px solid var(--pitch-line); border-radius: 4px; pointer-events: none;
+}
+.pitch::after {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  width: 56px; height: 56px; margin: -28px 0 0 -28px;
+  border: 1px solid var(--pitch-line); border-radius: 50%; pointer-events: none;
+}
+.pitch-rows { display: flex; flex-direction: column; gap: 8px; position: relative; z-index: 1; }
+.pitch-row { display: flex; justify-content: center; gap: 5px; flex-wrap: nowrap; }
+.slot {
+  flex: 1 1 0; max-width: 108px; min-width: 72px;
+  background: rgba(18, 24, 20, 0.72);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px; padding: 5px;
+  backdrop-filter: blur(4px);
+}
+.slot-pos {
+  font-size: 10px; font-weight: 700; color: #a8e0b8;
+  letter-spacing: .04em; text-transform: uppercase;
+}
+.cell {
+  background: var(--card); border: 1px dashed transparent;
+  border-radius: 7px; padding: 4px 5px; min-height: 52px; margin-bottom: 3px;
+  cursor: grab; position: relative;
+  transition: border-color .15s, background .15s;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.cell:last-child { margin-bottom: 0; }
+.cell.empty {
+  background: rgba(0,0,0,0.25); border-color: rgba(255,255,255,0.12); cursor: default;
+  min-height: 36px;
+}
+.cell.drag-over { border-color: var(--accent); background: var(--accent-soft); }
+.cell.dragging { opacity: .45; cursor: grabbing; }
+.cell .role { font-size: 8px; color: var(--muted); font-weight: 600; line-height: 1; }
+.cell .pname {
+  font-size: 10px; font-weight: 650; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; line-height: 1.15;
+  padding-right: 18px;
+}
+.cell .meta {
+  font-size: 8px; color: var(--muted);
+  display: flex; gap: 3px; align-items: center; flex-wrap: wrap;
+}
+.cell .ratings-line {
+  font-size: 11px; font-weight: 700; line-height: 1.25; margin-top: 1px;
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cell .ratings-line .ovr {
+  color: var(--accent); font-weight: 800; font-size: 12px;
+}
+.cell .ratings-line .pot {
+  color: var(--muted); font-weight: 600; font-size: 11px;
+}
+.cell .phys { color: var(--muted); opacity: .9; }
+.cell .miss {
+  color: var(--danger); font-size: 10px; font-weight: 600;
+  padding: 2px 0; text-align: center;
+}
+.cell .clear-btn {
+  position: absolute; top: 1px; right: 1px;
+  width: 20px; height: 20px; min-height: 20px;
+  border-radius: 5px; padding: 0; font-size: 11px;
+  background: transparent; color: var(--muted);
+  display: none; align-items: center; justify-content: center;
+}
+.cell:not(.empty):hover .clear-btn,
+.cell:not(.empty):focus-within .clear-btn { display: inline-flex; }
+.cell .clear-btn:hover { color: var(--danger); background: var(--danger-soft); }
+
+@media (max-width: 400px) {
+  .slot { min-width: 58px; max-width: 82px; padding: 3px; }
+  .cell { min-height: 40px; padding: 3px 4px; }
+  .cell .pname { font-size: 9px; }
+  .cell .meta { font-size: 8px; }
+  .pitch-row { gap: 3px; }
+}
+
+.toolbar {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px;
+}
+.toolbar select { width: auto; min-width: 140px; }
+.player-list { list-style: none; margin: 0; padding: 0; }
+.player-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 8px; border-bottom: 1px solid var(--border);
+  min-height: var(--tap); cursor: pointer; border-radius: 8px;
+}
+.player-row:hover { background: var(--bg2); }
+.player-row.used-r1 { border-left: 3px solid var(--accent); }
+.player-row.used-r2 { border-left: 3px solid #6a9ad4; }
+.player-row.used-r3 { border-left: 3px solid #b08ad4; }
+.player-row.unused { border-left: 3px solid transparent; opacity: .92; }
+.p-info { flex: 1; min-width: 0; }
+.p-name {
+  font-weight: 650; font-size: 14px;
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.p-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.badge {
+  display: inline-flex; align-items: center;
+  font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+  background: var(--accent-soft); color: #7ddea0;
+  letter-spacing: .02em; line-height: 1.2;
+}
+.badge.r2 { background: rgba(106,154,212,.2); color: #9bc0ea; }
+.badge.r3 { background: rgba(176,138,212,.22); color: #c9b0e8; }
+.badge.depth { background: rgba(255,255,255,.08); color: var(--muted); font-size: 11px; }
+.chip-pot {
+  font-size: 10px; font-weight: 700; color: #7ddea0;
+  background: var(--accent-soft); padding: 1px 5px; border-radius: 6px;
+}
+.p-ratings {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  min-width: 64px;
+  display: flex; flex-direction: column; align-items: flex-end;
+  line-height: 1.1; flex-shrink: 0;
+}
+.p-ratings .r {
+  font-size: 22px; font-weight: 800; color: var(--accent);
+  letter-spacing: -0.02em;
+}
+.p-ratings .p {
+  color: var(--muted); font-size: 12px; font-weight: 600; margin-top: 2px;
+}
+.p-sub .p-pos { color: var(--text); font-weight: 550; }
+.p-sub .p-phys { color: var(--muted); font-size: 11px; }
+.player-list-scroll {
+  min-height: 180px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg2);
+  padding: 4px 6px;
+  margin-top: 4px;
+}
+.empty-state {
+  text-align: center; color: var(--muted); padding: 24px 12px; font-size: 14px;
+}
+
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,.55);
+  display: flex; align-items: flex-end; justify-content: center; padding: 0;
+}
+@media (min-width: 520px) {
+  .modal-backdrop { align-items: center; padding: 20px; }
+}
+.modal {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px 16px 0 0; width: 100%; max-width: 520px;
+  padding: 18px 16px calc(18px + var(--safe-b));
+  box-shadow: var(--shadow); max-height: 90vh; overflow-y: auto;
+}
+@media (min-width: 520px) { .modal { border-radius: 16px; } }
+.modal h3 { margin: 0 0 14px; font-size: 17px; }
+.modal-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.modal-actions button { flex: 1; }
+
+.drag-ghost {
+  position: fixed; z-index: 200; pointer-events: none;
+  background: var(--card2); border: 1px solid var(--accent);
+  border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 650;
+  box-shadow: var(--shadow); opacity: .92;
+  transform: translate(-50%, -120%); white-space: nowrap;
+}
+.form-error {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #ff8a8a;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.hidden { display: none !important; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0); border: 0;
+}
+#import-file { display: none; }
+#flash-msg {
+  position: fixed; bottom: calc(20px + var(--safe-b)); left: 50%;
+  transform: translateX(-50%); background: #2a342e; border: 1px solid var(--border);
+  color: var(--text); padding: 12px 18px; border-radius: 12px; z-index: 9999;
+  font-size: 14px; font-weight: 600; box-shadow: var(--shadow); max-width: 92%;
+  text-align: center; pointer-events: none;
+}
+#flash-msg.success {
+  background: #1e4a2e; border-color: var(--accent); color: #b8f0c8;
+}
+#flash-msg.warn {
+  background: #4a3a1e; border-color: var(--warn); color: #f0d8a0;
+}
+.player-row.just-added {
+  animation: justAddedPulse 2s ease;
+  background: var(--accent-soft);
+  outline: 2px solid var(--accent);
+}
+@keyframes justAddedPulse {
+  0% { background: rgba(61, 154, 95, 0.45); }
+  100% { background: transparent; outline-color: transparent; }
+}
+
+.pos-checks {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px;
+  max-height: 160px; overflow-y: auto;
+}
+.pos-check {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; color: var(--text); font-weight: 500;
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 8px; cursor: pointer;
+  user-select: none; margin: 0;
+}
+.pos-check input {
+  width: 14px; height: 14px; min-height: 0; margin: 0;
+  accent-color: var(--accent);
+}
+.pos-check.disabled { opacity: .4; pointer-events: none; }
+.pos-check:has(input:checked) {
+  border-color: var(--accent); background: var(--accent-soft);
+}
+.slot-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 2px; margin-bottom: 3px; min-height: 18px;
+}
+.slot-swap {
+  font-size: 9px; font-weight: 700; min-height: 22px; height: 22px;
+  padding: 0 5px; border-radius: 6px;
+  background: rgba(255,255,255,0.08); color: #c8e8d0;
+  border: 1px solid rgba(255,255,255,0.12); line-height: 1;
+}
+.slot-swap:disabled { opacity: .3; }
+.cell-rank-btns {
+  position: absolute; right: 1px; bottom: 1px;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.cell-rank-btns button {
+  width: 18px; height: 14px; min-height: 14px; padding: 0;
+  font-size: 9px; line-height: 1; border-radius: 4px;
+  background: rgba(255,255,255,0.08); color: #c8e8d0;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.cell-rank-btns button:disabled { opacity: .25; }
+.cell.empty .cell-rank-btns { display: none; }
+.btn-edit-row {
+  min-height: 36px; height: 36px; padding: 0 10px; font-size: 12px;
+  font-weight: 600; background: var(--accent-soft); color: #7ddea0;
+  border: 1px solid rgba(61,154,95,.35);
+}
+.cell-menu {
+  position: fixed; z-index: 250;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 6px; box-shadow: var(--shadow);
+  min-width: 160px;
+}
+.cell-menu button {
+  display: block; width: 100%; text-align: left;
+  background: transparent; min-height: 40px; border-radius: 8px;
+  padding: 8px 12px; font-size: 14px;
+}
+.cell-menu button:hover { background: var(--bg2); }
+button:disabled { opacity: .35; cursor: default; }
+
+select option, select optgroup {
+  background: #1a211c;
+  color: #e8efe9;
+}
+
+
+/* —— Desktop / PC layout —— */
+.desktop-hint { display: none; }
+.layout { display: flex; flex-direction: column; gap: 0; }
+.col-left, .col-right, .col-full { display: contents; } /* unwrap on mobile: children flow as stacked cards */
+
+.cell:active { cursor: grabbing; }
+.cell.dragging { cursor: grabbing; opacity: .45; }
+body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
+
+@media (min-width: 900px) {
+  .header-inner { max-width: 1360px; }
+  .wrap { max-width: 1360px; padding: 18px 20px 28px; }
+
+  .desktop-hint {
+    display: block;
+    max-width: 1360px; margin: 6px auto 0;
+    font-size: 12px; color: var(--muted);
+    letter-spacing: .01em;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 380px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    gap: 16px;
+    align-items: start;
+  }
+  .col-left, .col-right, .col-full {
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .col-left {
+    grid-column: 1; grid-row: 1; min-width: 0;
+    overflow-y: auto;
+    max-height: calc(100vh - 80px);
+    overscroll-behavior: contain;
+    padding-right: 2px;
+  }
+  .col-right { grid-column: 2; grid-row: 1; min-width: 0; }
+  .col-full { grid-column: 1 / -1; grid-row: 2; }
+
+  /* Two-column-ish add form: name full; stats row; pos row */
+  .form-grid.add-grid {
+    grid-template-columns: repeat(4, 1fr);
+    align-items: end;
+  }
+  .form-grid.add-grid .span2 { grid-column: 1 / -1; }
+  .form-grid.add-grid .field-name { grid-column: 1 / -1; }
+  .form-grid.add-grid .field-rating,
+  .form-grid.add-grid .field-pot,
+  .form-grid.add-grid .field-pot-min,
+  .form-grid.add-grid .field-pot-max,
+  .form-grid.add-grid .field-alder,
+  .form-grid.add-grid .field-hoyde { grid-column: auto; }
+  .form-grid.add-grid .field-hoved { grid-column: 1 / -1; }
+  .form-grid.add-grid .ekstra-field,
+  .form-grid.add-grid .assign-row,
+  .form-grid.add-grid .btn-add { grid-column: 1 / -1; }
+
+  /* Tropp list scrolls in left column (keeps pitch editable in view) */
+  #tropp-card {
+    display: flex; flex-direction: column;
+  }
+  #tropp-card .player-list-scroll {
+    flex: 1 1 auto;
+    min-height: 180px;
+    max-height: min(62vh, 640px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin: 4px 0 0;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg2);
+  }
+  #tropp-card .toolbar { flex-shrink: 0; }
+
+  /* Larger pitch / slot cards on desktop */
+  .pitch {
+    padding: 22px 14px 28px;
+    min-height: 520px;
+  }
+  .pitch::after {
+    width: 72px; height: 72px; margin: -36px 0 0 -36px;
+  }
+  .pitch-rows { gap: 14px; }
+  .pitch-row { gap: 10px; }
+  .slot {
+    max-width: 148px; min-width: 100px; padding: 8px;
+    border-radius: 14px;
+  }
+  .slot-pos { font-size: 11px; }
+  .cell {
+    min-height: 56px; padding: 6px 8px; border-radius: 9px; margin-bottom: 5px;
+  }
+  .cell.empty { min-height: 44px; }
+  .cell .role { font-size: 9px; }
+  .cell { min-height: 58px; }
+  .cell .pname { font-size: 12px; padding-right: 22px; }
+  .cell .ratings-line { font-size: 12px; }
+  .cell .ratings-line .ovr { font-size: 13px; }
+  .cell .meta { font-size: 9px; gap: 4px; }
+  .cell .clear-btn { width: 22px; height: 22px; font-size: 12px; }
+  .cell-rank-btns button {
+    width: 22px; height: 18px; min-height: 18px;
+    font-size: 10px; border-radius: 5px;
+  }
+  .cell:not(.empty):hover {
+    border-color: rgba(61, 154, 95, 0.45);
+    background: #2a342e;
+  }
+  .cell.drag-over {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .player-row:hover { background: var(--bg2); outline: 1px solid var(--border); }
+  .slot-swap {
+    min-height: 26px; height: 26px; font-size: 10px; padding: 0 7px;
+  }
+  .slot-head { min-height: 22px; margin-bottom: 5px; }
+
+  .summary { gap: 10px; margin-bottom: 12px; }
+  .stat { padding: 14px 12px; }
+  .stat .val { font-size: 26px; }
+
+  .modal { max-width: 520px; }
+  .modal-backdrop { align-items: center; padding: 24px; }
+}
+
+@media (min-width: 1200px) {
+  .layout { grid-template-columns: 400px minmax(0, 1fr); }
+  .slot { max-width: 160px; min-width: 110px; }
+  .pitch { min-height: 560px; }
+}
+
+</style>
+</head>
+<body>
+<header class="header">
+  <div class="header-inner">
+    <h1>FC Karriere-tropp</h1>
+    <div class="actions">
+      <label class="sr-only" for="formation">Formasjon</label>
+      <select id="formation" aria-label="Formasjon"></select>
+      <button type="button" class="primary" id="btn-auto">Auto-bygg tropp</button>
+      <button type="button" class="ghost" id="btn-import" title="Last inn lagret tropp-fil">Last inn</button>
+      <button type="button" class="ghost" id="btn-export" title="Last ned tropp som JSON-fil">Lagre fil</button>
+      <button type="button" class="ghost" id="btn-sky" title="Sky-synk mellom mobil og PC">☁ Sky</button>
+      <input type="file" id="import-file" accept="application/json,.json">
+    </div>
+    <p class="desktop-hint">Dra spillere mellom plasser · klikk for å redigere</p>
+    <p class="persist-hint" id="persist-hint" hidden>Tips: bruk Lagre fil før du lukker — så mistet du ikke troppen.</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="view-tabs" role="tablist" aria-label="Visning">
+    <button type="button" class="view-tab active" role="tab" id="tab-tropp" aria-selected="true" data-view="tropp">Tropp</button>
+    <button type="button" class="view-tab" role="tab" id="tab-akademi" aria-selected="false" data-view="akademi">Akademi <span class="tab-n" id="akademi-tab-n"></span></button>
+    <button type="button" class="view-tab" role="tab" id="tab-sky" aria-selected="false" data-view="sky">Sky</button>
+  </div>
+  <div id="view-tropp" class="layout">
+    <div class="col-left">
+<section class="card" id="tropp-add-card">
+    <h2>Legg til spiller</h2>
+    <div class="add-mode-switch" role="tablist" aria-label="Hvordan legge til troppspiller">
+      <button type="button" class="add-mode-btn active" id="mode-tropp-manual" data-target="tropp" data-mode="manual" aria-selected="true">✏️ Manuelt</button>
+      <button type="button" class="add-mode-btn" id="mode-tropp-image" data-target="tropp" data-mode="image" aria-selected="false">📷 Fra bilde</button>
+    </div>
+    <div class="ocr-panel" id="ocr-panel-tropp" hidden>
+      <p class="ocr-hint">Best på spillerkort / akademi-skjerm. Sjekk feltene før du legger til.</p>
+      <button type="button" class="btn-from-image" id="btn-img-tropp">📷 Ta bilde / Velg fra galleri</button>
+      <input type="file" id="img-tropp" class="ocr-file" accept="image/*" aria-hidden="true" tabindex="-1">
+      <div id="ocr-preview-tropp" class="ocr-preview hidden"></div>
+      <div id="ocr-status-tropp" class="ocr-status" hidden></div>
+      <div class="ocr-fields-label" id="ocr-fields-label-tropp" hidden>Sjekk / rediger før du legger til</div>
+    </div>
+    <form id="add-form" class="form-grid add-grid" autocomplete="off" novalidate>
+      <div class="field span2 field-name">
+        <label for="f-navn">Navn</label>
+        <input id="f-navn" name="navn" required maxlength="60" placeholder="F.eks. Haaland" enterkeyhint="next">
+      </div>
+      <div class="field field-rating">
+        <label for="f-rating">Rating</label>
+        <input id="f-rating" name="rating" type="number" required min="1" max="99" inputmode="numeric" placeholder="85">
+      </div>
+      <div class="field field-pot">
+        <label for="f-pot">Potensial</label>
+        <input id="f-pot" name="potensial" type="number" required min="1" max="99" inputmode="numeric" placeholder="90">
+      </div>
+      <div class="field field-alder">
+        <label for="f-alder">Alder</label>
+        <input id="f-alder" name="alder" type="number" required min="15" max="45" inputmode="numeric" placeholder="22">
+      </div>
+      <div class="field field-hoyde">
+        <label for="f-hoyde">Høyde (cm)</label>
+        <input id="f-hoyde" name="hoyde" type="number" required min="150" max="210" inputmode="numeric" placeholder="185">
+      </div>
+      <div class="field field-hoved">
+        <label for="f-hoved">Hovedposisjon</label>
+        <select id="f-hoved" name="hoved" required>
+          <option value="" disabled selected>Velg posisjon…</option>
+        </select>
+      </div>
+      <div class="field span2 ekstra-field">
+        <label>Ekstra posisjoner</label>
+        <div class="pos-checks" id="f-ekstra" role="group" aria-label="Ekstra posisjoner"></div>
+      </div>
+      <div class="assign-row">
+        <div class="field">
+          <label for="f-slot">Plasser på posisjon</label>
+          <select id="f-slot" name="slot">
+            <option value="">— ingen (kun tropp) —</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-rang">Rang</label>
+          <select id="f-rang" name="rang">
+            <option value="r1">Nr. 1 · starter</option>
+            <option value="r2">Nr. 2 · nestemann</option>
+            <option value="r3">Nr. 3 · tredjevalg</option>
+          </select>
+        </div>
+      </div>
+      <div class="field btn-add span2">
+        <label>&nbsp;</label>
+        <button type="button" class="primary" style="width:100%" id="btn-add">Legg til</button>
+        <div id="add-error" class="form-error hidden" role="alert"></div>
+      </div>
+    </form>
+  </section>
+<section class="card" id="tropp-card">
+    <h2 id="tropp-heading">Tropp <span id="tropp-count">(0)</span></h2>
+    <div class="toolbar">
+      <label class="sr-only" for="sort">Sortering</label>
+      <select id="sort" aria-label="Sortering">
+        <option value="rating:desc">Rating ↓</option>
+        <option value="rating:asc">Rating ↑</option>
+        <option value="potensial:desc">Potensial ↓</option>
+        <option value="potensial:asc">Potensial ↑</option>
+        <option value="alder:asc">Alder ↑</option>
+        <option value="alder:desc">Alder ↓</option>
+        <option value="navn:asc">Navn A–Å</option>
+        <option value="navn:desc">Navn Å–A</option>
+      </select>
+      <button type="button" class="danger" id="btn-clear-all">Slett alle</button>
+    </div>
+    <div class="player-list-scroll">
+      <ul class="player-list" id="player-list"></ul>
+      <div class="empty-state" id="squad-empty">Ingen spillere ennå. Legg til noen over.</div>
+    </div>
+  </section>
+    </div>
+    <div class="col-right">
+<section class="card" aria-label="Oppsummering">
+    <div class="summary">
+      <div class="stat">
+        <div class="val" id="stat-size">0</div>
+        <div class="lbl">Troppstørrelse</div>
+      </div>
+      <div class="stat">
+        <div class="val" id="stat-ovr">–</div>
+        <div class="lbl">Snitt OVR XI</div>
+      </div>
+      <div class="stat">
+        <div class="val" id="stat-pot">–</div>
+        <div class="lbl">Snitt potensial</div>
+      </div>
+    </div>
+    <div class="weak-spots" id="weak-spots"></div>
+    <div class="tips" id="tips" hidden></div>
+    <p class="hint" id="formation-hint"></p>
+  </section>
+<section class="card pitch-card" style="padding:10px">
+    <h2 style="padding:4px 4px 8px">Bane · #1 · #2 · #3</h2>
+    <div class="pitch" id="pitch" aria-label="Formasjonsdiagram"></div>
+  </section>
+    </div>
+    <div class="col-full">
+<section class="card">
+    <h2>Notater · sesongplan</h2>
+    <textarea id="notes" rows="4" placeholder="F.eks. prioriter VB-backup, selg lavpotensial…"></textarea>
+  </section>
+    </div>
+  </div>
+
+  <div id="view-akademi" class="hidden">
+    <section class="card" id="akademi-add-card">
+      <h2>Legg til akademispiller</h2>
+      <p class="hint" style="margin:0 0 10px">Ikke signert ennå — telles ikke i tropp, bane eller dekning.</p>
+      <div class="add-mode-switch" role="tablist" aria-label="Hvordan legge til akademispiller">
+        <button type="button" class="add-mode-btn active" id="mode-akademi-manual" data-target="akademi" data-mode="manual" aria-selected="true">✏️ Manuelt</button>
+        <button type="button" class="add-mode-btn" id="mode-akademi-image" data-target="akademi" data-mode="image" aria-selected="false">📷 Fra bilde</button>
+      </div>
+      <div class="ocr-panel" id="ocr-panel-akademi" hidden>
+        <p class="ocr-hint">Best på spillerkort / akademi-skjerm. Sjekk feltene før du legger til.</p>
+        <button type="button" class="btn-from-image" id="btn-img-akademi">📷 Ta bilde / Velg fra galleri</button>
+        <input type="file" id="img-akademi" class="ocr-file" accept="image/*" aria-hidden="true" tabindex="-1">
+        <div id="ocr-preview-akademi" class="ocr-preview hidden"></div>
+        <div id="ocr-status-akademi" class="ocr-status" hidden></div>
+        <div class="ocr-fields-label" id="ocr-fields-label-akademi" hidden>Sjekk / rediger før du legger til</div>
+      </div>
+      <form id="akademi-form" class="form-grid add-grid" autocomplete="off" novalidate>
+        <div class="field span2 field-name">
+          <label for="a-navn">Navn</label>
+          <input id="a-navn" required maxlength="60" placeholder="F.eks. YA-spiller" enterkeyhint="next">
+        </div>
+        <div class="field field-rating">
+          <label for="a-rating">Rating</label>
+          <input id="a-rating" type="number" required min="1" max="99" inputmode="numeric" placeholder="58">
+        </div>
+        <div class="field field-pot-min">
+          <label for="a-pot-min">Potensial fra</label>
+          <input id="a-pot-min" type="number" required min="1" max="99" inputmode="numeric" placeholder="62">
+        </div>
+        <div class="field field-pot-max">
+          <label for="a-pot-max">Potensial til</label>
+          <input id="a-pot-max" type="number" required min="1" max="99" inputmode="numeric" placeholder="96">
+        </div>
+        <div class="field field-alder">
+          <label for="a-alder">Alder</label>
+          <input id="a-alder" type="number" required min="14" max="23" inputmode="numeric" placeholder="16">
+        </div>
+        <div class="field field-hoyde">
+          <label for="a-hoyde">Høyde (cm)</label>
+          <input id="a-hoyde" type="number" min="150" max="210" inputmode="numeric" placeholder="valgfritt">
+        </div>
+        <div class="field field-hoved">
+          <label for="a-hoved">Hovedposisjon</label>
+          <select id="a-hoved" required>
+            <option value="" disabled selected>Velg posisjon…</option>
+          </select>
+        </div>
+        <div class="field btn-add span2">
+          <label>&nbsp;</label>
+          <button type="button" class="primary" style="width:100%" id="btn-akademi-add">Legg til i akademi</button>
+          <div id="akademi-error" class="form-error hidden" role="alert"></div>
+        </div>
+      </form>
+    </section>
+    <section class="card">
+      <h2>Akademi <span id="akademi-count">(0)</span></h2>
+      <p class="hint" style="margin-top:0">Behold / kast / signer — sammenlignet med signert tropp på samme posisjon.</p>
+      <ul class="player-list" id="akademi-list"></ul>
+      <div class="empty-state" id="akademi-empty">Ingen akademispillere. Legg til prospects over.</div>
+    </section>
+  </div>
+
+  <div id="view-sky" class="hidden">
+    <section class="card" id="sky-card">
+      <h2>Sky / enheter</h2>
+      <p class="hint" style="margin-top:0">Samme tropp på mobil og PC via gratis Supabase (samme som familiebudsjettet). Lokal kopi lagres fortsatt i nettleseren.</p>
+      <div class="sync-warn">
+        <strong>Viktig:</strong> Bruk et <em>eget</em> brukernavn for FC (f.eks. <code>mathias-fc</code>) — ikke det samme som i familiebudsjettet. Ellers kan budsjett-data og tropp overskrive hverandre.
+      </div>
+      <p class="sync-status-bar" id="sync-status-line">Sist synket: aldri <span class="sync-device-chip" id="sync-device-chip">PC</span></p>
+      <div id="sync-panel" class="sync-logged-out">
+        <div class="sync-logged-out-only">
+          <div class="field">
+            <label for="sync-user">Brukernavn (kun FC)</label>
+            <input id="sync-user" autocomplete="username" placeholder="f.eks. mathias-fc" maxlength="32">
+          </div>
+          <div class="field">
+            <label for="sync-pass">Passord</label>
+            <input id="sync-pass" type="password" autocomplete="current-password" placeholder="minst 6 tegn">
+          </div>
+          <div class="sync-actions">
+            <button type="button" class="primary" id="sync-signup">Opprett konto + stall</button>
+            <button type="button" class="ghost" id="sync-signin">Logg inn</button>
+          </div>
+          <p class="hint">Etter innlogging får du en invitasjonskode å taste inn på den andre enheten.</p>
+          <div class="field" style="margin-top:14px">
+            <label for="sync-join-code">Eller bli med med kode</label>
+            <input id="sync-join-code" placeholder="ABCD1234" maxlength="12" style="text-transform:uppercase; letter-spacing:.1em; font-weight:700">
+          </div>
+          <div class="field">
+            <label for="sync-join-user">Nytt brukernavn på denne enheten</label>
+            <input id="sync-join-user" placeholder="f.eks. mathias-fc-mobil" maxlength="32">
+          </div>
+          <div class="field">
+            <label for="sync-join-pass">Passord</label>
+            <input id="sync-join-pass" type="password" placeholder="minst 6 tegn">
+          </div>
+          <div class="sync-actions">
+            <button type="button" class="primary" id="sync-join">Opprett + bli med</button>
+          </div>
+        </div>
+        <div class="sync-logged-in-only">
+          <p class="hint" id="sync-user-label">Innlogget</p>
+          <label>Invitasjonskode (del med din andre enhet)</label>
+          <div class="sync-code-box" id="sync-invite-code">····</div>
+          <div class="sync-actions">
+            <button type="button" class="primary" id="sync-now">Synk nå</button>
+            <button type="button" class="ghost" id="sync-copy-code">Kopier kode</button>
+            <button type="button" class="danger" id="sync-signout">Logg ut</button>
+          </div>
+          <p class="hint" id="sync-error" hidden></p>
+        </div>
+      </div>
+    </section>
+    <section class="card">
+      <h2>Uten sky</h2>
+      <p class="hint" style="margin-top:0">Du kan fortsatt bruke «Lagre fil» / «Last inn» i toppen for manuell overføring.</p>
+    </section>
+  </div>
+
+</main>
+
+<div class="modal-backdrop hidden" id="edit-modal" role="dialog" aria-modal="true" aria-labelledby="edit-title">
+  <div class="modal">
+    <h3 id="edit-title">Rediger spiller</h3>
+    <form id="edit-form">
+      <input type="hidden" id="e-id">
+      <div class="field">
+        <label for="e-navn">Navn</label>
+        <input id="e-navn" required maxlength="60">
+      </div>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="field">
+          <label for="e-rating">Rating</label>
+          <input id="e-rating" type="number" required min="1" max="99" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label for="e-pot">Potensial</label>
+          <input id="e-pot" type="number" required min="1" max="99" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label for="e-alder">Alder</label>
+          <input id="e-alder" type="number" required min="15" max="45" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label for="e-hoyde">Høyde (cm)</label>
+          <input id="e-hoyde" type="number" required min="150" max="210" inputmode="numeric">
+        </div>
+        <div class="field span2">
+          <label for="e-hoved">Hovedposisjon</label>
+          <select id="e-hoved" required>
+          <option value="" disabled selected>Velg posisjon…</option>
+          </select>
+        </div>
+        <div class="field span2">
+          <label>Ekstra posisjoner</label>
+          <div class="pos-checks" id="e-ekstra" role="group" aria-label="Ekstra posisjoner"></div>
+        </div>
+        <div class="field">
+          <label for="e-slot">Plasser på posisjon</label>
+          <select id="e-slot">
+            <option value="">— ingen —</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="e-rang">Rang</label>
+          <select id="e-rang">
+            <option value="">— behold / ingen —</option>
+            <option value="r1">Nr. 1 · starter</option>
+            <option value="r2">Nr. 2 · nestemann</option>
+            <option value="r3">Nr. 3 · tredjevalg</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost" id="e-cancel">Avbryt</button>
+        <button type="button" class="danger" id="e-delete">Slett</button>
+        <button type="submit" class="primary">Lagre</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal-backdrop hidden" id="akademi-modal" role="dialog" aria-modal="true" aria-labelledby="akademi-edit-title">
+  <div class="modal">
+    <h3 id="akademi-edit-title">Rediger akademispiller</h3>
+    <form id="akademi-edit-form">
+      <input type="hidden" id="ae-id">
+      <div class="field">
+        <label for="ae-navn">Navn</label>
+        <input id="ae-navn" required maxlength="60">
+      </div>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="field">
+          <label for="ae-rating">Rating</label>
+          <input id="ae-rating" type="number" required min="1" max="99" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label for="ae-pot-min">Potensial fra</label>
+          <input id="ae-pot-min" type="number" required min="1" max="99" inputmode="numeric" placeholder="62">
+        </div>
+        <div class="field">
+          <label for="ae-pot-max">Potensial til</label>
+          <input id="ae-pot-max" type="number" required min="1" max="99" inputmode="numeric" placeholder="96">
+        </div>
+        <div class="field">
+          <label for="ae-alder">Alder</label>
+          <input id="ae-alder" type="number" required min="14" max="23" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label for="ae-hoyde">Høyde (cm)</label>
+          <input id="ae-hoyde" type="number" min="150" max="210" inputmode="numeric" placeholder="valgfritt">
+        </div>
+        <div class="field span2">
+          <label for="ae-hoved">Hovedposisjon</label>
+          <select id="ae-hoved" required>
+            <option value="" disabled selected>Velg posisjon…</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost" id="ae-cancel">Avbryt</button>
+        <button type="button" class="danger" id="ae-delete">Slett</button>
+        <button type="button" class="btn-sign" id="ae-sign">Signer til tropp</button>
+        <button type="submit" class="primary">Lagre</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div id="cell-menu" class="cell-menu hidden" role="menu"></div>
+<div id="flash-msg" class="hidden" role="status"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* STORAGE_KEY is stable across versions — do not rename (preserves saved squad). */
+  var STORAGE_KEY = 'fc-karriere-tropp-v1';
+  var BACKUP_FILENAME = 'fc-tropp-backup.json';
+  var EMPTY_SENTINEL = ''; // explicit vacant cell (no auto-fill until Auto-bygg)
+  var RANKS = ['r1', 'r2', 'r3'];
+  var RANK_LABEL = { r1: '#1', r2: '#2', r3: '#3' };
+  var RANK_MISS = { r1: 'mangler #1', r2: 'mangler #2', r3: '#3 valgfri' };
+  var RANK_NAME = { r1: 'Nr. 1', r2: 'Nr. 2', r3: 'Nr. 3' };
+
+  /* UI-only Norwegian career codes (dropdowns / checkboxes). */
+  var KARRIERE_POSITIONS = [
+    { code: 'K', label: 'K · keeper' },
+    { code: 'VB', label: 'VB · venstreback' },
+    { code: 'VWB', label: 'VWB · venstre wingback' },
+    { code: 'VMS', label: 'VMS · venstre midtstopper' },
+    { code: 'HMS', label: 'HMS · høyre midtstopper' },
+    { code: 'HB', label: 'HB · høyreback' },
+    { code: 'HWB', label: 'HWB · høyre wingback' },
+    { code: 'SDM', label: 'SDM · sittende midtbane / 6-er' },
+    { code: 'SM', label: 'SM · sentral midtbane / 8-er' },
+    { code: 'AM', label: 'AM · angripende midtbane / 10-er' },
+    { code: 'VSM', label: 'VSM · venstre sidemidt' },
+    { code: 'HSM', label: 'HSM · høyre sidemidt' },
+    { code: 'VV', label: 'VV · venstre ving' },
+    { code: 'S', label: 'S · spiss' },
+    { code: 'HV', label: 'HV · høyre ving' }
+  ];
+
+  var POS_BY_CODE = {};
+  KARRIERE_POSITIONS.forEach(function (p) { POS_BY_CODE[p.code] = p; });
+  /* Hidden aliases for old saves / qualify — never shown in dropdowns.
+     CB stays as midtstopper (do NOT force VMS/HMS — ambiguous for left/right). */
+  POS_BY_CODE['CB'] = { code: 'CB', label: 'MS · midtstopper' };
+  POS_BY_CODE['MS'] = { code: 'MS', label: 'MS · alias for SM' };
+  POS_BY_CODE['CAM'] = { code: 'CAM', label: 'AM · angripende midtbane / 10-er' };
+  POS_BY_CODE['GK'] = { code: 'GK', label: 'K · keeper' };
+  POS_BY_CODE['LB'] = { code: 'LB', label: 'VB · venstreback' };
+  POS_BY_CODE['RB'] = { code: 'RB', label: 'HB · høyreback' };
+  POS_BY_CODE['LWB'] = { code: 'LWB', label: 'VWB · venstre wingback' };
+  POS_BY_CODE['RWB'] = { code: 'RWB', label: 'HWB · høyre wingback' };
+  POS_BY_CODE['CDM'] = { code: 'CDM', label: 'SDM · sittende midtbane / 6-er' };
+  POS_BY_CODE['CM'] = { code: 'CM', label: 'SM · sentral midtbane / 8-er' };
+  POS_BY_CODE['LM'] = { code: 'LM', label: 'VSM · venstre sidemidt' };
+  POS_BY_CODE['RM'] = { code: 'RM', label: 'HSM · høyre sidemidt' };
+  POS_BY_CODE['LW'] = { code: 'LW', label: 'VV · venstre ving' };
+  POS_BY_CODE['RW'] = { code: 'RW', label: 'HV · høyre ving' };
+  POS_BY_CODE['ST'] = { code: 'ST', label: 'S · spiss' };
+  POS_BY_CODE['CF'] = { code: 'CF', label: 'S · spiss' };
+  POS_BY_CODE['LF'] = { code: 'LF', label: 'VV · venstre ving' };
+  POS_BY_CODE['RF'] = { code: 'RF', label: 'HV · høyre ving' };
+
+  /* Unambiguous FIFA/old → Norwegian on load. CB intentionally omitted. */
+  var OLD_TO = {
+    GK: 'K', LB: 'VB', RB: 'HB', LWB: 'VWB', RWB: 'HWB',
+    CDM: 'SDM', CM: 'SM', CAM: 'AM', LM: 'VSM', RM: 'HSM',
+    LW: 'VV', RW: 'HV', ST: 'S', CF: 'S', LF: 'VV', RF: 'HV',
+    MS: 'SM'
+  };
+
+  var SLOT_ALIASES = {
+    K:   ['K', 'GK'],
+    VB:  ['VB', 'LB', 'LWB', 'VWB'],
+    VWB: ['VWB', 'LWB', 'VB', 'LB'],
+    VMS: ['VMS', 'CB'],
+    HMS: ['HMS', 'CB'],
+    HB:  ['HB', 'RB', 'RWB', 'HWB'],
+    HWB: ['HWB', 'RWB', 'HB', 'RB'],
+    SDM: ['SDM', 'CDM'],
+    SM:  ['SM', 'MS', 'CM', 'AM', 'CAM'],
+    MS:  ['SM', 'MS', 'CM', 'AM', 'CAM'],
+    AM:  ['AM', 'CAM', 'SM', 'MS', 'CM'],
+    CAM: ['AM', 'CAM', 'SM', 'MS', 'CM'],
+    VSM: ['VSM', 'LM', 'LW', 'VV'],
+    HSM: ['HSM', 'RM', 'RW', 'HV'],
+    VV:  ['VV', 'LW', 'LF', 'LM', 'VSM'],
+    HV:  ['HV', 'RW', 'RF', 'RM', 'HSM'],
+    S:   ['S', 'ST', 'CF', 'LF', 'RF']
+  };
+
+    var FORMATIONS = {
+    min11: {
+      id: 'min11',
+      name: 'Min 11',
+      hint: '',
+      rows: [
+        ['VV', 'S', 'HV'],
+        ['VSM', 'HSM'],
+        ['SDM'],
+        ['VB', 'VMS', 'HMS', 'HB'],
+        ['K']
+      ],
+      slots: [
+        { id: 'k', pos: 'K' },
+        { id: 'vb', pos: 'VB' },
+        { id: 'vms', pos: 'VMS' },
+        { id: 'hms', pos: 'HMS' },
+        { id: 'hb', pos: 'HB' },
+        { id: 'sdm', pos: 'SDM' },
+        { id: 'vsm', pos: 'VSM' },
+        { id: 'hsm', pos: 'HSM' },
+        { id: 'vv', pos: 'VV' },
+        { id: 's', pos: 'S' },
+        { id: 'hv', pos: 'HV' }
+      ]
+    },
+    '433': {
+      id: '433',
+      name: '4-3-3',
+      hint: '4-3-3: én SDM + to SM · VMS/HMS = midtstoppere',
+      rows: [
+        ['VV', 'S', 'HV'],
+        ['SM', 'SM'],
+        ['SDM'],
+        ['VB', 'VMS', 'HMS', 'HB'],
+        ['K']
+      ],
+      slots: [
+        { id: 'k', pos: 'K' },
+        { id: 'vb', pos: 'VB' },
+        { id: 'vms', pos: 'VMS' },
+        { id: 'hms', pos: 'HMS' },
+        { id: 'hb', pos: 'HB' },
+        { id: 'sdm', pos: 'SDM' },
+        { id: 'sm1', pos: 'SM' },
+        { id: 'sm2', pos: 'SM' },
+        { id: 'vv', pos: 'VV' },
+        { id: 's', pos: 'S' },
+        { id: 'hv', pos: 'HV' }
+      ]
+    },
+    '4231': {
+      id: '4231',
+      name: '4-2-3-1',
+      hint: '4-2-3-1: AM (#10) mellom VSM og HSM · to SDM · VMS/HMS = midtstoppere',
+      rows: [
+        ['S'],
+        ['VSM', 'AM', 'HSM'],
+        ['SDM', 'SDM'],
+        ['VB', 'VMS', 'HMS', 'HB'],
+        ['K']
+      ],
+      slots: [
+        { id: 'k', pos: 'K' },
+        { id: 'vb', pos: 'VB' },
+        { id: 'vms', pos: 'VMS' },
+        { id: 'hms', pos: 'HMS' },
+        { id: 'hb', pos: 'HB' },
+        { id: 'sdm1', pos: 'SDM' },
+        { id: 'sdm2', pos: 'SDM' },
+        { id: 'vsm', pos: 'VSM' },
+        { id: 'cam', pos: 'AM' },
+        { id: 'hsm', pos: 'HSM' },
+        { id: 's', pos: 'S' }
+      ]
+    },
+    '442': {
+      id: '442',
+      name: '4-4-2',
+      hint: '',
+      rows: [
+        ['S', 'S'],
+        ['VSM', 'SDM', 'SM', 'HSM'],
+        ['VB', 'VMS', 'HMS', 'HB'],
+        ['K']
+      ],
+      slots: [
+        { id: 'k', pos: 'K' },
+        { id: 'vb', pos: 'VB' },
+        { id: 'vms', pos: 'VMS' },
+        { id: 'hms', pos: 'HMS' },
+        { id: 'hb', pos: 'HB' },
+        { id: 'vsm', pos: 'VSM' },
+        { id: 'sdm', pos: 'SDM' },
+        { id: 'sm', pos: 'SM' },
+        { id: 'hsm', pos: 'HSM' },
+        { id: 's1', pos: 'S' },
+        { id: 's2', pos: 'S' }
+      ]
+    },
+    '4141': {
+      id: '4141',
+      name: '4-1-4-1',
+      hint: '',
+      rows: [
+        ['S'],
+        ['VSM', 'SM', 'SM', 'HSM'],
+        ['SDM'],
+        ['VB', 'VMS', 'HMS', 'HB'],
+        ['K']
+      ],
+      slots: [
+        { id: 'k', pos: 'K' },
+        { id: 'vb', pos: 'VB' },
+        { id: 'vms', pos: 'VMS' },
+        { id: 'hms', pos: 'HMS' },
+        { id: 'hb', pos: 'HB' },
+        { id: 'sdm', pos: 'SDM' },
+        { id: 'vsm', pos: 'VSM' },
+        { id: 'sm1', pos: 'SM' },
+        { id: 'sm2', pos: 'SM' },
+        { id: 'hsm', pos: 'HSM' },
+        { id: 's', pos: 'S' }
+      ]
+    }
+  };
+
+  function defaultState() {
+    return {
+      players: [],
+      akademi: [],
+      formationId: '433',
+      manualSlots: {},
+      notes: '',
+      sort: { by: 'rating', dir: 'desc' },
+      updatedAt: null,
+      _app: 'fc-karriere-tropp'
+    };
+  }
+
+  function normalizePosCode(code) {
+    if (!code) return '';
+    code = String(code).trim().toUpperCase();
+    if (OLD_TO[code]) return OLD_TO[code];
+    return code;
+  }
+
+  function normalizeEkstra(raw) {
+    var arr;
+    if (Array.isArray(raw)) {
+      arr = raw;
+    } else if (typeof raw === 'string' && raw.trim()) {
+      arr = [raw.trim()];
+    } else {
+      arr = [];
+    }
+    var seen = {};
+    var out = [];
+    arr.forEach(function (c) {
+      var n = normalizePosCode(c);
+      if (n && POS_BY_CODE[n] && !seen[n]) {
+        seen[n] = true;
+        out.push(n);
+      }
+    });
+    return out;
+  }
+
+  function normalizePlayer(p) {
+    var alder = p.alder == null || p.alder === '' ? null : clampNum(p.alder, 14, 45);
+    var hoyde = (p.hoyde != null ? p.hoyde : p['høyde']);
+    hoyde = hoyde == null || hoyde === '' ? null : clampNum(hoyde, 150, 210);
+    var hoved = normalizePosCode(p.hoved) || 'SM';
+    if (!POS_BY_CODE[hoved]) hoved = 'SM';
+    var ekstra = normalizeEkstra(p.ekstra).filter(function (c) { return c !== hoved; });
+    return {
+      id: p.id || uid(),
+      navn: String(p.navn || '').trim(),
+      rating: clampNum(p.rating, 1, 99) || 50,
+      potensial: clampNum(p.potensial, 1, 99) || 50,
+      hoved: hoved,
+      ekstra: ekstra,
+      alder: alder,
+      hoyde: hoyde
+    };
+  }
+
+  function normalizeAcademyPlayer(p) {
+    var alder = p.alder == null || p.alder === '' ? null : clampNum(p.alder, 14, 23);
+    var hoyde = (p.hoyde != null ? p.hoyde : p['høyde']);
+    hoyde = hoyde == null || hoyde === '' ? null : clampNum(hoyde, 150, 210);
+    var hoved = normalizePosCode(p.hoved) || 'SM';
+    if (!POS_BY_CODE[hoved]) hoved = 'SM';
+    var potMin = null;
+    var potMax = null;
+    if (p.potMin != null && p.potMin !== '') potMin = clampNum(p.potMin, 1, 99);
+    if (p.potMax != null && p.potMax !== '') potMax = clampNum(p.potMax, 1, 99);
+    if (potMin == null && potMax == null) {
+      var legacy = clampNum(p.potensial, 1, 99) || 50;
+      potMin = legacy;
+      potMax = legacy;
+    } else if (potMin == null) {
+      potMin = potMax;
+    } else if (potMax == null) {
+      potMax = potMin;
+    }
+    if (potMin > potMax) {
+      var swap = potMin; potMin = potMax; potMax = swap;
+    }
+    var mid = Math.round((potMin + potMax) / 2);
+    return {
+      id: p.id || uid(),
+      navn: String(p.navn || '').trim(),
+      rating: clampNum(p.rating, 1, 99) || 50,
+      potMin: potMin,
+      potMax: potMax,
+      potensial: mid,
+      hoved: hoved,
+      alder: alder,
+      hoyde: hoyde
+    };
+  }
+
+  function fmtPotRange(p) {
+    if (!p) return '';
+    var lo = p.potMin != null ? p.potMin : p.potensial;
+    var hi = p.potMax != null ? p.potMax : p.potensial;
+    if (lo == null && hi == null) return '';
+    if (lo == null) return String(hi);
+    if (hi == null || lo === hi) return String(lo);
+    return lo + '\u2013' + hi;
+  }
+
+  function academyPotSpan(p) {
+    var lo = p.potMin != null ? p.potMin : p.potensial;
+    var hi = p.potMax != null ? p.potMax : p.potensial;
+    if (lo == null || hi == null) return 0;
+    return hi - lo;
+  }
+
+  function academyOptimisticPot(p) {
+    return p.potMax != null ? p.potMax : p.potensial;
+  }
+
+  function academyPessimisticPot(p) {
+    return p.potMin != null ? p.potMin : p.potensial;
+  }
+
+  /** Migrate old { starterId, backupId } → { r1, r2, r3 }; MS slot ids → SM/CAM */
+  function migrateManualSlots(raw) {
+    if (!raw || typeof raw !== 'object') return {};
+    var out = {};
+    var SLOT_ID_MAP = { ms1: 'sm1', ms2: 'sm2', ms: 'sm' };
+    Object.keys(raw).forEach(function (sid) {
+      var m = raw[sid];
+      if (!m || typeof m !== 'object') return;
+      var cell = {};
+      if (Object.prototype.hasOwnProperty.call(m, 'r1') ||
+          Object.prototype.hasOwnProperty.call(m, 'r2') ||
+          Object.prototype.hasOwnProperty.call(m, 'r3')) {
+        if (Object.prototype.hasOwnProperty.call(m, 'r1')) cell.r1 = m.r1 === null ? EMPTY_SENTINEL : m.r1;
+        if (Object.prototype.hasOwnProperty.call(m, 'r2')) cell.r2 = m.r2 === null ? EMPTY_SENTINEL : m.r2;
+        if (Object.prototype.hasOwnProperty.call(m, 'r3')) cell.r3 = m.r3 === null ? EMPTY_SENTINEL : m.r3;
+      } else {
+        if (Object.prototype.hasOwnProperty.call(m, 'starterId')) {
+          cell.r1 = m.starterId === null ? EMPTY_SENTINEL : m.starterId;
+        }
+        if (Object.prototype.hasOwnProperty.call(m, 'backupId')) {
+          cell.r2 = m.backupId === null ? EMPTY_SENTINEL : m.backupId;
+        }
+      }
+      if (Object.keys(cell).length) {
+        var nid = SLOT_ID_MAP[sid] || sid;
+        /* Prefer existing new-id cell if both old+new present */
+        if (!out[nid]) out[nid] = cell;
+      }
+    });
+    return out;
+  }
+
+  function remapManualSlotIds(slots, formationId) {
+    if (!slots || typeof slots !== 'object') return {};
+    if (formationId === '4231' && slots.sm && !slots.cam) {
+      slots.cam = slots.sm;
+      delete slots.sm;
+    }
+    return slots;
+  }
+
+  function parseStoredState(raw) {
+    var parsed = JSON.parse(raw);
+    var base = defaultState();
+    var fid = FORMATIONS[parsed.formationId] ? parsed.formationId : '433';
+    return {
+      players: Array.isArray(parsed.players)
+        ? parsed.players.map(normalizePlayer).filter(function (p) { return p.navn; })
+        : [],
+      akademi: Array.isArray(parsed.akademi)
+        ? parsed.akademi.map(normalizeAcademyPlayer).filter(function (p) { return p.navn; })
+        : [],
+      formationId: fid,
+      manualSlots: remapManualSlotIds(migrateManualSlots(parsed.manualSlots), fid),
+      notes: typeof parsed.notes === 'string' ? parsed.notes : '',
+      sort: parsed.sort && parsed.sort.by ? parsed.sort : base.sort,
+      updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : null,
+      _app: 'fc-karriere-tropp'
+    };
+  }
+
+  function readStorage(store) {
+    try {
+      return store.getItem(STORAGE_KEY);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function loadState() {
+    var raw = null;
+    try {
+      raw = localStorage.getItem(STORAGE_KEY);
+    } catch (e) {
+      raw = null;
+    }
+    if (!raw) {
+      raw = readStorage(sessionStorage);
+    }
+    if (!raw) return defaultState();
+    try {
+      return parseStoredState(raw);
+    } catch (e) {
+      try {
+        var raw2 = readStorage(sessionStorage);
+        if (raw2 && raw2 !== raw) return parseStoredState(raw2);
+      } catch (e2) {}
+      return defaultState();
+    }
+  }
+
+  var state = loadState();
+  if (!Array.isArray(state.akademi)) state.akademi = [];
+  var currentView = 'tropp';
+  var dragState = null;
+  var flashTimer = null;
+  var notesTimer = null;
+  var cellTapIgnoreUntil = 0;
+  var stateDirty = false;
+  var bootHadLocalStorage = false;
+  try {
+    bootHadLocalStorage = !!localStorage.getItem(STORAGE_KEY);
+  } catch (e) {
+    bootHadLocalStorage = false;
+  }
+
+  function serializeState() {
+    return JSON.stringify(state, null, 2);
+  }
+
+  function persistSession() {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {}
+  }
+
+  function saveState() {
+    try {
+      state.updatedAt = new Date().toISOString();
+      state._app = 'fc-karriere-tropp';
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (err) {
+      console.error('saveState failed:', err);
+      flashMsg('Kunne ikke lagre lokalt — sjekk at nettleseren tillater lokal lagring', 'warn');
+    }
+    persistSession();
+    stateDirty = true;
+    try { if (typeof FcCloud !== 'undefined' && FcCloud.schedulePush) FcCloud.schedulePush(); } catch (ePush) {}
+  }
+
+  function downloadBackup(filename) {
+    filename = filename || BACKUP_FILENAME;
+    try {
+      var blob = new Blob([serializeState()], { type: 'application/json' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.rel = 'noopener';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () {
+        try { URL.revokeObjectURL(a.href); } catch (e) {}
+        if (a.parentNode) a.parentNode.removeChild(a);
+      }, 800);
+      stateDirty = false;
+      return true;
+    } catch (err) {
+      console.error('downloadBackup failed:', err);
+      return false;
+    }
+  }
+
+  function flushBackupIfDirty() {
+    if (!stateDirty) return;
+    if (!state.players || !state.players.length) return;
+    downloadBackup(BACKUP_FILENAME);
+  }
+
+  function uid() {
+    return 'p_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  }
+
+  function clampNum(n, min, max) {
+    n = Number(n);
+    if (!Number.isFinite(n)) return null;
+    n = Math.round(n);
+    if (n < min || n > max) return null;
+    return n;
+  }
+
+  function playerPositions(player) {
+    var list = [player.hoved].concat(Array.isArray(player.ekstra) ? player.ekstra : []);
+    var seen = {};
+    var out = [];
+    list.forEach(function (c) {
+      if (c && !seen[c]) { seen[c] = true; out.push(c); }
+    });
+    return out;
+  }
+
+  function qualifies(player, posCode) {
+    var aliases = SLOT_ALIASES[posCode] || [posCode];
+    var aliasSet = {};
+    aliases.forEach(function (a) { aliasSet[a] = true; });
+    return playerPositions(player).some(function (c) { return aliasSet[c]; });
+  }
+
+  function formatEkstra(player) {
+    var extras = Array.isArray(player.ekstra) ? player.ekstra : [];
+    return extras.length ? extras.map(posDisplayCode).join(', ') : '';
+  }
+
+  function comparePlayers(a, b) {
+    if (b.rating !== a.rating) return b.rating - a.rating;
+    if (b.potensial !== a.potensial) return b.potensial - a.potensial;
+    return a.navn.localeCompare(b.navn, 'nb');
+  }
+
+  function getFormation() {
+    return FORMATIONS[state.formationId] || FORMATIONS['433'];
+  }
+
+  function pickBest(posCode, used) {
+    var candidates = state.players
+      .filter(function (p) { return !used.has(p.id) && qualifies(p, posCode); })
+      .sort(comparePlayers);
+    return candidates[0] || null;
+  }
+
+  function physText(player) {
+    var a = (player.alder != null) ? String(player.alder) : '?';
+    var h = (player.hoyde != null) ? String(player.hoyde) : '?';
+    return a + ' · ' + h;
+  }
+
+  /**
+   * Auto XI: for each formation slot in order,
+   * fill #1 then #2 then #3 with highest remaining qualified unused.
+   * manualSlots overrides stick; '' = forced vacant (no auto).
+   */
+  function buildXI() {
+    var formation = getFormation();
+    var used = new Set();
+    var result = {};
+    var i, r, slot, manual, entry, forceEmpty, p, pick;
+
+    for (i = 0; i < formation.slots.length; i++) {
+      slot = formation.slots[i];
+      manual = state.manualSlots[slot.id] || {};
+      entry = { r1: null, r2: null, r3: null, pos: slot.pos, forceEmpty: {} };
+
+      for (r = 0; r < RANKS.length; r++) {
+        var rank = RANKS[r];
+        forceEmpty = Object.prototype.hasOwnProperty.call(manual, rank) && manual[rank] === EMPTY_SENTINEL;
+        entry.forceEmpty[rank] = forceEmpty;
+        if (manual[rank]) {
+          p = state.players.find(function (x) { return x.id === manual[rank]; });
+          if (p && qualifies(p, slot.pos) && !used.has(p.id)) {
+            entry[rank] = p;
+            used.add(p.id);
+          }
+        }
+      }
+      result[slot.id] = entry;
+    }
+
+    for (i = 0; i < formation.slots.length; i++) {
+      slot = formation.slots[i];
+      entry = result[slot.id];
+      for (r = 0; r < RANKS.length; r++) {
+        var rk = RANKS[r];
+        if (!entry[rk] && !entry.forceEmpty[rk]) {
+          pick = pickBest(slot.pos, used);
+          if (pick) { entry[rk] = pick; used.add(pick.id); }
+        }
+      }
+    }
+
+    return { formation: formation, result: result, used: used };
+  }
+
+  function playerUsage(xi) {
+    var map = {};
+    xi.formation.slots.forEach(function (slot) {
+      var e = xi.result[slot.id];
+      RANKS.forEach(function (rank) {
+        if (e[rank]) map[e[rank].id] = { role: rank, slotId: slot.id, pos: slot.pos };
+      });
+    });
+    return map;
+  }
+
+  function fillPosSelect(sel, includeEmpty) {
+    if (!sel) return;
+    sel.innerHTML = '';
+    var ph = document.createElement('option');
+    ph.value = '';
+    if (includeEmpty) {
+      ph.textContent = '— ingen —';
+      sel.appendChild(ph);
+    } else {
+      ph.textContent = 'Velg posisjon…';
+      ph.disabled = true;
+      ph.selected = true;
+      sel.appendChild(ph);
+    }
+    KARRIERE_POSITIONS.forEach(function (p) {
+      var opt = document.createElement('option');
+      opt.value = p.code;
+      opt.textContent = p.label;
+      sel.appendChild(opt);
+    });
+  }
+
+  /** Short UI code (CB → MS); never shows English FIFA codes as primary. */
+  function posDisplayCode(code) {
+    if (!code) return '';
+    if (code === 'CB') return 'MS';
+    if (code === 'CAM') return 'AM';
+    return code;
+  }
+
+  function fillEkstraChecks(container, selected, hovedCode) {
+    if (!container) return;
+    var selectedSet = {};
+    (selected || []).forEach(function (c) { selectedSet[c] = true; });
+    container.innerHTML = '';
+    KARRIERE_POSITIONS.forEach(function (p) {
+      var lab = document.createElement('label');
+      lab.className = 'pos-check';
+      if (p.code === hovedCode) lab.classList.add('disabled');
+      var inp = document.createElement('input');
+      inp.type = 'checkbox';
+      inp.value = p.code;
+      inp.checked = !!selectedSet[p.code] && p.code !== hovedCode;
+      inp.disabled = p.code === hovedCode;
+      inp.setAttribute('data-pos', p.code);
+      lab.appendChild(inp);
+      lab.appendChild(document.createTextNode(p.code));
+      container.appendChild(lab);
+    });
+  }
+
+  function readEkstraChecks(container, hovedCode) {
+    var out = [];
+    if (!container) return out;
+    container.querySelectorAll('input[type=checkbox]').forEach(function (inp) {
+      if (inp.checked && inp.value && inp.value !== hovedCode) out.push(inp.value);
+    });
+    return out;
+  }
+
+  function syncEkstraDisable(container, hovedCode) {
+    if (!container) return;
+    container.querySelectorAll('label.pos-check').forEach(function (lab) {
+      var inp = lab.querySelector('input');
+      if (!inp) return;
+      var isHoved = inp.value === hovedCode;
+      inp.disabled = isHoved;
+      lab.classList.toggle('disabled', isHoved);
+      if (isHoved) inp.checked = false;
+    });
+  }
+
+  /** Distinct slot options for current formation — e.g. «SM (1)» / «SM (2)» */
+  function fillSlotSelect(sel, includeNone, noneLabel) {
+    if (!sel) return;
+    var formation = getFormation();
+    var counts = {};
+    var totals = {};
+    formation.slots.forEach(function (s) {
+      totals[s.pos] = (totals[s.pos] || 0) + 1;
+    });
+    sel.innerHTML = '';
+    if (includeNone) {
+      var o = document.createElement('option');
+      o.value = '';
+      o.textContent = noneLabel || '— ingen —';
+      sel.appendChild(o);
+    }
+    formation.slots.forEach(function (s) {
+      counts[s.pos] = (counts[s.pos] || 0) + 1;
+      var label = s.pos;
+      if (totals[s.pos] > 1) label = s.pos + ' (' + counts[s.pos] + ')';
+      var opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = label;
+      sel.appendChild(opt);
+    });
+  }
+
+  function refreshSlotSelects() {
+    var fSlot = document.getElementById('f-slot');
+    var eSlot = document.getElementById('e-slot');
+    if (fSlot) fillSlotSelect(fSlot, true, '— ingen (kun tropp) —');
+    if (eSlot) fillSlotSelect(eSlot, true, '— ingen —');
+  }
+
+  function initFormSelects() {
+    var fHoved = document.getElementById('f-hoved');
+    var eHoved = document.getElementById('e-hoved');
+    var fEkstra = document.getElementById('f-ekstra');
+    var eEkstra = document.getElementById('e-ekstra');
+
+    fillPosSelect(fHoved, false);
+    fillPosSelect(eHoved, false);
+    fillPosSelect(document.getElementById('a-hoved'), false);
+    fillPosSelect(document.getElementById('ae-hoved'), false);
+    fillEkstraChecks(fEkstra, [], fHoved ? fHoved.value : '');
+    fillEkstraChecks(eEkstra, [], '');
+
+    // Rebuild ekstra if somehow still empty after init
+    if (fEkstra && !fEkstra.querySelector('input[type=checkbox]')) {
+      fillEkstraChecks(fEkstra, [], fHoved ? fHoved.value : '');
+    }
+    if (eEkstra && !eEkstra.querySelector('input[type=checkbox]')) {
+      fillEkstraChecks(eEkstra, [], '');
+    }
+
+    refreshSlotSelects();
+
+    var fs = document.getElementById('formation');
+    if (fs) {
+      fs.innerHTML = '';
+      Object.keys(FORMATIONS).forEach(function (key) {
+        var o = document.createElement('option');
+        o.value = key;
+        o.textContent = FORMATIONS[key].name;
+        fs.appendChild(o);
+      });
+      fs.value = state.formationId;
+    }
+    var sortEl = document.getElementById('sort');
+    if (sortEl) sortEl.value = state.sort.by + ':' + state.sort.dir;
+    var notesEl = document.getElementById('notes');
+    if (notesEl) notesEl.value = state.notes;
+  }
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function render() {
+    try {
+      var xi = buildXI();
+      renderSummary(xi);
+      renderPitch(xi);
+      renderSquad(xi);
+      renderAcademy();
+      var hint = document.getElementById('formation-hint');
+      if (hint) hint.textContent = xi.formation.hint || '';
+      return true;
+    } catch (err) {
+      console.error('render failed:', err);
+      try {
+        var emptyR = document.getElementById('squad-empty');
+        if (emptyR && (!state.players || !state.players.length)) {
+          emptyR.classList.remove('hidden');
+        }
+        var countR = document.getElementById('tropp-count');
+        if (countR) countR.textContent = '(' + (state.players ? state.players.length : 0) + ')';
+      } catch (e2) {}
+      flashMsg('Kunne ikke oppdatere visningen — prøv å laste siden på nytt', 'warn');
+      return false;
+    }
+  }
+
+  function ensurePosOption(sel, code) {
+    if (!sel || !code) return;
+    var found = false;
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === code) { found = true; break; }
+    }
+    if (found) return;
+    var meta = POS_BY_CODE[code];
+    var opt = document.createElement('option');
+    opt.value = code;
+    opt.textContent = meta ? meta.label : code;
+    sel.appendChild(opt);
+  }
+
+  /**
+   * Tips: surplus (selg/lån) + fokus utvikling.
+   * Research-aligned: min-2 coverage; loan young blocked; sell older/low-growth.
+   */
+  function computeTips(xi) {
+    var tips = [];
+    if (!state.players.length) return tips;
+
+    var usedMin2 = {};
+    var slotInfo = [];
+    xi.formation.slots.forEach(function (slot) {
+      var e = xi.result[slot.id];
+      var info = { id: slot.id, pos: slot.pos, r1: e.r1, r2: e.r2, r3: e.r3 };
+      slotInfo.push(info);
+      if (e.r1) usedMin2[e.r1.id] = { role: 'r1', pos: slot.pos, slotId: slot.id };
+      if (e.r2) usedMin2[e.r2.id] = { role: 'r2', pos: slot.pos, slotId: slot.id };
+    });
+
+    function r1OnPos(pos) {
+      var best = null;
+      slotInfo.forEach(function (s) {
+        if (s.pos !== pos || !s.r1) return;
+        if (!best || s.r1.rating > best.rating) best = s.r1;
+      });
+      return best;
+    }
+    function r2OnPos(pos) {
+      var best = null;
+      slotInfo.forEach(function (s) {
+        if (s.pos !== pos || !s.r2) return;
+        if (!best || s.r2.rating > best.rating) best = s.r2;
+      });
+      return best;
+    }
+    function fmtRP(pl) {
+      if (!pl) return '';
+      return pl.navn + ' (' + pl.rating + '→' + pl.potensial + ')';
+    }
+    function behindLabel(p) {
+      var best = null;
+      xi.formation.slots.forEach(function (slot) {
+        if (!qualifies(p, slot.pos)) return;
+        var e = xi.result[slot.id];
+        var ahead = e.r2 || e.r1;
+        var gap = ahead ? (ahead.rating - p.rating) : 0;
+        var score = (ahead ? gap : 20) + (e.r3 && e.r3.id === p.id ? 2 : 5);
+        if (!best || score > best.score) {
+          best = { pos: slot.pos, gap: gap, ahead: ahead, r1: e.r1, r2: e.r2, score: score };
+        }
+      });
+      if (!best) return 'ingen plass i minste dekning';
+      if (best.r2) return 'bak #2 ' + fmtRP(best.r2) + ' på ' + best.pos;
+      if (best.r1) return 'bak #1 ' + fmtRP(best.r1) + ' på ' + best.pos;
+      return 'utenom minste dekning på ' + best.pos;
+    }
+
+    var surplus = state.players.filter(function (p) { return !usedMin2[p.id]; });
+
+    function sellScore(p) {
+      var age = p.alder != null ? p.alder : 24;
+      var growth = p.potensial - p.rating;
+      var score = 0;
+      if (age >= 28) score += 40 + (age - 28) * 3;
+      else if (age >= 26) score += 18;
+      if (p.potensial < 78) score += 20;
+      if (growth <= 3) score += 25;
+      else if (growth <= 5) score += 12;
+      if (p.potensial < 72) score += 15;
+      // prefer lower pot
+      score += Math.max(0, 85 - p.potensial);
+      return score;
+    }
+    function isSellCandidate(p) {
+      var age = p.alder != null ? p.alder : 24;
+      var growth = p.potensial - p.rating;
+      return age >= 28 || (age >= 26 && growth <= 4) || (p.potensial < 75 && growth <= 5) || (growth <= 2 && p.potensial < 82);
+    }
+    function isLoanCandidate(p) {
+      var age = p.alder != null ? p.alder : 99;
+      var growth = p.potensial - p.rating;
+      return age <= 22 && p.potensial >= 75 && growth >= 6;
+    }
+
+    var sellPool = surplus.filter(isSellCandidate).sort(function (a, b) {
+      return sellScore(b) - sellScore(a);
+    });
+    var loanPool = surplus.filter(function (p) {
+      return isLoanCandidate(p) && !isSellCandidate(p);
+    }).sort(function (a, b) {
+      return (b.potensial - b.rating) - (a.potensial - a.rating) || b.potensial - a.potensial;
+    });
+    // young surplus that also matches sell heuristic → prefer loan if young+pot
+    surplus.filter(function (p) {
+      return isLoanCandidate(p) && isSellCandidate(p);
+    }).forEach(function (p) {
+      if (loanPool.indexOf(p) < 0) loanPool.unshift(p);
+    });
+
+    var sellN = 0, loanN = 0;
+    loanPool.forEach(function (p) {
+      if (tips.length >= 5) return;
+      if (loanN >= 2) return;
+      var age = p.alder != null ? p.alder : '?';
+      tips.push({
+        kind: 'lan',
+        text: 'Lån ut: ' + p.navn + ' (' + p.rating + '/' + p.potensial + ', ' + age + ') — ' + behindLabel(p)
+      });
+      loanN++;
+    });
+    sellPool.forEach(function (p) {
+      if (tips.length >= 5) return;
+      if (sellN >= 2) return;
+      // skip if already loan-tipped
+      if (tips.some(function (t) { return t.text.indexOf(p.navn) >= 0; })) return;
+      var age = p.alder != null ? p.alder : '?';
+      tips.push({
+        kind: 'selg',
+        text: 'Selg: ' + p.navn + ' (' + p.rating + '/' + p.potensial + ', ' + age + ') — ' + behindLabel(p)
+      });
+      sellN++;
+    });
+
+    // Fokus: high pot near #1 / strong #2 with room to grow
+    var focusCands = [];
+    state.players.forEach(function (p) {
+      var growth = p.potensial - p.rating;
+      var age = p.alder != null ? p.alder : 25;
+      if (p.potensial < 80 && !(p.potensial >= 78 && growth >= 8)) return;
+      xi.formation.slots.forEach(function (slot) {
+        if (!qualifies(p, slot.pos)) return;
+        var e = xi.result[slot.id];
+        if (!e.r1) return;
+        var gapTo1 = e.r1.rating - p.rating;
+        var isR2 = e.r2 && e.r2.id === p.id;
+        var isR1 = e.r1 && e.r1.id === p.id;
+        var near = gapTo1 >= 0 && gapTo1 <= 8;
+        var youngGrow = age <= 23 && growth >= 8 && (isR1 || isR2);
+        var r2Grow = isR2 && growth >= 5 && gapTo1 <= 8;
+        var challenger = near && !isR1 && gapTo1 >= 1 && (growth >= 5 || p.potensial >= 85);
+        if (!(r2Grow || youngGrow || challenger)) return;
+        var score = p.potensial * 2 - gapTo1 + growth + (isR2 ? 10 : 0) + (age <= 21 ? 5 : 0);
+        focusCands.push({
+          p: p, pos: slot.pos, gap: gapTo1, isR2: isR2, isR1: isR1, score: score, growth: growth,
+          r1: e.r1
+        });
+      });
+    });
+    focusCands.sort(function (a, b) { return b.score - a.score; });
+    var seenFocus = {};
+    focusCands.forEach(function (c) {
+      if (tips.length >= 6) return;
+      if (seenFocus[c.p.id]) return;
+      // skip if already in sell/loan tip
+      if (tips.some(function (t) { return t.text.indexOf(c.p.navn) >= 0; })) return;
+      seenFocus[c.p.id] = true;
+      var why;
+      if (c.isR1) {
+        why = 'starter på ' + c.pos + ' med rom til å vokse';
+      } else if (c.r1) {
+        why = 'nær #1 ' + c.r1.navn + ' (' + c.r1.rating + '→' + c.r1.potensial + ') på ' + c.pos + ', prioritér spilletid';
+      } else {
+        why = 'nær toppen på ' + c.pos + ', prioritér spilletid';
+      }
+      tips.push({
+        kind: 'fokus',
+        text: 'Fokus: ' + c.p.navn + ' (' + c.p.rating + '→' + c.p.potensial + ') — ' + why
+      });
+    });
+
+    if (state.players.length > 27) {
+      tips.unshift({
+        kind: 'info',
+        text: 'Stor tropp (' + state.players.length + ') — vurder å låne/selge overskudd.'
+      });
+    }
+
+    // Cap readable list
+    return tips.slice(0, 6);
+  }
+
+  function renderTips(xi) {
+    var el = document.getElementById('tips');
+    if (!el) return;
+    var tips = computeTips(xi);
+    if (!tips.length) {
+      el.hidden = true;
+      el.innerHTML = '';
+      return;
+    }
+    el.hidden = false;
+    var tagLabel = { selg: 'Selg', lan: 'Lån', fokus: 'Fokus', info: 'Tips' };
+    el.innerHTML = '<h3>Tips</h3><ul>' + tips.map(function (t) {
+      return '<li><span class="tip-tag ' + t.kind + '">' + (tagLabel[t.kind] || 'Tips') +
+        '</span>' + esc(t.text.replace(/^(Selg|Lån ut|Fokus):\s*/, '')) + '</li>';
+    }).join('') + '</ul>';
+  }
+
+
+  function fmtPlayerArrow(pl) {
+    if (!pl) return '';
+    return pl.navn + ' (' + pl.rating + '→' + pl.potensial + ')';
+  }
+
+  /** Signed players who qualify for pos, sorted by potensial then rating (long-term depth). */
+  function signedDepthForPos(posCode) {
+    return state.players
+      .filter(function (p) { return qualifies(p, posCode); })
+      .sort(function (a, b) {
+        if (b.potensial !== a.potensial) return b.potensial - a.potensial;
+        if (b.rating !== a.rating) return b.rating - a.rating;
+        return a.navn.localeCompare(b.navn, 'nb');
+      });
+  }
+
+  /** Where academy prospect would rank if signed (1-based). potOverride = optimistic/pessimistic pot. */
+  function projectedAcademyRank(prospect, potOverride) {
+    var pot = potOverride != null ? potOverride : academyOptimisticPot(prospect);
+    var depth = signedDepthForPos(prospect.hoved);
+    var rank = 1;
+    for (var i = 0; i < depth.length; i++) {
+      var s = depth[i];
+      if (pot > s.potensial) break;
+      if (pot === s.potensial && prospect.rating > s.rating) break;
+      rank++;
+    }
+    return { rank: rank, depth: depth, pot: pot };
+  }
+
+  function academyRankPhrase(pos, rank, depth) {
+    var code = posDisplayCode(pos);
+    if (rank === 1) {
+      if (depth[0]) return 'blir #1 på ' + code + ' foran ' + fmtPlayerArrow(depth[0]);
+      return 'blir #1 på ' + code + ' (ingen signert dekning)';
+    }
+    if (rank === 2) {
+      var t = 'blir #2 på ' + code + ' bak ' + fmtPlayerArrow(depth[0]);
+      if (depth[1]) t += ', foran ' + fmtPlayerArrow(depth[1]);
+      return t;
+    }
+    if (rank === 3) {
+      return 'blir #3 på ' + code + ' bak ' + fmtPlayerArrow(depth[0]) +
+        ' og ' + fmtPlayerArrow(depth[1]);
+    }
+    var top = depth.slice(0, Math.min(3, depth.length)).map(fmtPlayerArrow).join(', ');
+    return 'bare #' + rank + ' på ' + code + ' bak ' + top + '; for tynn kø';
+  }
+
+  function academyRankPhraseAtPot(pos, rank, depth, potVal) {
+    var code = posDisplayCode(pos);
+    if (rank === 1) {
+      if (depth[0]) return 'blir #1 på ' + code + ' foran ' + fmtPlayerArrow(depth[0]) + ' ved ' + potVal;
+      return 'blir #1 på ' + code + ' ved ' + potVal;
+    }
+    if (rank === 2) {
+      return 'blir #2 bak ' + fmtPlayerArrow(depth[0]) + ' ved ' + potVal;
+    }
+    if (rank === 3) {
+      return 'blir #3 bak ' + fmtPlayerArrow(depth[0]) + ' ved ' + potVal;
+    }
+    return 'bare #' + rank + ' på ' + code + ' ved ' + potVal;
+  }
+
+  /**
+   * Keep / release / sign verdict vs signed squad.
+   * Uses optimistic potMax for primary; mentions pessimistic when range is wide.
+   */
+  function academyVerdict(prospect) {
+    var pos = prospect.hoved;
+    var potHi = academyOptimisticPot(prospect);
+    var potLo = academyPessimisticPot(prospect);
+    var span = academyPotSpan(prospect);
+    var info = projectedAcademyRank(prospect, potHi);
+    var depth = info.depth;
+    var rank = info.rank;
+    var age = prospect.alder != null ? prospect.alder : 17;
+    var best = depth[0] || null;
+    var second = depth[1] || null;
+    var youngHigh = depth.filter(function (p) {
+      return (p.alder == null || p.alder <= 22) && p.potensial >= 82;
+    });
+    var phrase = academyRankPhrase(pos, rank, depth);
+    var sub = '';
+    if (span >= 10 && potLo !== potHi) {
+      var loInfo = projectedAcademyRank(prospect, potLo);
+      if (rank <= 2) {
+        sub = academyRankPhraseAtPot(pos, rank, depth, potHi) +
+          '; ellers ' + academyRankPhraseAtPot(pos, loInfo.rank, depth, potLo).replace(/^blir /, '');
+      } else {
+        sub = 'ved ' + potHi + ': #' + rank +
+          '; ved ' + potLo + ': #' + loInfo.rank + ' på ' + posDisplayCode(pos);
+      }
+    }
+
+    function withSub(v) {
+      if (sub) v.sub = sub;
+      return v;
+    }
+
+    // Wide uncertain: avoid hard Kast unless clearly worse even at potMax
+    var clearlyWorseAtMax = rank >= 4 ||
+      (rank >= 3 && second && potHi <= second.potensial - 5);
+
+    // Signer snart (optimistic potMax)
+    if (rank === 1 && (!best || potHi >= best.potensial)) {
+      return withSub({ level: 'sign', chip: 'Signer snart', reason: 'Signer — ' + phrase });
+    }
+    if (rank === 1 && potHi >= (best ? best.potensial - 2 : 80)) {
+      return withSub({
+        level: 'sign',
+        chip: 'Signer snart',
+        reason: 'Signer — ' + phrase + (best ? ' · nesten likt ' + fmtPlayerArrow(best) : '')
+      });
+    }
+    if (rank === 2 && age <= 18 && potHi >= (best ? best.potensial - 3 : 85)) {
+      return withSub({
+        level: 'sign',
+        chip: 'Signer snart',
+        reason: 'Signer — ' + phrase + ' · høy takhøyde'
+      });
+    }
+
+    // Kast — but lean «Følg med» when span ≥ 15 unless clearly worse at potMax
+    var wouldDrop = false;
+    var dropReason = '';
+    if (rank >= 4) {
+      wouldDrop = true;
+      dropReason = 'Kast — ' + phrase;
+    } else if (rank >= 3 && youngHigh.length >= 2 && potHi <= youngHigh[1].potensial - 2) {
+      wouldDrop = true;
+      dropReason = 'Kast — du har allerede ' + fmtPlayerArrow(youngHigh[0]) +
+        ' og ' + fmtPlayerArrow(youngHigh[1]) + ' på ' + posDisplayCode(pos) + ' · ' + phrase;
+    } else if (second && potHi <= second.potensial - 5 && rank >= 3) {
+      wouldDrop = true;
+      dropReason = 'Kast — ' + phrase;
+    } else if (potHi < 74 && age >= 18) {
+      wouldDrop = true;
+      dropReason = 'Kast — lavt potensial for alderen · ' + phrase;
+    }
+
+    if (wouldDrop) {
+      if (span >= 15 && !clearlyWorseAtMax) {
+        return withSub({
+          level: 'watch',
+          chip: 'Følg med / usikkert',
+          reason: 'Usikkert potensial (' + fmtPotRange(prospect) + ') — ' + phrase
+        });
+      }
+      return withSub({ level: 'drop', chip: 'Kast', reason: dropReason });
+    }
+
+    if (span >= 15 && rank >= 3) {
+      return withSub({
+        level: 'watch',
+        chip: 'Følg med / usikkert',
+        reason: 'Bred range (' + fmtPotRange(prospect) + ') — ' + phrase
+      });
+    }
+
+    if (rank <= 3) {
+      var near = best && (best.potensial - potHi) <= 5 && age <= 19;
+      var chip = near || rank <= 2 ? 'Behold' : 'Behold / vurder';
+      var extra = '';
+      if (rank === 2 && best) {
+        extra = ' · nær #1 ' + fmtPlayerArrow(best);
+      } else if (best && potHi >= best.potensial - 3) {
+        extra = ' · pot nær beste ' + fmtPlayerArrow(best);
+      }
+      return withSub({
+        level: 'keep',
+        chip: chip,
+        reason: 'Behold — ' + phrase + extra
+      });
+    }
+
+    return withSub({
+      level: 'keep',
+      chip: 'Behold / vurder',
+      reason: 'Behold — ' + phrase
+    });
+  }
+
+  function setView(view) {
+    if (view === 'akademi') currentView = 'akademi';
+    else if (view === 'sky') currentView = 'sky';
+    else currentView = 'tropp';
+    var vt = document.getElementById('view-tropp');
+    var va = document.getElementById('view-akademi');
+    var vs = document.getElementById('view-sky');
+    var tt = document.getElementById('tab-tropp');
+    var ta = document.getElementById('tab-akademi');
+    var ts = document.getElementById('tab-sky');
+    if (vt) vt.classList.toggle('hidden', currentView !== 'tropp');
+    if (va) va.classList.toggle('hidden', currentView !== 'akademi');
+    if (vs) vs.classList.toggle('hidden', currentView !== 'sky');
+    if (tt) {
+      tt.classList.toggle('active', currentView === 'tropp');
+      tt.setAttribute('aria-selected', currentView === 'tropp' ? 'true' : 'false');
+    }
+    if (ta) {
+      ta.classList.toggle('active', currentView === 'akademi');
+      ta.setAttribute('aria-selected', currentView === 'akademi' ? 'true' : 'false');
+    }
+    if (ts) {
+      ts.classList.toggle('active', currentView === 'sky');
+      ts.setAttribute('aria-selected', currentView === 'sky' ? 'true' : 'false');
+    }
+    if (currentView === 'sky') {
+      try { if (typeof FcCloud !== 'undefined' && FcCloud.refreshUi) FcCloud.refreshUi(); } catch (eSky) {}
+    }
+  }
+
+  function updateAcademyCounts() {
+    var n = (state.akademi && state.akademi.length) || 0;
+    var c = document.getElementById('akademi-count');
+    var t = document.getElementById('akademi-tab-n');
+    if (c) c.textContent = '(' + n + ')';
+    if (t) t.textContent = n ? '(' + n + ')' : '';
+  }
+
+  function renderAcademy() {
+    updateAcademyCounts();
+    var list = document.getElementById('akademi-list');
+    var empty = document.getElementById('akademi-empty');
+    if (!list) return;
+    if (!state.akademi || !state.akademi.length) {
+      list.innerHTML = '';
+      if (empty) empty.classList.remove('hidden');
+      return;
+    }
+    if (empty) empty.classList.add('hidden');
+    var sorted = state.akademi.slice().sort(function (a, b) {
+      var ah = academyOptimisticPot(a);
+      var bh = academyOptimisticPot(b);
+      if (bh !== ah) return bh - ah;
+      return a.navn.localeCompare(b.navn, 'nb');
+    });
+    list.innerHTML = sorted.map(function (p) {
+      var v = academyVerdict(p);
+      var phys = (p.alder != null ? p.alder : '?') +
+        (p.hoyde != null ? ' · ' + p.hoyde : '');
+      var potLabel = fmtPotRange(p);
+      var subHtml = v.sub
+        ? '<span class="verdict-sub">' + esc(v.sub) + '</span>'
+        : '';
+      return '<li class="akademi-row" data-aid="' + esc(p.id) + '">' +
+        '<div class="p-info">' +
+        '<div class="p-name">' + esc(p.navn) +
+        ' <span class="badge depth">' + esc(posDisplayCode(p.hoved)) + '</span></div>' +
+        '<div class="p-sub"><span class="p-phys">' + esc(phys) + '</span></div>' +
+        '<div class="verdict">' +
+        '<span class="verdict-chip ' + v.level + '">' + esc(v.chip) + '</span>' +
+        '<span class="verdict-reason">' + esc(v.reason) + '</span>' +
+        subHtml +
+        '</div></div>' +
+        '<div class="p-ratings"><div class="r">' + p.rating + '</div>' +
+        '<div class="p">pot ' + esc(potLabel) + '</div></div>' +
+        '<div class="akademi-actions">' +
+        '<button type="button" class="btn-sign" data-asign="' + esc(p.id) + '">Signer til tropp</button>' +
+        '<button type="button" class="btn-edit-row" data-aedit="' + esc(p.id) + '">Rediger</button>' +
+        '<button type="button" class="icon danger" data-adel="' + esc(p.id) + '" title="Slett" aria-label="Slett">🗑</button>' +
+        '</div></li>';
+    }).join('');
+
+    list.querySelectorAll('[data-aedit]').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        openAcademyEdit(btn.getAttribute('data-aedit'));
+      });
+    });
+    list.querySelectorAll('[data-adel]').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        deleteAcademyPlayer(btn.getAttribute('data-adel'));
+      });
+    });
+    list.querySelectorAll('[data-asign]').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        signAcademyPlayer(btn.getAttribute('data-asign'));
+      });
+    });
+  }
+
+  function addAcademyPlayer(data) {
+    var p = normalizeAcademyPlayer({
+      id: uid(),
+      navn: data.navn,
+      rating: data.rating,
+      potMin: data.potMin,
+      potMax: data.potMax,
+      potensial: data.potensial,
+      alder: data.alder,
+      hoyde: data.hoyde,
+      hoved: data.hoved
+    });
+    if (!state.akademi) state.akademi = [];
+    state.akademi.push(p);
+    saveState();
+    renderAcademy();
+    flashMsg('Lagt til i akademi: ' + p.navn, 'success');
+    return p;
+  }
+
+  function deleteAcademyPlayer(id) {
+    if (!state.akademi) return;
+    var p = state.akademi.find(function (x) { return x.id === id; });
+    state.akademi = state.akademi.filter(function (x) { return x.id !== id; });
+    saveState();
+    renderAcademy();
+    if (p) flashMsg('Fjernet fra akademi: ' + p.navn);
+  }
+
+  function signAcademyPlayer(id) {
+    if (!state.akademi) return;
+    var idx = -1;
+    for (var i = 0; i < state.akademi.length; i++) {
+      if (state.akademi[i].id === id) { idx = i; break; }
+    }
+    if (idx < 0) return;
+    var a = state.akademi[idx];
+    state.akademi.splice(idx, 1);
+    var player = normalizePlayer({
+      id: uid(),
+      navn: a.navn,
+      rating: a.rating,
+      potensial: a.potensial,
+      alder: a.alder,
+      hoyde: a.hoyde,
+      hoved: a.hoved,
+      ekstra: []
+    });
+    state.players.push(player);
+    saveState();
+    closeAcademyEdit();
+    render();
+    flashMsg('Signert til tropp: ' + player.navn, 'success');
+    setView('tropp');
+    highlightAndScrollPlayer(player.id);
+  }
+
+  function openAcademyEdit(id) {
+    var p = (state.akademi || []).find(function (x) { return x.id === id; });
+    if (!p) return;
+    var modal = document.getElementById('akademi-modal');
+    fillPosSelect(document.getElementById('ae-hoved'), false);
+    ensurePosOption(document.getElementById('ae-hoved'), p.hoved);
+    document.getElementById('ae-id').value = p.id;
+    document.getElementById('ae-navn').value = p.navn;
+    document.getElementById('ae-rating').value = p.rating;
+    document.getElementById('ae-pot-min').value = p.potMin != null ? p.potMin : p.potensial;
+    document.getElementById('ae-pot-max').value = p.potMax != null ? p.potMax : p.potensial;
+    document.getElementById('ae-alder').value = p.alder != null ? p.alder : '';
+    document.getElementById('ae-hoyde').value = p.hoyde != null ? p.hoyde : '';
+    document.getElementById('ae-hoved').value = p.hoved;
+    if (modal) modal.classList.remove('hidden');
+  }
+
+  function closeAcademyEdit() {
+    var modal = document.getElementById('akademi-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function handleAcademyAdd(ev) {
+    if (ev && ev.preventDefault) ev.preventDefault();
+    var err = document.getElementById('akademi-error');
+    function showErr(m) {
+      if (!err) return;
+      if (!m) { err.textContent = ''; err.classList.add('hidden'); return; }
+      err.textContent = m; err.classList.remove('hidden');
+    }
+    showErr('');
+    var navn = (document.getElementById('a-navn').value || '').trim();
+    var rating = clampNum(document.getElementById('a-rating').value, 1, 99);
+    var potMin = clampNum(document.getElementById('a-pot-min').value, 1, 99);
+    var potMax = clampNum(document.getElementById('a-pot-max').value, 1, 99);
+    var alder = clampNum(document.getElementById('a-alder').value, 14, 23);
+    var hoydeRaw = document.getElementById('a-hoyde').value;
+    var hoyde = hoydeRaw === '' || hoydeRaw == null ? null : clampNum(hoydeRaw, 150, 210);
+    var hoved = document.getElementById('a-hoved').value;
+    if (!navn) { showErr('Skriv inn navn'); return; }
+    if (rating == null) { showErr('Rating må være 1–99'); return; }
+    if (potMin == null || potMax == null) { showErr('Potensial fra/til må være 1–99'); return; }
+    if (potMin > potMax) { showErr('Potensial fra kan ikke være høyere enn til'); return; }
+    if (alder == null) { showErr('Alder må være 14–23'); return; }
+    if (hoydeRaw && hoyde == null) { showErr('Høyde må være 150–210 cm'); return; }
+    if (!hoved) { showErr('Velg hovedposisjon'); return; }
+    addAcademyPlayer({ navn: navn, rating: rating, potMin: potMin, potMax: potMax, alder: alder, hoyde: hoyde, hoved: hoved });
+    var form = document.getElementById('akademi-form');
+    if (form) form.reset();
+    fillPosSelect(document.getElementById('a-hoved'), false);
+    showErr('');
+  }
+
+
+  function renderSummary(xi) {
+    document.getElementById('stat-size').textContent = String(state.players.length);
+
+    var starters = xi.formation.slots
+      .map(function (s) { return xi.result[s.id].r1; })
+      .filter(Boolean);
+    document.getElementById('stat-ovr').textContent = starters.length
+      ? (starters.reduce(function (a, p) { return a + p.rating; }, 0) / starters.length).toFixed(1)
+      : '–';
+
+    document.getElementById('stat-pot').textContent = state.players.length
+      ? (state.players.reduce(function (a, p) { return a + p.potensial; }, 0) / state.players.length).toFixed(1)
+      : '–';
+
+    var weak = [];
+    xi.formation.slots.forEach(function (slot) {
+      var e = xi.result[slot.id];
+      if (!e.r1) weak.push(slot.pos + ' #1');
+      if (!e.r2) weak.push(slot.pos + ' #2');
+    });
+    var weakEl = document.getElementById('weak-spots');
+    weakEl.classList.remove('ok');
+    if (weak.length) {
+      weakEl.textContent = 'Mangler minst to spillere: ' + weak.join(', ');
+    } else if (state.players.length) {
+      weakEl.textContent = 'Dekning OK — alle posisjoner har minst to spillere (#3 er valgfritt).';
+      weakEl.classList.add('ok');
+    } else {
+      weakEl.textContent = '';
+    }
+
+    renderTips(xi);
+  }
+
+  function rowSlotIds(formation) {
+    var queues = {};
+    formation.slots.forEach(function (s) {
+      if (!queues[s.pos]) queues[s.pos] = [];
+      queues[s.pos].push(s.id);
+    });
+    return formation.rows.map(function (row) {
+      return row.map(function (pos) {
+        var q = queues[pos];
+        return { id: (q && q.length) ? q.shift() : pos, pos: pos };
+      });
+    });
+  }
+
+  function cellHTML(slotId, rank, player) {
+    if (!player) {
+      var missCls = (rank === 'r3') ? 'miss-opt' : 'miss';
+      return '<div class="cell empty" data-slot="' + esc(slotId) + '" data-role="' + rank + '" tabindex="0">' +
+        '<div class="role">' + RANK_LABEL[rank] + '</div>' +
+        '<div class="' + missCls + '">' + RANK_MISS[rank] + '</div></div>';
+    }
+    var potChip = (player.potensial - player.rating >= 8)
+      ? ' <span class="chip-pot" title="Høyt potensial">↑</span>' : '';
+    var rankIdx = RANKS.indexOf(rank);
+    var canUp = rankIdx > 0;
+    var canDown = rankIdx < RANKS.length - 1;
+    var upBtn = '<button type="button" class="rank-up" data-swap="' + esc(slotId) + ':' + rank + ':up"' +
+      (canUp ? '' : ' disabled') + ' title="Flytt opp" aria-label="Flytt opp">↑</button>';
+    var downBtn = '<button type="button" class="rank-down" data-swap="' + esc(slotId) + ':' + rank + ':down"' +
+      (canDown ? '' : ' disabled') + ' title="Flytt ned" aria-label="Flytt ned">↓</button>';
+    return '<div class="cell" draggable="true" data-slot="' + esc(slotId) + '" data-role="' + rank +
+      '" data-pid="' + esc(player.id) + '" tabindex="0">' +
+      '<div class="role">' + RANK_LABEL[rank] + '</div>' +
+      '<div class="pname">' + esc(player.navn) + potChip + '</div>' +
+      '<div class="ratings-line"><span class="ovr">' + player.rating + '</span>' +
+      ' · <span class="pot">pot ' + player.potensial + '</span></div>' +
+      '<div class="meta"><span class="phys">' + esc(physText(player)) + '</span></div>' +
+      '<button type="button" class="clear-btn" data-clear="' + esc(slotId) + ':' + rank +
+      '" title="Fjern" aria-label="Fjern">×</button>' +
+      '<div class="cell-rank-btns">' + upBtn + downBtn + '</div></div>';
+  }
+
+  function slotHTML(slotId, pos, e) {
+    var canSwap12 = !!(e.r1 || e.r2);
+    var thin = (!e.r1 || !e.r2) ? ' thin' : '';
+    return '<div class="slot' + thin + '" data-slot="' + esc(slotId) + '" data-pos="' + esc(pos) + '">' +
+      '<div class="slot-head">' +
+      '<div class="slot-pos">' + esc(pos) + '</div>' +
+      '<button type="button" class="slot-swap" data-swap12="' + esc(slotId) + '"' +
+      (canSwap12 ? '' : ' disabled') + ' title="Bytt #1 og #2">1↔2</button>' +
+      '</div>' +
+      cellHTML(slotId, 'r1', e.r1) +
+      cellHTML(slotId, 'r2', e.r2) +
+      cellHTML(slotId, 'r3', e.r3) +
+      '</div>';
+  }
+
+  function renderPitch(xi) {
+    hideCellMenu();
+    var pitch = document.getElementById('pitch');
+    var rows = rowSlotIds(xi.formation);
+    var html = ['<div class="pitch-rows">'];
+    rows.forEach(function (row) {
+      html.push('<div class="pitch-row">');
+      row.forEach(function (item) {
+        var e = xi.result[item.id] || { r1: null, r2: null, r3: null };
+        html.push(slotHTML(item.id, item.pos, e));
+      });
+      html.push('</div>');
+    });
+    html.push('</div>');
+    pitch.innerHTML = html.join('');
+    bindPitchDnD(pitch);
+  }
+
+  function sortedPlayers() {
+    var by = state.sort.by;
+    var dir = state.sort.dir;
+    var arr = state.players.slice();
+    arr.sort(function (a, b) {
+      var cmp = 0;
+      if (by === 'navn') cmp = a.navn.localeCompare(b.navn, 'nb');
+      else {
+        var av = a[by];
+        var bv = b[by];
+        if (av == null && bv == null) cmp = 0;
+        else if (av == null) cmp = 1;
+        else if (bv == null) cmp = -1;
+        else cmp = av - bv;
+      }
+      return dir === 'asc' ? cmp : -cmp;
+    });
+    return arr;
+  }
+
+  function renderSquad(xi) {
+    var usage = playerUsage(xi);
+    var list = document.getElementById('player-list');
+    var empty = document.getElementById('squad-empty');
+    var countEl = document.getElementById('tropp-count');
+    var players = sortedPlayers();
+
+    if (countEl) countEl.textContent = '(' + state.players.length + ')';
+
+    if (!state.players.length) {
+      if (list) list.innerHTML = '';
+      if (empty) empty.classList.remove('hidden');
+      return;
+    }
+    if (empty) empty.classList.add('hidden');
+    if (!list) return;
+
+    list.innerHTML = players.map(function (p) {
+      var u = usage[p.id];
+      var badge = '<span class="badge depth">dybde</span>';
+      var cls = 'unused';
+      if (u && u.role === 'r1') {
+        badge = '<span class="badge">#1 ' + esc(u.pos) + '</span>';
+        cls = 'used-r1';
+      } else if (u && u.role === 'r2') {
+        badge = '<span class="badge r2">#2 ' + esc(u.pos) + '</span>';
+        cls = 'used-r2';
+      } else if (u && u.role === 'r3') {
+        badge = '<span class="badge r3">#3 ' + esc(u.pos) + '</span>';
+        cls = 'used-r3';
+      }
+      var potChip = (p.potensial - p.rating >= 8) ? '<span class="chip-pot">↑</span>' : '';
+      var ekstraStr = formatEkstra(p);
+      var ekstra = ekstraStr ? ', ' + esc(ekstraStr) : '';
+      return '<li class="player-row ' + cls + '" data-edit="' + esc(p.id) +
+        '" draggable="true" data-pid="' + esc(p.id) + '" title="Trykk for å redigere">' +
+        '<div class="p-info"><div class="p-name">' + esc(p.navn) + ' ' + potChip + ' ' + badge +
+        '</div><div class="p-sub"><span class="p-pos">' + esc(posDisplayCode(p.hoved)) + ekstra +
+        '</span> <span class="p-phys">' + esc(physText(p)) + '</span></div></div>' +
+        '<div class="p-ratings"><div class="r">' + p.rating + '</div>' +
+        '<div class="p">pot ' + p.potensial + '</div></div>' +
+        '<button type="button" class="btn-edit-row" data-edit-btn="' + esc(p.id) +
+        '" title="Rediger">Rediger</button>' +
+        '<button type="button" class="icon danger" data-del="' + esc(p.id) +
+        '" title="Slett" aria-label="Slett">🗑</button></li>';
+    }).join('');
+
+    bindSquadDnD(list);
+  }
+
+  function ensureManual(slotId) {
+    if (!state.manualSlots[slotId]) {
+      state.manualSlots[slotId] = {};
+    }
+    return state.manualSlots[slotId];
+  }
+
+  function cleanupManual(slotId) {
+    var m = state.manualSlots[slotId];
+    if (!m) return;
+    var hasAny = RANKS.some(function (r) {
+      return Object.prototype.hasOwnProperty.call(m, r);
+    });
+    if (!hasAny) delete state.manualSlots[slotId];
+  }
+
+  function setManualCell(slotId, rank, playerId) {
+    var m = ensureManual(slotId);
+    m[rank] = playerId;
+  }
+
+  function clearManualCell(slotId, rank) {
+    var m = state.manualSlots[slotId];
+    if (!m) return;
+    delete m[rank];
+    cleanupManual(slotId);
+  }
+
+  /** Fjern / drag-out: force cell vacant until Auto-bygg or new drop */
+  function forceEmptyCell(slotId, rank) {
+    var m = ensureManual(slotId);
+    m[rank] = EMPTY_SENTINEL;
+    saveState();
+    render();
+  }
+
+  function pinSlotRanks(slotId) {
+    var xi = buildXI();
+    var e = xi.result[slotId] || {};
+    var m = ensureManual(slotId);
+    RANKS.forEach(function (rank) {
+      if (e[rank]) m[rank] = e[rank].id;
+      else if (!Object.prototype.hasOwnProperty.call(m, rank)) m[rank] = EMPTY_SENTINEL;
+    });
+  }
+
+  function swapRanksInSlot(slotId, rankA, rankB) {
+    pinSlotRanks(slotId);
+    var m = ensureManual(slotId);
+    var tmp = m[rankA];
+    m[rankA] = m[rankB];
+    m[rankB] = tmp;
+    saveState();
+    render();
+  }
+
+  function moveRank(slotId, rank, dir) {
+    var idx = RANKS.indexOf(rank);
+    var other = dir === 'up' ? RANKS[idx - 1] : RANKS[idx + 1];
+    if (!other) return;
+    swapRanksInSlot(slotId, rank, other);
+  }
+
+  function hideCellMenu() {
+    var menu = document.getElementById('cell-menu');
+    if (!menu) return;
+    menu.classList.add('hidden');
+    menu.innerHTML = '';
+  }
+
+  function showCellMenu(playerId, slotId, rank, x, y) {
+    var menu = document.getElementById('cell-menu');
+    var player = state.players.find(function (p) { return p.id === playerId; });
+    if (!player || !menu) return;
+    menu.innerHTML =
+      '<button type="button" data-act="edit">Rediger ' + esc(player.navn) + '</button>' +
+      '<button type="button" data-act="up"' + (rank === 'r1' ? ' disabled' : '') + '>Flytt opp ↑</button>' +
+      '<button type="button" data-act="down"' + (rank === 'r3' ? ' disabled' : '') + '>Flytt ned ↓</button>' +
+      '<button type="button" data-act="clear">Fjern fra plass</button>';
+    menu.classList.remove('hidden');
+    var vw = window.innerWidth;
+    var vh = window.innerHeight;
+    menu.style.left = Math.min(x, vw - 180) + 'px';
+    menu.style.top = Math.min(y, vh - 200) + 'px';
+    menu.querySelector('[data-act="edit"]').onclick = function () {
+      hideCellMenu();
+      openEdit(playerId);
+    };
+    menu.querySelector('[data-act="up"]').onclick = function () {
+      hideCellMenu();
+      moveRank(slotId, rank, 'up');
+    };
+    menu.querySelector('[data-act="down"]').onclick = function () {
+      hideCellMenu();
+      moveRank(slotId, rank, 'down');
+    };
+    menu.querySelector('[data-act="clear"]').onclick = function () {
+      hideCellMenu();
+      forceEmptyCell(slotId, rank);
+    };
+  }
+
+  function findPlayerCell(playerId) {
+    var xi = buildXI();
+    for (var i = 0; i < xi.formation.slots.length; i++) {
+      var slot = xi.formation.slots[i];
+      var e = xi.result[slot.id];
+      for (var r = 0; r < RANKS.length; r++) {
+        var rank = RANKS[r];
+        if (e[rank] && e[rank].id === playerId) {
+          return { slotId: slot.id, role: rank, pos: slot.pos };
+        }
+      }
+    }
+    return null;
+  }
+
+  function getCellPlayerId(slotId, rank) {
+    var xi = buildXI();
+    var e = xi.result[slotId];
+    if (!e || !e[rank]) return null;
+    return e[rank].id;
+  }
+
+  function scrubPlayerFromOtherManuals(playerId, keepSlotId, keepRole) {
+    Object.keys(state.manualSlots).forEach(function (sid) {
+      var m = state.manualSlots[sid];
+      RANKS.forEach(function (rank) {
+        if (sid === keepSlotId && rank === keepRole) return;
+        if (m[rank] === playerId) delete m[rank];
+      });
+      cleanupManual(sid);
+    });
+  }
+
+  function placePlayerOnCell(playerId, targetSlotId, targetRole) {
+    var formation = getFormation();
+    var slot = formation.slots.find(function (s) { return s.id === targetSlotId; });
+    if (!slot) return;
+    var player = state.players.find(function (p) { return p.id === playerId; });
+    if (!player) return;
+    if (!qualifies(player, slot.pos)) {
+      flashMsg('Spilleren har ikke denne posisjonen på kortet');
+      return;
+    }
+
+    var source = findPlayerCell(playerId);
+    var targetCurrentId = getCellPlayerId(targetSlotId, targetRole);
+
+    if (source && source.slotId === targetSlotId && source.role === targetRole) return;
+
+    setManualCell(targetSlotId, targetRole, playerId);
+
+    if (source) {
+      if (targetCurrentId && targetCurrentId !== playerId) {
+        var targetPlayer = state.players.find(function (p) { return p.id === targetCurrentId; });
+        var srcSlot = formation.slots.find(function (s) { return s.id === source.slotId; });
+        if (targetPlayer && srcSlot && qualifies(targetPlayer, srcSlot.pos)) {
+          setManualCell(source.slotId, source.role, targetCurrentId);
+        } else {
+          clearManualCell(source.slotId, source.role);
+        }
+      } else {
+        clearManualCell(source.slotId, source.role);
+      }
+    }
+
+    scrubPlayerFromOtherManuals(playerId, targetSlotId, targetRole);
+    saveState();
+    render();
+  }
+
+  /**
+   * Assign player into manualSlots at slot+rank.
+   * Displaces whoever was there (clear that rank only → unassigned pool).
+   * Removes this player from any other cell first.
+   * Blocks if position doesn't match hoved/ekstra.
+   */
+  function assignPlayerToSlot(playerId, slotId, rank) {
+    if (!slotId || !rank) return { ok: true };
+    var formation = getFormation();
+    var slot = formation.slots.find(function (s) { return s.id === slotId; });
+    if (!slot) return { ok: false, msg: 'Ugyldig posisjon' };
+    var player = state.players.find(function (p) { return p.id === playerId; });
+    if (!player) return { ok: false, msg: 'Spiller ikke funnet' };
+    if (!qualifies(player, slot.pos)) {
+      return { ok: false, msg: 'Spilleren har ikke denne posisjonen på kortet' };
+    }
+    // Remove from old assignments
+    scrubPlayerFromOtherManuals(playerId, null, null);
+    // Displace whoever is in target (clear that rank only)
+    var m = ensureManual(slotId);
+    if (m[rank] && m[rank] !== playerId && m[rank] !== EMPTY_SENTINEL) {
+      // displaced → unassigned (just overwrite)
+    }
+    m[rank] = playerId;
+    return { ok: true };
+  }
+
+  function flashMsg(msg, type) {
+    var el = document.getElementById('flash-msg');
+    if (!el) {
+      console.log(msg);
+      try { alert(msg); } catch (e) {}
+      return;
+    }
+    el.textContent = msg;
+    el.classList.remove('hidden', 'success', 'warn');
+    if (type === 'success') el.classList.add('success');
+    else if (type === 'warn') el.classList.add('warn');
+    clearTimeout(flashTimer);
+    var ms = (type === 'success' || type === 'warn') ? 3500 : 3000;
+    flashTimer = setTimeout(function () {
+      el.classList.add('hidden');
+      el.classList.remove('success', 'warn');
+    }, ms);
+  }
+
+  function showAddError(msg) {
+    var el = document.getElementById('add-error');
+    if (!el) return;
+    if (!msg) {
+      el.textContent = '';
+      el.classList.add('hidden');
+      return;
+    }
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+
+  function focusField(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    try { el.focus(); } catch (e) {}
+    try {
+      if (typeof el.select === 'function' && el.tagName === 'INPUT') el.select();
+    } catch (e2) {}
+  }
+
+  var _addCooldownUntil = 0;
+  function handleAddPlayer(ev) {
+    if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+    if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
+    var now = Date.now();
+    if (now < _addCooldownUntil) return;
+    _addCooldownUntil = now + 400;
+    showAddError('');
+    try {
+      var navnEl = document.getElementById('f-navn');
+      var ratingEl = document.getElementById('f-rating');
+      var potEl = document.getElementById('f-pot');
+      var alderEl = document.getElementById('f-alder');
+      var hoydeEl = document.getElementById('f-hoyde');
+      var hovedEl = document.getElementById('f-hoved');
+      var ekstraEl = document.getElementById('f-ekstra');
+      var slotEl = document.getElementById('f-slot');
+      var rangEl = document.getElementById('f-rang');
+
+      var navn = navnEl ? navnEl.value.trim() : '';
+      var rating = clampNum(ratingEl ? ratingEl.value : '', 1, 99);
+      var potensial = clampNum(potEl ? potEl.value : '', 1, 99);
+      var alder = clampNum(alderEl ? alderEl.value : '', 15, 45);
+      var hoyde = clampNum(hoydeEl ? hoydeEl.value : '', 150, 210);
+      var hoved = hovedEl ? hovedEl.value : '';
+      var ekstra = ekstraEl ? readEkstraChecks(ekstraEl, hoved) : [];
+      var slotId = slotEl ? slotEl.value : '';
+      var rang = rangEl ? rangEl.value : '';
+
+      if (!navn) {
+        var m = 'Skriv inn navn';
+        showAddError(m); flashMsg(m, 'warn'); focusField('f-navn'); return;
+      }
+      if (rating == null) {
+        m = 'Rating må være 1–99';
+        showAddError(m); flashMsg(m, 'warn'); focusField('f-rating'); return;
+      }
+      if (potensial == null) {
+        m = 'Potensial må være 1–99';
+        showAddError(m); flashMsg(m, 'warn'); focusField('f-pot'); return;
+      }
+      if (alder == null) {
+        m = 'Alder må være 15–45';
+        showAddError(m); flashMsg(m, 'warn'); focusField('f-alder'); return;
+      }
+      if (hoyde == null) {
+        m = 'Høyde må være 150–210 cm';
+        showAddError(m); flashMsg(m, 'warn'); focusField('f-hoyde'); return;
+      }
+      if (!hoved) {
+        m = 'Velg hovedposisjon';
+        showAddError(m); flashMsg(m, 'warn'); focusField('f-hoved'); return;
+      }
+
+      if (slotId) {
+        var slot = getFormation().slots.find(function (s) { return s.id === slotId; });
+        if (!slot) {
+          slotId = '';
+          rang = '';
+        } else if (!rang) {
+          rang = 'r1';
+        }
+      } else {
+        rang = '';
+      }
+
+      addPlayer({
+        navn: navn,
+        rating: rating,
+        potensial: potensial,
+        alder: alder,
+        hoyde: hoyde,
+        hoved: hoved,
+        ekstra: ekstra,
+        slotId: slotId,
+        rang: rang
+      });
+
+      var form = document.getElementById('add-form');
+      if (form) form.reset();
+      if (hovedEl) {
+        fillPosSelect(hovedEl, false);
+        hovedEl.selectedIndex = 0;
+      }
+      fillEkstraChecks(document.getElementById('f-ekstra'), [], '');
+      refreshSlotSelects();
+      if (rangEl) rangEl.selectedIndex = 0;
+      showAddError('');
+      focusField('f-navn');
+      var tropp = document.getElementById('tropp-card') || document.getElementById('player-list');
+      if (tropp && tropp.scrollIntoView) {
+        try { tropp.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+        catch (se) { tropp.scrollIntoView(true); }
+      }
+    } catch (err) {
+      console.error('handleAddPlayer failed:', err);
+      var em = 'Feil: ' + (err && err.message ? err.message : String(err));
+      showAddError(em);
+      flashMsg(em, 'warn');
+    }
+  }
+
+  // Button type=button + click only (no dual submit/click fire). Form Enter → preventDefault + same handler once.
+  (function wireAddPlayerEarly() {
+    var form = document.getElementById('add-form');
+    var btn = document.getElementById('btn-add');
+    if (form) {
+      form.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        handleAddPlayer(ev);
+      });
+    }
+    if (btn) btn.addEventListener('click', handleAddPlayer);
+  })();
+
+  function highlightAndScrollPlayer(playerId) {
+    var row = document.querySelector('#player-list .player-row[data-pid="' + playerId + '"]');
+    var target = row || document.getElementById('tropp-card') || document.getElementById('player-list');
+    if (target && target.scrollIntoView) {
+      try {
+        target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } catch (e) {
+        target.scrollIntoView(true);
+      }
+    }
+    if (row) {
+      row.classList.add('just-added');
+      setTimeout(function () { row.classList.remove('just-added'); }, 2000);
+    }
+  }
+
+  function bindPitchDnD(pitch) {
+    pitch.querySelectorAll('.cell').forEach(function (cell) {
+      cell.addEventListener('dragstart', onDragStart);
+      cell.addEventListener('dragend', onDragEnd);
+      cell.addEventListener('dragover', onDragOver);
+      cell.addEventListener('dragleave', onDragLeave);
+      cell.addEventListener('drop', onDrop);
+      cell.addEventListener('pointerdown', onPointerDown);
+      cell.addEventListener('click', onCellClick);
+
+      var clr = cell.querySelector('[data-clear]');
+      if (clr) {
+        clr.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          cellTapIgnoreUntil = Date.now() + 400;
+          var parts = clr.getAttribute('data-clear').split(':');
+          forceEmptyCell(parts[0], parts[1]);
+        });
+      }
+    });
+
+    pitch.querySelectorAll('[data-swap]').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        cellTapIgnoreUntil = Date.now() + 400;
+        var parts = btn.getAttribute('data-swap').split(':');
+        moveRank(parts[0], parts[1], parts[2]);
+      });
+    });
+
+    pitch.querySelectorAll('[data-swap12]').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        cellTapIgnoreUntil = Date.now() + 400;
+        swapRanksInSlot(btn.getAttribute('data-swap12'), 'r1', 'r2');
+      });
+    });
+  }
+
+  function onCellClick(ev) {
+    if (Date.now() < cellTapIgnoreUntil) return;
+    if (ev.target.closest('button')) return;
+    if (dragState && dragState.moved) return;
+    var cell = ev.currentTarget;
+    var pid = cell.getAttribute('data-pid');
+    if (!pid) return;
+    var rect = cell.getBoundingClientRect();
+    showCellMenu(pid, cell.getAttribute('data-slot'), cell.getAttribute('data-role'),
+      rect.left, rect.bottom + 4);
+  }
+
+  function bindSquadDnD(list) {
+    list.querySelectorAll('[data-pid]').forEach(function (row) {
+      row.addEventListener('dragstart', onDragStart);
+      row.addEventListener('dragend', onDragEnd);
+      row.addEventListener('pointerdown', onPointerDown);
+    });
+    list.querySelectorAll('[data-del]').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        deletePlayer(btn.getAttribute('data-del'));
+      });
+    });
+    list.querySelectorAll('[data-edit-btn]').forEach(function (btn) {
+      btn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        openEdit(btn.getAttribute('data-edit-btn'));
+      });
+    });
+    list.querySelectorAll('[data-edit]').forEach(function (row) {
+      row.addEventListener('click', function (ev) {
+        if (ev.target.closest('[data-del], [data-edit-btn]')) return;
+        if (dragState && dragState.moved) return;
+        openEdit(row.getAttribute('data-edit'));
+      });
+    });
+  }
+
+  function onDragStart(ev) {
+    hideCellMenu();
+    var el = ev.currentTarget;
+    var pid = el.getAttribute('data-pid');
+    if (!pid) { ev.preventDefault(); return; }
+    dragState = {
+      playerId: pid,
+      fromSlot: el.getAttribute('data-slot') || null,
+      fromRole: el.getAttribute('data-role') || null,
+      moved: false
+    };
+    el.classList.add('dragging');
+    document.body.classList.add('is-dragging');
+    if (ev.dataTransfer) {
+      ev.dataTransfer.setData('text/plain', pid);
+      ev.dataTransfer.effectAllowed = 'move';
+    }
+  }
+
+  function onDragEnd(ev) {
+    ev.currentTarget.classList.remove('dragging');
+    document.body.classList.remove('is-dragging');
+    document.querySelectorAll('.drag-over').forEach(function (c) { c.classList.remove('drag-over'); });
+    setTimeout(function () { dragState = null; }, 50);
+  }
+
+  function onDragOver(ev) {
+    ev.preventDefault();
+    ev.currentTarget.classList.add('drag-over');
+    if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'move';
+  }
+
+  function onDragLeave(ev) {
+    ev.currentTarget.classList.remove('drag-over');
+  }
+
+  function onDrop(ev) {
+    ev.preventDefault();
+    var cell = ev.currentTarget;
+    cell.classList.remove('drag-over');
+    var pid = (ev.dataTransfer && ev.dataTransfer.getData('text/plain')) ||
+      (dragState && dragState.playerId);
+    if (!pid) return;
+    placePlayerOnCell(pid, cell.getAttribute('data-slot'), cell.getAttribute('data-role'));
+  }
+
+  function onPointerDown(ev) {
+    if (ev.pointerType === 'mouse') return;
+    var el = ev.currentTarget;
+    var pid = el.getAttribute('data-pid');
+    if (!pid) return;
+    if (ev.target.closest('button')) return;
+
+    var startX = ev.clientX;
+    var startY = ev.clientY;
+    var ghost = null;
+    var started = false;
+
+    dragState = {
+      playerId: pid,
+      fromSlot: el.getAttribute('data-slot') || null,
+      fromRole: el.getAttribute('data-role') || null,
+      moved: false
+    };
+
+    function onMove(e) {
+      var dx = e.clientX - startX;
+      var dy = e.clientY - startY;
+      if (!started && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+        started = true;
+        dragState.moved = true;
+        hideCellMenu();
+        el.classList.add('dragging');
+        document.body.classList.add('is-dragging');
+        ghost = document.createElement('div');
+        ghost.className = 'drag-ghost';
+        var p = state.players.find(function (x) { return x.id === pid; });
+        ghost.textContent = p ? p.navn : 'Spiller';
+        document.body.appendChild(ghost);
+        try { el.setPointerCapture(e.pointerId); } catch (err) {}
+      }
+      if (ghost) {
+        ghost.style.left = e.clientX + 'px';
+        ghost.style.top = e.clientY + 'px';
+        var under = document.elementFromPoint(e.clientX, e.clientY);
+        document.querySelectorAll('.drag-over').forEach(function (c) { c.classList.remove('drag-over'); });
+        var cell = under && under.closest('.cell');
+        if (cell) cell.classList.add('drag-over');
+      }
+    }
+
+    function onUp(e) {
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerup', onUp);
+      el.removeEventListener('pointercancel', onUp);
+      el.classList.remove('dragging');
+      if (ghost) ghost.remove();
+      document.body.classList.remove('is-dragging');
+      document.querySelectorAll('.drag-over').forEach(function (c) { c.classList.remove('drag-over'); });
+
+      if (started) {
+        var under = document.elementFromPoint(e.clientX, e.clientY);
+        var cell = under && under.closest('.cell');
+        if (cell) {
+          placePlayerOnCell(pid, cell.getAttribute('data-slot'), cell.getAttribute('data-role'));
+        } else if (dragState.fromSlot) {
+          forceEmptyCell(dragState.fromSlot, dragState.fromRole);
+        }
+      }
+      setTimeout(function () { dragState = null; }, 50);
+    }
+
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', onUp);
+    el.addEventListener('pointercancel', onUp);
+  }
+
+  function addPlayer(data) {
+    var player = {
+      id: uid(),
+      navn: data.navn.trim(),
+      rating: data.rating,
+      potensial: data.potensial,
+      hoved: normalizePosCode(data.hoved) || data.hoved,
+      ekstra: normalizeEkstra(data.ekstra).filter(function (c) {
+        return c !== (normalizePosCode(data.hoved) || data.hoved);
+      }),
+      alder: data.alder,
+      hoyde: data.hoyde
+    };
+    state.players.push(player);
+
+    var placed = true;
+    var placeWarn = '';
+    if (data.slotId && data.rang) {
+      var res = assignPlayerToSlot(player.id, data.slotId, data.rang);
+      if (!res.ok) {
+        placed = false;
+        placeWarn = 'Lagt til i troppen, men kunne ikke plasseres (posisjon matcher ikke)';
+      }
+    }
+
+    saveState();
+    var rendered = false;
+    try {
+      rendered = !!render();
+    } catch (renderErr) {
+      console.error('render after add failed:', renderErr);
+      rendered = false;
+    }
+    if (!rendered) {
+      // Player stays in state.players; force count / empty visibility
+      try {
+        var ce = document.getElementById('tropp-count');
+        if (ce) ce.textContent = '(' + state.players.length + ')';
+        var em = document.getElementById('squad-empty');
+        if (em) {
+          if (state.players.length) em.classList.add('hidden');
+          else em.classList.remove('hidden');
+        }
+      } catch (e2) {}
+      showAddError('Spilleren er lagret, men visningen feilet — last siden på nytt');
+      flashMsg('Spilleren er lagret, men visningen feilet', 'warn');
+      return player;
+    }
+    if (!placed) {
+      flashMsg(placeWarn, 'warn');
+      if (placeWarn) showAddError(placeWarn);
+    } else {
+      flashMsg('Lagt til: ' + player.navn, 'success');
+    }
+    highlightAndScrollPlayer(player.id);
+    return player;
+  }
+
+  function deletePlayer(id) {
+    state.players = state.players.filter(function (p) { return p.id !== id; });
+    Object.keys(state.manualSlots).forEach(function (sid) {
+      var m = state.manualSlots[sid];
+      RANKS.forEach(function (rank) {
+        if (m[rank] === id) delete m[rank];
+      });
+      cleanupManual(sid);
+    });
+    saveState();
+    render();
+  }
+
+  function openEdit(id) {
+    hideCellMenu();
+    var p = state.players.find(function (x) { return x.id === id; });
+    if (!p) return;
+    refreshSlotSelects();
+    document.getElementById('e-id').value = p.id;
+    document.getElementById('e-navn').value = p.navn;
+    document.getElementById('e-rating').value = p.rating;
+    document.getElementById('e-pot').value = p.potensial;
+    document.getElementById('e-alder').value = p.alder != null ? p.alder : '';
+    document.getElementById('e-hoyde').value = p.hoyde != null ? p.hoyde : '';
+    var eHoved = document.getElementById('e-hoved');
+    ensurePosOption(eHoved, p.hoved);
+    eHoved.value = p.hoved;
+    fillEkstraChecks(document.getElementById('e-ekstra'), p.ekstra || [], p.hoved);
+    // Keep legacy ekstra codes (e.g. CB) visible as checked if still on player
+    (p.ekstra || []).forEach(function (code) {
+      if (!KARRIERE_POSITIONS.some(function (x) { return x.code === code; })) {
+        var box = document.getElementById('e-ekstra');
+        if (!box) return;
+        var lab = document.createElement('label');
+        lab.className = 'pos-check';
+        var inp = document.createElement('input');
+        inp.type = 'checkbox';
+        inp.value = code;
+        inp.checked = true;
+        inp.setAttribute('data-pos', code);
+        lab.appendChild(inp);
+        lab.appendChild(document.createTextNode(posDisplayCode(code)));
+        box.appendChild(lab);
+      }
+    });
+
+    var usage = findPlayerCell(p.id);
+    if (usage) {
+      document.getElementById('e-slot').value = usage.slotId;
+      document.getElementById('e-rang').value = usage.role;
+    } else {
+      document.getElementById('e-slot').value = '';
+      document.getElementById('e-rang').value = '';
+    }
+
+    document.getElementById('edit-modal').classList.remove('hidden');
+    document.getElementById('e-navn').focus();
+  }
+
+  function closeEdit() {
+    document.getElementById('edit-modal').classList.add('hidden');
+  }
+
+  document.getElementById('formation').addEventListener('change', function (ev) {
+    state.formationId = ev.target.value;
+    var valid = new Set(getFormation().slots.map(function (s) { return s.id; }));
+    Object.keys(state.manualSlots).forEach(function (sid) {
+      if (!valid.has(sid)) delete state.manualSlots[sid];
+    });
+    refreshSlotSelects();
+    saveState();
+    render();
+  });
+
+  document.getElementById('btn-auto').addEventListener('click', function () {
+    state.manualSlots = {};
+    saveState();
+    render();
+    flashMsg('Tropp bygget automatisk (#1–#3)');
+  });
+
+  document.getElementById('sort').addEventListener('change', function (ev) {
+    var parts = ev.target.value.split(':');
+    state.sort = { by: parts[0], dir: parts[1] };
+    saveState();
+    render();
+  });
+
+  document.getElementById('btn-clear-all').addEventListener('click', function () {
+    if (!state.players.length) return;
+    if (!confirm('Slette alle spillere? Dette kan ikke angres.')) return;
+    state.players = [];
+    state.manualSlots = {};
+    saveState();
+    render();
+  });
+
+  document.getElementById('notes').addEventListener('input', function (ev) {
+    state.notes = ev.target.value;
+    clearTimeout(notesTimer);
+    notesTimer = setTimeout(saveState, 300);
+  });
+
+  document.getElementById('edit-form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var id = document.getElementById('e-id').value;
+    var p = state.players.find(function (x) { return x.id === id; });
+    if (!p) return;
+    var navn = document.getElementById('e-navn').value.trim();
+    var rating = clampNum(document.getElementById('e-rating').value, 1, 99);
+    var potensial = clampNum(document.getElementById('e-pot').value, 1, 99);
+    var alder = clampNum(document.getElementById('e-alder').value, 15, 45);
+    var hoyde = clampNum(document.getElementById('e-hoyde').value, 150, 210);
+    var hoved = document.getElementById('e-hoved').value;
+    var ekstra = readEkstraChecks(document.getElementById('e-ekstra'), hoved);
+    var slotId = document.getElementById('e-slot').value;
+    var rang = document.getElementById('e-rang').value;
+
+    if (!navn || rating == null || potensial == null || !hoved) {
+      flashMsg('Ugyldige verdier');
+      return;
+    }
+    if (alder == null) { flashMsg('Alder må være 15–45'); return; }
+    if (hoyde == null) { flashMsg('Høyde må være 150–210 cm'); return; }
+    if (slotId && !rang) {
+      flashMsg('Velg rang når du plasserer på posisjon');
+      return;
+    }
+    if (slotId && rang) {
+      var slotCheck = getFormation().slots.find(function (s) { return s.id === slotId; });
+      if (!slotCheck) { flashMsg('Ugyldig posisjon'); return; }
+      if (!qualifies({ hoved: hoved, ekstra: ekstra }, slotCheck.pos)) {
+        flashMsg('Spilleren har ikke denne posisjonen på kortet');
+        return;
+      }
+    }
+
+    p.navn = navn;
+    p.rating = rating;
+    p.potensial = potensial;
+    p.alder = alder;
+    p.hoyde = hoyde;
+    p.hoved = normalizePosCode(hoved) || hoved;
+    p.ekstra = ekstra.filter(function (c) { return c !== p.hoved; });
+
+    // Drop invalid existing manuals after position change
+    Object.keys(state.manualSlots).forEach(function (sid) {
+      var slot = getFormation().slots.find(function (s) { return s.id === sid; });
+      var m = state.manualSlots[sid];
+      RANKS.forEach(function (rank) {
+        if (slot && m[rank] === id && !qualifies(p, slot.pos)) delete m[rank];
+      });
+      cleanupManual(sid);
+    });
+
+    if (slotId && rang) {
+      assignPlayerToSlot(id, slotId, rang);
+    }
+
+    saveState();
+    closeEdit();
+    render();
+  });
+
+  document.getElementById('e-cancel').addEventListener('click', closeEdit);
+  document.getElementById('e-delete').addEventListener('click', function () {
+    var id = document.getElementById('e-id').value;
+    if (!confirm('Slette spilleren?')) return;
+    closeEdit();
+    deletePlayer(id);
+  });
+  document.getElementById('edit-modal').addEventListener('click', function (ev) {
+    if (ev.target.id === 'edit-modal') closeEdit();
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Escape') return;
+    var aModal = document.getElementById('akademi-modal');
+    if (aModal && !aModal.classList.contains('hidden')) {
+      closeAcademyEdit();
+      return;
+    }
+    var modal = document.getElementById('edit-modal');
+    if (modal && !modal.classList.contains('hidden')) {
+      closeEdit();
+      return;
+    }
+    hideCellMenu();
+  });
+
+  document.getElementById('btn-export').addEventListener('click', function () {
+    if (downloadBackup(BACKUP_FILENAME)) {
+      flashMsg('Tropp lagret som fil', 'success');
+    } else {
+      flashMsg('Kunne ikke lagre fil', 'warn');
+    }
+  });
+
+  document.getElementById('btn-import').addEventListener('click', function () {
+    document.getElementById('import-file').click();
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') flushBackupIfDirty();
+  });
+  window.addEventListener('pagehide', flushBackupIfDirty);
+  window.addEventListener('beforeunload', flushBackupIfDirty);
+
+  document.getElementById('import-file').addEventListener('change', function (ev) {
+    var file = ev.target.files && ev.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var parsed = JSON.parse(reader.result);
+        if (!parsed || !Array.isArray(parsed.players)) throw new Error('ugyldig');
+        var fid = FORMATIONS[parsed.formationId] ? parsed.formationId : '433';
+        state = {
+          players: parsed.players.map(normalizePlayer).filter(function (p) { return p.navn; }),
+          akademi: Array.isArray(parsed.akademi)
+            ? parsed.akademi.map(normalizeAcademyPlayer).filter(function (p) { return p.navn; })
+            : [],
+          formationId: fid,
+          manualSlots: remapManualSlotIds(migrateManualSlots(parsed.manualSlots), fid),
+          notes: typeof parsed.notes === 'string' ? parsed.notes : '',
+          sort: parsed.sort && parsed.sort.by ? parsed.sort : { by: 'rating', dir: 'desc' }
+        };
+        saveState();
+        initFormSelects();
+        render();
+        flashMsg('Importert ' + state.players.length + ' spillere');
+      } catch (err) {
+        flashMsg('Kunne ikke importere filen');
+      }
+      ev.target.value = '';
+    };
+    reader.readAsText(file);
+  });
+
+  document.getElementById('f-hoved').addEventListener('change', function () {
+    syncEkstraDisable(document.getElementById('f-ekstra'), this.value);
+  });
+  document.getElementById('e-hoved').addEventListener('change', function () {
+    syncEkstraDisable(document.getElementById('e-ekstra'), this.value);
+  });
+
+  document.addEventListener('click', function (ev) {
+    var menu = document.getElementById('cell-menu');
+    if (!menu || menu.classList.contains('hidden')) return;
+    if (!menu.contains(ev.target) && !ev.target.closest('.cell[data-pid]')) {
+      hideCellMenu();
+    }
+  });
+
+  // —— View tabs: Tropp / Akademi ——
+
+  // —— FC Cloud sync (Supabase free – same project as familiebudsjett) ——
+  // CRITICAL: bruk eget brukernavn (f.eks. mathias-fc). Én auth-bruker = én household.
+  var FcCloud = (function () {
+    var CFG = {
+      url: 'https://cjyqovvrzwiimvafqmqr.supabase.co',
+      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqeXFvdnZyendpaW12YWZxbXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3MjY5NTUsImV4cCI6MjEwNDMwMjk1NX0.Pg_3c44BpHGr3InPepDN3yd8LAX1wf1_wH3YRJ6S3u4'
+    };
+    var AUTH_EMAIL_DOMAIN = 'familie-local.invalid';
+    var META_KEY = 'fc-karriere-tropp-sync-meta-v1';
+    var SESSION_KEY = 'fc-karriere-tropp-supabase-session-v1';
+    var HOUSEHOLD_NAME = 'FC Karriere';
+    var APP_MARK = 'fc-karriere-tropp';
+    var PUSH_DEBOUNCE_MS = 1600;
+    var pushTimer = null;
+    var pushing = false;
+    var pulling = false;
+    var memorySession = null;
+
+    function isoNow() { return new Date().toISOString(); }
+
+    function defaultMeta() {
+      return {
+        userId: null, username: null, householdId: null, householdName: null,
+        inviteCode: null, localChangeAt: null, lastSyncedCloudAt: null,
+        lastPullAt: null, lastPushAt: null, lastSyncAt: null,
+        pendingPush: false, lastError: null, lastPushedFingerprint: null
+      };
+    }
+    function loadMeta() {
+      try {
+        var raw = localStorage.getItem(META_KEY);
+        if (!raw) return defaultMeta();
+        return Object.assign(defaultMeta(), JSON.parse(raw) || {});
+      } catch (e) { return defaultMeta(); }
+    }
+    function saveMeta(meta) {
+      try { localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch (e) {}
+    }
+    function loadSession() {
+      if (memorySession) return memorySession;
+      try {
+        var raw = localStorage.getItem(SESSION_KEY);
+        if (!raw) return null;
+        memorySession = JSON.parse(raw);
+        return memorySession;
+      } catch (e) { return null; }
+    }
+    function saveSession(s) {
+      memorySession = s;
+      try {
+        if (s) localStorage.setItem(SESSION_KEY, JSON.stringify(s));
+        else localStorage.removeItem(SESSION_KEY);
+      } catch (e) {}
+    }
+
+    function normalizeUsername(raw) {
+      return String(raw || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9._-]/g, '');
+    }
+    function validateUsername(username) {
+      var u = normalizeUsername(username);
+      if (u.length < 3) return { ok: false, error: 'Brukernavn må være minst 3 tegn' };
+      if (u.length > 32) return { ok: false, error: 'Brukernavn kan være maks 32 tegn' };
+      if (!/^[a-z0-9][a-z0-9._-]*$/.test(u)) return { ok: false, error: 'Bruk kun bokstaver, tall, . _ -' };
+      if (u === 'mathias' || u === 'andrea' || u === 'familie') {
+        return { ok: false, error: 'Velg et FC-brukernavn (f.eks. mathias-fc) — ikke budsjett-brukeren' };
+      }
+      return { ok: true, username: u };
+    }
+    function validatePassword(password) {
+      var p = String(password || '');
+      if (p.length < 6) return { ok: false, error: 'Passord må være minst 6 tegn' };
+      return { ok: true, password: p };
+    }
+    function usernameToEmail(u) { return u + '@' + AUTH_EMAIL_DOMAIN; }
+    function normalizeInviteCode(code) {
+      return String(code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    }
+
+    function authHeaders(extra) {
+      var h = { apikey: CFG.anonKey, 'Content-Type': 'application/json' };
+      var s = loadSession();
+      h.Authorization = 'Bearer ' + ((s && s.access_token) ? s.access_token : CFG.anonKey);
+      if (extra) Object.keys(extra).forEach(function (k) { h[k] = extra[k]; });
+      return h;
+    }
+
+    function api(method, path, body, opts) {
+      opts = opts || {};
+      var url = CFG.url.replace(/\/$/, '') + path;
+      var init = { method: method, headers: authHeaders(opts.headers || {}) };
+      if (body !== undefined) init.body = JSON.stringify(body);
+      return fetch(url, init).then(function (res) {
+        return res.text().then(function (text) {
+          var data = null;
+          if (text) {
+            try { data = JSON.parse(text); } catch (e) { data = text; }
+          }
+          if (!res.ok) {
+            var msg = (data && (data.msg || data.message || data.error_description || data.error)) || ('HTTP ' + res.status);
+            var err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+            err.status = res.status;
+            err.data = data;
+            throw err;
+          }
+          return data;
+        });
+      });
+    }
+
+    function getSessionUser() {
+      var s = loadSession();
+      if (!s || !s.access_token || !s.user) return null;
+      return s.user;
+    }
+
+    function refreshSessionIfNeeded() {
+      var s = loadSession();
+      if (!s || !s.refresh_token) return Promise.resolve(s);
+      var expiresAt = s.expires_at || 0;
+      if (Date.now() / 1000 < expiresAt - 60) return Promise.resolve(s);
+      return api('POST', '/auth/v1/token?grant_type=refresh_token', {
+        refresh_token: s.refresh_token
+      }).then(function (data) {
+        var next = {
+          access_token: data.access_token,
+          refresh_token: data.refresh_token || s.refresh_token,
+          expires_at: data.expires_at || (Math.floor(Date.now() / 1000) + (data.expires_in || 3600)),
+          user: data.user || s.user
+        };
+        saveSession(next);
+        return next;
+      }).catch(function () { return s; });
+    }
+
+    function ensureProfile(user, username) {
+      if (!user || !username) return Promise.resolve();
+      return api('POST', '/rest/v1/profiles?on_conflict=user_id', {
+        user_id: user.id,
+        username: normalizeUsername(username)
+      }, { headers: { Prefer: 'resolution=merge-duplicates,return=minimal' } }).catch(function () {});
+    }
+
+    function encodePayload(st) {
+      var copy = {
+        _app: APP_MARK,
+        updatedAt: st.updatedAt || isoNow(),
+        players: st.players || [],
+        akademi: st.akademi || [],
+        formationId: st.formationId || '433',
+        manualSlots: st.manualSlots || {},
+        notes: st.notes || '',
+        sort: st.sort || { by: 'rating', dir: 'desc' }
+      };
+      return copy;
+    }
+
+    function isBudgetPayload(payload) {
+      if (!payload || typeof payload !== 'object') return false;
+      if (payload._app === APP_MARK) return false;
+      if (payload.players && Array.isArray(payload.players)) return false;
+      // Budget fingerprints
+      if (payload.months || payload.persons || payload.owners || payload.categories) return true;
+      if (payload._fb || payload.version === 'familie-budsjett') return true;
+      if (payload.archives || payload.hotMonths) return true;
+      return false;
+    }
+
+    function isFcPayload(payload) {
+      if (!payload || typeof payload !== 'object') return false;
+      if (payload._app === APP_MARK) return true;
+      if (Array.isArray(payload.players) || Array.isArray(payload.akademi)) return true;
+      return false;
+    }
+
+    function fingerprint(st) {
+      try {
+        return JSON.stringify({
+          p: (st.players || []).length,
+          a: (st.akademi || []).length,
+          f: st.formationId,
+          u: st.updatedAt,
+          n: (st.notes || '').length
+        });
+      } catch (e) { return String(Date.now()); }
+    }
+
+    function applyHouseholdToMeta(meta, row) {
+      if (!row) return meta;
+      meta.householdId = row.id;
+      meta.householdName = row.name || HOUSEHOLD_NAME;
+      meta.inviteCode = row.invite_code || null;
+      return meta;
+    }
+
+    function deviceLabel() {
+      try {
+        if (window.matchMedia && window.matchMedia('(max-width: 700px)').matches) return 'Mobil';
+      } catch (e) {}
+      return 'PC';
+    }
+
+    function formatSyncTime(iso) {
+      if (!iso) return 'aldri';
+      try {
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) return 'aldri';
+        return d.toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' });
+      } catch (e) { return 'aldri'; }
+    }
+
+    function setErrorLine(msg) {
+      var el = document.getElementById('sync-error');
+      if (!el) return;
+      if (!msg) { el.hidden = true; el.textContent = ''; return; }
+      el.hidden = false;
+      el.textContent = msg;
+      el.style.color = 'var(--warn)';
+    }
+
+    function refreshUi() {
+      var meta = loadMeta();
+      var loggedIn = !!(getSessionUser() && meta.householdId);
+      var panel = document.getElementById('sync-panel');
+      if (panel) {
+        panel.classList.toggle('sync-logged-in', loggedIn);
+        panel.classList.toggle('sync-logged-out', !loggedIn);
+      }
+      var line = document.getElementById('sync-status-line');
+      if (line) {
+        var pending = meta.pendingPush ? ' · venter på opplasting' : '';
+        var err = meta.lastError ? ' · feil: ' + meta.lastError : '';
+        line.innerHTML = 'Sist synket: <strong>' + formatSyncTime(meta.lastSyncAt || meta.lastSyncedCloudAt) +
+          '</strong>' + pending + err +
+          ' <span class="sync-device-chip" id="sync-device-chip">' + deviceLabel() + '</span>';
+      }
+      var code = document.getElementById('sync-invite-code');
+      if (code) code.textContent = meta.inviteCode || '····';
+      var ul = document.getElementById('sync-user-label');
+      if (ul) {
+        ul.textContent = loggedIn
+          ? ('Innlogget som ' + (meta.username || '?') + ' · stall «' + (meta.householdName || HOUSEHOLD_NAME) + '»')
+          : 'Ikke innlogget';
+      }
+      setErrorLine(meta.lastError);
+    }
+
+    function applyCloudState(payload) {
+      if (isBudgetPayload(payload)) {
+        throw new Error('Denne koden/husholdningen ser ut som familiebudsjett — avbrutt. Bruk FC-brukernavn og egen stall.');
+      }
+      if (!isFcPayload(payload) && payload && Object.keys(payload).length && !Array.isArray(payload.players)) {
+        // empty new household ok
+        if (!(payload.players || payload.akademi || payload._app === APP_MARK || !payload.updatedAt)) {
+          // allow empty {}
+        }
+      }
+      var next = parseStoredState(JSON.stringify(Object.assign({}, payload, { _app: APP_MARK })));
+      state.players = next.players;
+      state.akademi = next.akademi;
+      state.formationId = next.formationId;
+      state.manualSlots = next.manualSlots;
+      state.notes = next.notes;
+      state.sort = next.sort;
+      state.updatedAt = payload.updatedAt || next.updatedAt || isoNow();
+      state._app = APP_MARK;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        persistSession();
+      } catch (e) {}
+      try {
+        var notesEl = document.getElementById('notes');
+        if (notesEl) notesEl.value = state.notes || '';
+        var sortEl = document.getElementById('sort');
+        if (sortEl && state.sort) sortEl.value = state.sort.by + ':' + state.sort.dir;
+        var formEl = document.getElementById('formation');
+        if (formEl && state.formationId) formEl.value = state.formationId;
+      } catch (e2) {}
+      render();
+    }
+
+    function signUp(username, password, opts) {
+      opts = opts || {};
+      var vu = validateUsername(username);
+      if (!vu.ok) return Promise.reject(new Error(vu.error));
+      var vp = validatePassword(password);
+      if (!vp.ok) return Promise.reject(new Error(vp.error));
+      var email = usernameToEmail(vu.username);
+      return api('POST', '/auth/v1/signup', {
+        email: email,
+        password: vp.password,
+        data: { username: vu.username, app: APP_MARK }
+      }).then(function (data) {
+        if (!data.access_token) {
+          throw new Error('Konto opprettet, men innlogging feilet. Prøv «Logg inn».');
+        }
+        var session = {
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+          expires_at: data.expires_at || (Math.floor(Date.now() / 1000) + (data.expires_in || 3600)),
+          user: data.user
+        };
+        saveSession(session);
+        return ensureProfile(session.user, vu.username).then(function () {
+          var meta = loadMeta();
+          meta.userId = session.user.id;
+          meta.username = vu.username;
+          meta.lastError = null;
+          saveMeta(meta);
+          if (opts.skipHousehold) return { user: session.user, username: vu.username };
+          return createHousehold();
+        });
+      });
+    }
+
+    function signInOnly(username, password) {
+      var vu = validateUsername(username);
+      if (!vu.ok) return Promise.reject(new Error(vu.error));
+      var vp = validatePassword(password);
+      if (!vp.ok) return Promise.reject(new Error(vp.error));
+      var email = usernameToEmail(vu.username);
+      return api('POST', '/auth/v1/token?grant_type=password', {
+        email: email,
+        password: vp.password
+      }).then(function (data) {
+        var session = {
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+          expires_at: data.expires_at || (Math.floor(Date.now() / 1000) + (data.expires_in || 3600)),
+          user: data.user
+        };
+        saveSession(session);
+        return ensureProfile(session.user, vu.username).then(function () {
+          var meta = loadMeta();
+          meta.userId = session.user.id;
+          meta.username = vu.username;
+          meta.lastError = null;
+          saveMeta(meta);
+          return { user: session.user, username: vu.username };
+        });
+      }).catch(function () {
+        throw new Error('Feil brukernavn eller passord');
+      });
+    }
+
+    function signIn(username, password) {
+      return signInOnly(username, password).then(function () {
+        return ensureHouseholdAfterLogin();
+      });
+    }
+
+    function signOut() {
+      return refreshSessionIfNeeded().then(function () {
+        return api('POST', '/auth/v1/logout', {}).catch(function () {});
+      }).then(function () {
+        saveSession(null);
+        var meta = defaultMeta();
+        saveMeta(meta);
+        refreshUi();
+      });
+    }
+
+    function createHousehold() {
+      return refreshSessionIfNeeded().then(function () {
+        var encoded = encodePayload(state);
+        return api('POST', '/rest/v1/rpc/create_household', {
+          p_name: HOUSEHOLD_NAME,
+          p_payload: encoded
+        });
+      }).then(function (row) {
+        if (isBudgetPayload(row && row.payload)) {
+          throw new Error('Kontoen har allerede en budsjett-stall. Opprett et nytt FC-brukernavn (f.eks. mathias-fc).');
+        }
+        var meta = loadMeta();
+        applyHouseholdToMeta(meta, row);
+        meta.lastSyncedCloudAt = row.updated_at || isoNow();
+        meta.lastPushAt = isoNow();
+        meta.lastSyncAt = isoNow();
+        meta.pendingPush = false;
+        meta.lastPushedFingerprint = fingerprint(state);
+        meta.lastError = null;
+        saveMeta(meta);
+        // If existing household has FC data newer, pull it
+        if (row.existing && row.payload && isFcPayload(row.payload)) {
+          var cloudAt = row.updated_at ? new Date(row.updated_at).getTime() : 0;
+          var localAt = state.updatedAt ? new Date(state.updatedAt).getTime() : 0;
+          if (cloudAt > localAt + 1000) {
+            applyCloudState(row.payload);
+          }
+        }
+        refreshUi();
+        return row;
+      });
+    }
+
+    function ensureHouseholdAfterLogin() {
+      return fetchMembershipHousehold().then(function (row) {
+        if (!row) return createHousehold();
+        if (isBudgetPayload(row.payload)) {
+          throw new Error('Denne brukeren er koblet til familiebudsjett. Logg ut og bruk et eget FC-brukernavn.');
+        }
+        var meta = loadMeta();
+        applyHouseholdToMeta(meta, row);
+        meta.lastError = null;
+        saveMeta(meta);
+        return pullAndMaybeApply({ forcePull: false }).then(function () {
+          refreshUi();
+          return row;
+        });
+      });
+    }
+
+    function fetchMembershipHousehold() {
+      return refreshSessionIfNeeded().then(function () {
+        var user = getSessionUser();
+        if (!user) return null;
+        return api(
+          'GET',
+          '/rest/v1/household_members?select=household_id,role&user_id=eq.' +
+            encodeURIComponent(user.id) + '&limit=1'
+        ).then(function (mem) {
+          if (!mem || !mem.length) return null;
+          var hid = mem[0].household_id;
+          return api(
+            'GET',
+            '/rest/v1/households?select=id,name,invite_code,updated_at,payload&id=eq.' +
+              encodeURIComponent(hid) + '&limit=1'
+          ).then(function (hh) {
+            return hh && hh[0] ? hh[0] : null;
+          });
+        });
+      });
+    }
+
+    function joinWithCode(username, password, code) {
+      var normalized = normalizeInviteCode(code);
+      if (normalized.length < 4) return Promise.reject(new Error('Ugyldig invitasjonskode'));
+      // Opprett konto UTEN egen stall, deretter bli med i eksisterande FC-stall via kode
+      return signUp(username, password, { skipHousehold: true }).catch(function (e) {
+        var msg = e.message || '';
+        if (/opptatt|already|registered|innlogging feilet/i.test(msg)) {
+          // Innlogging uten å auto-opprette ny stall
+          return signInOnly(username, password);
+        }
+        throw e;
+      }).then(function () {
+        return refreshSessionIfNeeded().then(function () {
+          return api('POST', '/rest/v1/rpc/join_household_by_code', { p_code: normalized });
+        });
+      }).then(function (row) {
+        if (isBudgetPayload(row && row.payload)) {
+          throw new Error('Koden tilhører familiebudsjett — ikke FC-tropp. Avbrutt.');
+        }
+        var meta = loadMeta();
+        applyHouseholdToMeta(meta, row);
+        meta.lastSyncedCloudAt = row.updated_at || isoNow();
+        meta.lastPullAt = isoNow();
+        meta.lastSyncAt = isoNow();
+        meta.lastError = null;
+        saveMeta(meta);
+        if (row.payload && (isFcPayload(row.payload) || !Object.keys(row.payload || {}).length)) {
+          if (isFcPayload(row.payload)) applyCloudState(row.payload);
+        }
+        refreshUi();
+        return row;
+      });
+    }
+
+    function pushNow() {
+      if (pushing) return Promise.resolve({ ok: false, reason: 'busy' });
+      var meta = loadMeta();
+      if (!meta.householdId) return Promise.resolve({ ok: false, reason: 'no-household' });
+      return refreshSessionIfNeeded().then(function () {
+        if (!getSessionUser()) return { ok: false, reason: 'not-logged-in' };
+        var fp = fingerprint(state);
+        if (meta.lastPushedFingerprint === fp && !meta.pendingPush) {
+          return { ok: true, reason: 'unchanged' };
+        }
+        pushing = true;
+        meta.pendingPush = true;
+        saveMeta(meta);
+        refreshUi();
+        var now = isoNow();
+        var encoded = encodePayload(state);
+        return api(
+          'PATCH',
+          '/rest/v1/households?id=eq.' + encodeURIComponent(meta.householdId),
+          { payload: encoded, updated_at: now },
+          { headers: { Prefer: 'return=representation' } }
+        ).then(function (rows) {
+          var row = Array.isArray(rows) ? rows[0] : rows;
+          meta = loadMeta();
+          meta.lastSyncedCloudAt = (row && row.updated_at) || now;
+          meta.lastPushAt = now;
+          meta.lastSyncAt = now;
+          meta.pendingPush = false;
+          meta.lastPushedFingerprint = fp;
+          meta.lastError = null;
+          if (row) applyHouseholdToMeta(meta, row);
+          saveMeta(meta);
+          refreshUi();
+          return { ok: true };
+        }).catch(function (err) {
+          meta = loadMeta();
+          meta.lastError = err.message || String(err);
+          meta.pendingPush = false;
+          saveMeta(meta);
+          refreshUi();
+          return { ok: false, error: err };
+        }).then(function (r) {
+          pushing = false;
+          return r;
+        });
+      });
+    }
+
+    function schedulePush() {
+      var meta = loadMeta();
+      meta.localChangeAt = isoNow();
+      meta.pendingPush = !!(meta.householdId && getSessionUser());
+      saveMeta(meta);
+      if (!meta.householdId || !getSessionUser()) return;
+      if (pushTimer) clearTimeout(pushTimer);
+      pushTimer = setTimeout(function () {
+        pushTimer = null;
+        pushNow().then(function (r) {
+          if (r && r.error) flashMsg('Kunne ikke synke til sky nå', 'warn');
+        });
+      }, PUSH_DEBOUNCE_MS);
+    }
+
+    function pullAndMaybeApply(opts) {
+      opts = opts || {};
+      if (pulling) return Promise.resolve({ ok: false, reason: 'busy' });
+      pulling = true;
+      return fetchMembershipHousehold().then(function (row) {
+        var meta = loadMeta();
+        if (!row) {
+          pulling = false;
+          return { ok: true, needsHousehold: true };
+        }
+        if (isBudgetPayload(row.payload)) {
+          pulling = false;
+          meta.lastError = 'Koblet til budsjett-stall — bytt til FC-brukernavn';
+          saveMeta(meta);
+          refreshUi();
+          return { ok: false, reason: 'budget-collision' };
+        }
+        applyHouseholdToMeta(meta, row);
+        saveMeta(meta);
+        var cloudAt = row.updated_at ? new Date(row.updated_at).getTime() : 0;
+        var localAt = state.updatedAt ? new Date(state.updatedAt).getTime() : 0;
+        var lastSync = meta.lastSyncedCloudAt ? new Date(meta.lastSyncedCloudAt).getTime() : 0;
+
+        if (opts.forcePush) {
+          return pushNow().then(function (r) { pulling = false; return r; });
+        }
+
+        // Last-write-wins
+        if (opts.forcePull || (cloudAt > localAt + 500 && cloudAt > lastSync - 1)) {
+          if (row.payload && isFcPayload(row.payload)) {
+            applyCloudState(row.payload);
+          }
+          meta = loadMeta();
+          meta.lastSyncedCloudAt = row.updated_at || isoNow();
+          meta.lastPullAt = isoNow();
+          meta.lastSyncAt = isoNow();
+          meta.lastError = null;
+          saveMeta(meta);
+          refreshUi();
+          pulling = false;
+          return { ok: true, action: 'pull' };
+        }
+        if (localAt > cloudAt + 500 || meta.pendingPush) {
+          return pushNow().then(function (r) { pulling = false; return Object.assign({ action: 'push' }, r); });
+        }
+        meta.lastSyncAt = isoNow();
+        meta.lastError = null;
+        saveMeta(meta);
+        refreshUi();
+        pulling = false;
+        return { ok: true, action: 'noop' };
+      }).catch(function (err) {
+        pulling = false;
+        var meta = loadMeta();
+        meta.lastError = err.message || String(err);
+        saveMeta(meta);
+        refreshUi();
+        return { ok: false, error: err };
+      });
+    }
+
+    function syncNow() {
+      return pullAndMaybeApply({ forcePull: false }).then(function (r) {
+        if (r && r.ok) flashMsg('Synket', 'success');
+        else if (r && r.reason === 'budget-collision') flashMsg(r.reason, 'warn');
+        else flashMsg('Synk feilet — sjekk nett', 'warn');
+        refreshUi();
+        return r;
+      });
+    }
+
+    function wireUi() {
+      function busy(btn, on) {
+        if (!btn) return;
+        btn.disabled = !!on;
+      }
+      var signup = document.getElementById('sync-signup');
+      if (signup) signup.addEventListener('click', function () {
+        busy(signup, true);
+        signUp(document.getElementById('sync-user').value, document.getElementById('sync-pass').value)
+          .then(function () { flashMsg('Konto og FC-stall opprettet', 'success'); refreshUi(); })
+          .catch(function (e) { flashMsg(e.message || 'Feil', 'warn'); setErrorLine(e.message); })
+          .then(function () { busy(signup, false); });
+      });
+      var signin = document.getElementById('sync-signin');
+      if (signin) signin.addEventListener('click', function () {
+        busy(signin, true);
+        signIn(document.getElementById('sync-user').value, document.getElementById('sync-pass').value)
+          .then(function () { flashMsg('Innlogget', 'success'); refreshUi(); })
+          .catch(function (e) { flashMsg(e.message || 'Feil', 'warn'); setErrorLine(e.message); })
+          .then(function () { busy(signin, false); });
+      });
+      var join = document.getElementById('sync-join');
+      if (join) join.addEventListener('click', function () {
+        busy(join, true);
+        joinWithCode(
+          document.getElementById('sync-join-user').value,
+          document.getElementById('sync-join-pass').value,
+          document.getElementById('sync-join-code').value
+        ).then(function () { flashMsg('Koblet til stall', 'success'); refreshUi(); setView('tropp'); })
+          .catch(function (e) { flashMsg(e.message || 'Feil', 'warn'); setErrorLine(e.message); })
+          .then(function () { busy(join, false); });
+      });
+      var nowBtn = document.getElementById('sync-now');
+      if (nowBtn) nowBtn.addEventListener('click', function () {
+        busy(nowBtn, true);
+        syncNow().then(function () { busy(nowBtn, false); });
+      });
+      var copy = document.getElementById('sync-copy-code');
+      if (copy) copy.addEventListener('click', function () {
+        var meta = loadMeta();
+        if (!meta.inviteCode) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(meta.inviteCode).then(function () {
+            flashMsg('Kode kopiert', 'success');
+          }).catch(function () { flashMsg(meta.inviteCode, 'success'); });
+        } else {
+          flashMsg(meta.inviteCode, 'success');
+        }
+      });
+      var out = document.getElementById('sync-signout');
+      if (out) out.addEventListener('click', function () {
+        signOut().then(function () { flashMsg('Logget ut (lokal tropp beholdt)'); });
+      });
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible' && getSessionUser() && loadMeta().householdId) {
+          pullAndMaybeApply({});
+        }
+      });
+      refreshUi();
+    }
+
+    function boot() {
+      wireUi();
+      if (getSessionUser() && loadMeta().householdId) {
+        pullAndMaybeApply({}).then(function () { refreshUi(); });
+      } else if (getSessionUser()) {
+        ensureHouseholdAfterLogin().catch(function () { refreshUi(); });
+      } else {
+        refreshUi();
+      }
+    }
+
+    return {
+      schedulePush: schedulePush,
+      pushNow: pushNow,
+      pullAndMaybeApply: pullAndMaybeApply,
+      syncNow: syncNow,
+      refreshUi: refreshUi,
+      boot: boot,
+      loadMeta: loadMeta
+    };
+  })();
+
+
+  (function wireViewTabs() {
+    var tt = document.getElementById('tab-tropp');
+    var ta = document.getElementById('tab-akademi');
+    var ts = document.getElementById('tab-sky');
+    if (tt) tt.addEventListener('click', function () { setView('tropp'); });
+    if (ta) ta.addEventListener('click', function () { setView('akademi'); });
+    if (ts) ts.addEventListener('click', function () { setView('sky'); });
+    var btnSky = document.getElementById('btn-sky');
+    if (btnSky) btnSky.addEventListener('click', function () { setView('sky'); });
+  })();
+
+
+  // —— Add mode: Manuelt | Fra bilde ——
+  var addModes = { tropp: 'manual', akademi: 'manual' };
+
+  function setAddMode(target, mode) {
+    addModes[target] = mode === 'image' ? 'image' : 'manual';
+    var isImage = addModes[target] === 'image';
+    var panel = document.getElementById('ocr-panel-' + target);
+    if (panel) panel.hidden = !isImage;
+    var manualBtn = document.getElementById('mode-' + target + '-manual');
+    var imageBtn = document.getElementById('mode-' + target + '-image');
+    if (manualBtn) {
+      manualBtn.classList.toggle('active', !isImage);
+      manualBtn.setAttribute('aria-selected', !isImage ? 'true' : 'false');
+    }
+    if (imageBtn) {
+      imageBtn.classList.toggle('active', isImage);
+      imageBtn.setAttribute('aria-selected', isImage ? 'true' : 'false');
+    }
+    var label = document.getElementById('ocr-fields-label-' + target);
+    if (label && !isImage) label.hidden = true;
+  }
+
+  document.querySelectorAll('.add-mode-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      setAddMode(btn.getAttribute('data-target'), btn.getAttribute('data-mode'));
+    });
+  });
+
+  // —— Tesseract OCR (lazy CDN load, 100% in-browser) ——
+  var TESSERACT_CDN = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+  var tesseractLoadPromise = null;
+
+  function loadTesseract() {
+    if (window.Tesseract) return Promise.resolve(window.Tesseract);
+    if (tesseractLoadPromise) return tesseractLoadPromise;
+    tesseractLoadPromise = new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = TESSERACT_CDN;
+      s.async = true;
+      s.onload = function () {
+        if (window.Tesseract) resolve(window.Tesseract);
+        else {
+          tesseractLoadPromise = null;
+          reject(new Error('Tesseract mangler etter lasting'));
+        }
+      };
+      s.onerror = function () {
+        tesseractLoadPromise = null;
+        reject(new Error('cdn'));
+      };
+      document.head.appendChild(s);
+    });
+    return tesseractLoadPromise;
+  }
+
+  function setOcrStatus(target, msg, kind) {
+    var el = document.getElementById('ocr-status-' + target);
+    if (!el) return;
+    if (!msg) {
+      el.hidden = true;
+      el.textContent = '';
+      el.classList.remove('warn', 'ok');
+      return;
+    }
+    el.hidden = false;
+    el.textContent = msg;
+    el.classList.remove('warn', 'ok');
+    if (kind === 'warn') el.classList.add('warn');
+    if (kind === 'ok') el.classList.add('ok');
+  }
+
+  function showOcrPreview(target, objectUrl, spinning) {
+    var box = document.getElementById('ocr-preview-' + target);
+    if (!box) return;
+    box.classList.remove('hidden');
+    var spin = spinning
+      ? '<div class="ocr-spin">Leser bilde…</div>'
+      : '';
+    box.innerHTML = '<img alt="Forhåndsvisning" src="' + objectUrl + '">' + spin;
+  }
+
+  function clearOcrPreviewSpin(target) {
+    var box = document.getElementById('ocr-preview-' + target);
+    if (!box) return;
+    var spin = box.querySelector('.ocr-spin');
+    if (spin) spin.remove();
+  }
+
+  var POS_OCR_TOKENS = [
+    'K', 'VB', 'VMS', 'HMS', 'HB', 'SDM', 'SM', 'AM', 'VSM', 'HSM', 'VV', 'S', 'HV', 'VWB', 'HWB',
+    'GK', 'CB', 'LB', 'RB', 'LWB', 'RWB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST', 'CF', 'LF', 'RF', 'MS'
+  ];
+
+  function parseEaFcOcrText(raw) {
+    var text = String(raw || '').replace(/\r/g, '\n');
+    var lines = text.split(/\n+/).map(function (l) { return l.trim(); }).filter(Boolean);
+    var flat = text.replace(/\n/g, ' ');
+    var out = { navn: '', rating: null, potensial: null, potMin: null, potMax: null, alder: null, hoyde: null, hoved: '', confidence: 0 };
+    var hits = 0;
+
+    // Potential range: 62-96 / 62–96 / 62—96 / 62 96 near POT/POTENSIAL
+    var rangeRe = /(?:pot(?:ensial|ential)?|pot\.?)\s*[:\.]?\s*(\d{2})\s*[-–—~]\s*(\d{2})/i;
+    var rangeRe2 = /(\d{2})\s*[-–—]\s*(\d{2})(?!\d)/g;
+    var rm = flat.match(rangeRe);
+    if (rm) {
+      var a = parseInt(rm[1], 10), b = parseInt(rm[2], 10);
+      if (a >= 1 && a <= 99 && b >= 1 && b <= 99) {
+        out.potMin = Math.min(a, b);
+        out.potMax = Math.max(a, b);
+        out.potensial = Math.round((out.potMin + out.potMax) / 2);
+        hits += 2;
+      }
+    } else {
+      var m2, bestSpan = -1, bestPair = null;
+      while ((m2 = rangeRe2.exec(flat))) {
+        var x = parseInt(m2[1], 10), y = parseInt(m2[2], 10);
+        if (x < 40 || y > 99 || x >= y) continue;
+        var span = y - x;
+        if (span >= 5 && span <= 50 && span > bestSpan) {
+          bestSpan = span;
+          bestPair = [x, y];
+        }
+      }
+      if (bestPair) {
+        out.potMin = bestPair[0];
+        out.potMax = bestPair[1];
+        out.potensial = Math.round((out.potMin + out.potMax) / 2);
+        hits += 2;
+      }
+    }
+
+    // Single potential
+    if (out.potensial == null) {
+      var potSingle = flat.match(/(?:pot(?:ensial|ential)?|pot\.?)\s*[:\.]?\s*(\d{2})/i);
+      if (potSingle) {
+        var pv = parseInt(potSingle[1], 10);
+        if (pv >= 1 && pv <= 99) {
+          out.potensial = pv;
+          out.potMin = pv;
+          out.potMax = pv;
+          hits++;
+        }
+      }
+    }
+
+    // Overall / rating
+    var ovr = flat.match(/(?:ovr|overall|rating|rat\.?|o\s*v\s*r)\s*[:\.]?\s*(\d{2})/i);
+    if (ovr) {
+      var ov = parseInt(ovr[1], 10);
+      if (ov >= 1 && ov <= 99) { out.rating = ov; hits++; }
+    }
+    if (out.rating == null) {
+      // big standalone 2-digit near top lines
+      for (var i = 0; i < Math.min(lines.length, 8); i++) {
+        var nm = lines[i].match(/^(?:OVR|RAT)?\s*(\d{2})\s*$/i) || lines[i].match(/\b(\d{2})\b/);
+        if (!nm) continue;
+        var n = parseInt(nm[1], 10);
+        if (n >= 45 && n <= 99 && (out.potensial == null || n !== out.potensial) &&
+            (out.potMin == null || n !== out.potMin)) {
+          out.rating = n;
+          hits++;
+          break;
+        }
+      }
+    }
+
+    // Age
+    var ageM = flat.match(/(?:alder|age|år)\s*[:\.]?\s*(\d{1,2})/i);
+    if (ageM) {
+      var ag = parseInt(ageM[1], 10);
+      if (ag >= 14 && ag <= 45) { out.alder = ag; hits++; }
+    }
+
+    // Height
+    var hM = flat.match(/(?:høyde|hoyde|height|ht)\s*[:\.]?\s*(\d{3})\s*(?:cm)?/i) ||
+      flat.match(/\b(1[5-9]\d|20\d|210)\s*cm\b/i) ||
+      flat.match(/\b(1[5-9]\d|20[0-9]|210)\b/);
+    if (hM) {
+      var hy = parseInt(hM[1], 10);
+      if (hy >= 150 && hy <= 210) { out.hoyde = hy; hits++; }
+    }
+
+    // Position
+    var posFound = '';
+    var posLabel = flat.match(/(?:pos(?:isjon|ition)?|pos\.?)\s*[:\.]?\s*([A-Za-zÆØÅæøå]{1,4})/i);
+    if (posLabel) {
+      var cand = normalizePosCode(posLabel[1]);
+      if (cand && POS_BY_CODE[cand]) posFound = cand;
+    }
+    if (!posFound) {
+      for (var pi = 0; pi < POS_OCR_TOKENS.length; pi++) {
+        var tok = POS_OCR_TOKENS[pi];
+        var re = new RegExp('\\b' + tok + '\\b', 'i');
+        if (re.test(flat)) {
+          var nc = normalizePosCode(tok);
+          if (nc && POS_BY_CODE[nc]) { posFound = nc; break; }
+        }
+      }
+    }
+    if (posFound) { out.hoved = posFound; hits++; }
+
+    // Name: longest title-case / ALL CAPS player-like line
+    var skipWords = /^(OVR|POT|POTENTIAL|POTENSIAL|AGE|ALDER|HEIGHT|HØYDE|HOYDE|POSITION|POSISJON|RAT|OVERALL|CM|KG|FIFA|EA|FC|CAREER|KARRIERE|YOUTH|AKADEMIE|ACADEMY)$/i;
+    var bestName = '';
+    var bestScore = 0;
+    lines.forEach(function (line, idx) {
+      var cleaned = line.replace(/[^A-Za-zÆØÅæøåÄÖäöÜüß\-'\s\.]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (cleaned.length < 3 || cleaned.length > 40) return;
+      if (skipWords.test(cleaned)) return;
+      if (/^\d+$/.test(cleaned)) return;
+      var words = cleaned.split(' ');
+      if (words.length > 5) return;
+      var letters = cleaned.replace(/[^A-Za-zÆØÅæøå]/g, '');
+      if (letters.length < 3) return;
+      var titleish = /^[A-ZÆØÅÄÖÜ][A-Za-zÆØÅæøåÄÖäöÜüß'\-\.]+(?:\s+[A-ZÆØÅÄÖÜ][A-Za-zÆØÅæøåÄÖäöÜüß'\-\.]+)*$/.test(cleaned) ||
+        /^[A-ZÆØÅÄÖÜ\-'\s]{3,}$/.test(cleaned);
+      var score = letters.length + (titleish ? 20 : 0) + (idx < 6 ? 8 : 0) - (words.length > 3 ? 5 : 0);
+      if (score > bestScore) {
+        bestScore = score;
+        bestName = cleaned.replace(/\s+/g, ' ');
+        // Title-case ALL CAPS names lightly
+        if (/^[A-ZÆØÅÄÖÜ\-'\s]+$/.test(bestName) && bestName.length > 3) {
+          bestName = bestName.toLowerCase().replace(/(^|[\s\-'])([a-zæøåäöü])/g, function (_, a, b) {
+            return a + b.toUpperCase();
+          });
+        }
+      }
+    });
+    if (bestName) { out.navn = bestName; hits++; }
+
+    out.confidence = hits;
+    return out;
+  }
+
+  function fillTroppFormFromOcr(parsed) {
+    if (parsed.navn) document.getElementById('f-navn').value = parsed.navn;
+    if (parsed.rating != null) document.getElementById('f-rating').value = parsed.rating;
+    if (parsed.potensial != null) document.getElementById('f-pot').value = parsed.potensial;
+    if (parsed.alder != null) document.getElementById('f-alder').value = parsed.alder;
+    if (parsed.hoyde != null) document.getElementById('f-hoyde').value = parsed.hoyde;
+    if (parsed.hoved) {
+      var sel = document.getElementById('f-hoved');
+      ensurePosOption(sel, parsed.hoved);
+      sel.value = parsed.hoved;
+      syncEkstraDisable(document.getElementById('f-ekstra'), parsed.hoved);
+    }
+  }
+
+  function fillAkademiFormFromOcr(parsed) {
+    if (parsed.navn) document.getElementById('a-navn').value = parsed.navn;
+    if (parsed.rating != null) document.getElementById('a-rating').value = parsed.rating;
+    var pMin = parsed.potMin != null ? parsed.potMin : parsed.potensial;
+    var pMax = parsed.potMax != null ? parsed.potMax : parsed.potensial;
+    if (pMin != null) document.getElementById('a-pot-min').value = pMin;
+    if (pMax != null) document.getElementById('a-pot-max').value = pMax;
+    if (parsed.alder != null) document.getElementById('a-alder').value = parsed.alder;
+    if (parsed.hoyde != null) document.getElementById('a-hoyde').value = parsed.hoyde;
+    if (parsed.hoved) {
+      var sel = document.getElementById('a-hoved');
+      ensurePosOption(sel, parsed.hoved);
+      sel.value = parsed.hoved;
+    }
+  }
+
+  function runOcrOnFile(target, file) {
+    if (!file || !file.type || file.type.indexOf('image/') !== 0) {
+      setOcrStatus(target, 'Velg et bilde (jpg/png).', 'warn');
+      return;
+    }
+    var url = URL.createObjectURL(file);
+    showOcrPreview(target, url, true);
+    setOcrStatus(target, 'Leser bilde…', null);
+    var label = document.getElementById('ocr-fields-label-' + target);
+    if (label) label.hidden = false;
+
+    loadTesseract().then(function (Tesseract) {
+      return Tesseract.recognize(file, 'eng', {
+        logger: function () {}
+      });
+    }).then(function (result) {
+      clearOcrPreviewSpin(target);
+      var text = (result && result.data && result.data.text) || '';
+      var conf = result && result.data && typeof result.data.confidence === 'number'
+        ? result.data.confidence : 0;
+      var parsed = parseEaFcOcrText(text);
+      var weak = parsed.confidence < 2 || conf < 35 || !text.trim();
+      if (target === 'tropp') fillTroppFormFromOcr(parsed);
+      else fillAkademiFormFromOcr(parsed);
+      if (weak) {
+        setOcrStatus(target, 'Usikker lesing — sjekk/fyll feltene manuelt.', 'warn');
+        flashMsg('Kunne ikke lese alt fra bildet — fyll inn resten', 'warn');
+      } else {
+        var bits = [];
+        if (parsed.navn) bits.push(parsed.navn);
+        if (parsed.rating != null) bits.push('OVR ' + parsed.rating);
+        if (parsed.potMin != null && parsed.potMax != null && parsed.potMin !== parsed.potMax) {
+          bits.push('pot ' + parsed.potMin + '\u2013' + parsed.potMax);
+        } else if (parsed.potensial != null) {
+          bits.push('pot ' + parsed.potensial);
+        }
+        setOcrStatus(target, 'Fylt inn: ' + (bits.join(' · ') || 'delvis') + '. Sjekk før du legger til.', 'ok');
+      }
+    }).catch(function (err) {
+      clearOcrPreviewSpin(target);
+      var msg = (err && err.message === 'cdn')
+        ? 'Kunne ikke laste bilde-lesing (nett trengs første gang)'
+        : 'Kunne ikke lese bildet — fyll inn manuelt.';
+      setOcrStatus(target, msg, 'warn');
+      flashMsg(msg, 'warn');
+    });
+  }
+
+  function wireImageAdd(target, btnId, inputId) {
+    var btn = document.getElementById(btnId);
+    var input = document.getElementById(inputId);
+    if (!btn || !input) return;
+    btn.addEventListener('click', function () {
+      setAddMode(target, 'image');
+      try { input.value = ''; } catch (e) {}
+      input.click();
+    });
+    input.addEventListener('change', function () {
+      var f = input.files && input.files[0];
+      if (f) runOcrOnFile(target, f);
+    });
+  }
+
+  wireImageAdd('tropp', 'btn-img-tropp', 'img-tropp');
+  wireImageAdd('akademi', 'btn-img-akademi', 'img-akademi');
+  setAddMode('tropp', 'manual');
+  setAddMode('akademi', 'manual');
+
+
+  (function wireAcademy() {
+    var btn = document.getElementById('btn-akademi-add');
+    var form = document.getElementById('akademi-form');
+    if (btn) btn.addEventListener('click', handleAcademyAdd);
+    if (form) form.addEventListener('submit', handleAcademyAdd);
+
+    var editForm = document.getElementById('akademi-edit-form');
+    if (editForm) {
+      editForm.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        var id = document.getElementById('ae-id').value;
+        var p = (state.akademi || []).find(function (x) { return x.id === id; });
+        if (!p) return;
+        var navn = document.getElementById('ae-navn').value.trim();
+        var rating = clampNum(document.getElementById('ae-rating').value, 1, 99);
+        var potMin = clampNum(document.getElementById('ae-pot-min').value, 1, 99);
+        var potMax = clampNum(document.getElementById('ae-pot-max').value, 1, 99);
+        var alder = clampNum(document.getElementById('ae-alder').value, 14, 23);
+        var hoydeRaw = document.getElementById('ae-hoyde').value;
+        var hoyde = hoydeRaw === '' || hoydeRaw == null ? null : clampNum(hoydeRaw, 150, 210);
+        var hoved = document.getElementById('ae-hoved').value;
+        if (!navn || rating == null || potMin == null || potMax == null || alder == null || !hoved) {
+          flashMsg('Ugyldige verdier', 'warn');
+          return;
+        }
+        if (potMin > potMax) { flashMsg('Potensial fra kan ikke være høyere enn til', 'warn'); return; }
+        if (hoydeRaw && hoyde == null) { flashMsg('Høyde må være 150–210 cm', 'warn'); return; }
+        var normed = normalizeAcademyPlayer({
+          id: p.id, navn: navn, rating: rating, potMin: potMin, potMax: potMax,
+          alder: alder, hoyde: hoyde, hoved: hoved
+        });
+        p.navn = normed.navn;
+        p.rating = normed.rating;
+        p.potMin = normed.potMin;
+        p.potMax = normed.potMax;
+        p.potensial = normed.potensial;
+        p.alder = normed.alder;
+        p.hoyde = normed.hoyde;
+        p.hoved = normed.hoved;
+        saveState();
+        closeAcademyEdit();
+        renderAcademy();
+        flashMsg('Lagret: ' + p.navn, 'success');
+      });
+    }
+    var cancel = document.getElementById('ae-cancel');
+    if (cancel) cancel.addEventListener('click', closeAcademyEdit);
+    var del = document.getElementById('ae-delete');
+    if (del) del.addEventListener('click', function () {
+      var id = document.getElementById('ae-id').value;
+      if (!confirm('Slette akademispilleren?')) return;
+      closeAcademyEdit();
+      deleteAcademyPlayer(id);
+    });
+    var sign = document.getElementById('ae-sign');
+    if (sign) sign.addEventListener('click', function () {
+      var id = document.getElementById('ae-id').value;
+      signAcademyPlayer(id);
+    });
+    var modal = document.getElementById('akademi-modal');
+    if (modal) modal.addEventListener('click', function (ev) {
+      if (ev.target.id === 'akademi-modal') closeAcademyEdit();
+    });
+  })();
+
+  try {
+    // Fill selects first so position dropdown works even if later init fails
+    initFormSelects();
+    saveState();
+    // Fresh boot write should not force a leave-download until user changes something
+    stateDirty = false;
+    render();
+    var hintEl = document.getElementById('persist-hint');
+    if (hintEl && !bootHadLocalStorage) {
+      hintEl.hidden = false;
+    }
+    try { FcCloud.boot(); } catch (syncBootErr) { console.warn('FcCloud boot', syncBootErr); }
+  } catch (bootErr) {
+    console.error('Boot failed:', bootErr);
+    try {
+      fillPosSelect(document.getElementById('f-hoved'), false);
+      fillPosSelect(document.getElementById('e-hoved'), false);
+      fillPosSelect(document.getElementById('a-hoved'), false);
+      fillPosSelect(document.getElementById('ae-hoved'), false);
+      fillEkstraChecks(document.getElementById('f-ekstra'), [], '');
+      fillEkstraChecks(document.getElementById('e-ekstra'), [], '');
+      refreshSlotSelects();
+    } catch (recoverErr) {
+      console.error('Select recovery failed:', recoverErr);
+    }
+    try {
+      var emptyBoot = document.getElementById('squad-empty');
+      if (emptyBoot) emptyBoot.classList.remove('hidden');
+      var countBoot = document.getElementById('tropp-count');
+      if (countBoot) countBoot.textContent = '(' + (state.players ? state.players.length : 0) + ')';
+    } catch (eEmpty) {}
+    try { flashMsg('Noe gikk galt ved oppstart — posisjoner er lastet på nytt', 'warn'); } catch (e) {}
+  }
+})();
+</script>
+</body>
+</html>
