@@ -1301,7 +1301,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         <button type="button" class="ghost" id="btn-apply-rec" title="Kopierer anbefalingen til din oppstilling">Bruk anbefaling</button>
       </span>
     </h2>
-    <p class="rec-hint">Basert på OVR og brukbart potensial (aldersjustert vekst). Høyest pot blant utviklingsklare vinner; alder er kun tie-break når pot er jevnt. Endrer ikke din oppstilling før du trykker «Bruk anbefaling».</p>
+    <p class="rec-hint">Basert på OVR og brukbart potensial (aldersjustert). Blant 16–24 er pot konge (fot plasserer side, men slår ikke høyere pot på samme kant); alder/vekst betyr mer fra ~26–27. Alder kun tie-break når pot er jevnt. Endrer ikke din oppstilling før du trykker «Bruk anbefaling».</p>
     <div class="pitch readonly" id="pitch-recommended" aria-label="Anbefalt oppstilling"></div>
   </section>
   </div>
@@ -2566,15 +2566,16 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 
   /**
    * How much of (pot − OVR) is still realistic at this age (FC career growth).
-   * ≤23: full; ~24–25 strong; mid-20s taper; ~30–32 ≈ none (treat as current OVR).
+   * ~16–24: pot is king (full usable growth). Age gap 1–3y among teens/early20s is nothing.
+   * ~26–27+: taper starts to matter; ~30–32 ≈ none (treat as current OVR).
    */
   function growthFactor(age) {
     if (age == null || age === '') return 0.75; /* unknown age: soft pot, not full */
     var a = Number(age);
     if (!(a > 0)) return 0.75;
-    if (a <= 23) return 1;
-    if (a <= 25) return 0.88;
-    if (a <= 27) return 0.55;
+    if (a <= 24) return 1;       /* teens + early 20s: full pot */
+    if (a <= 25) return 0.92;    /* still mostly developable */
+    if (a <= 27) return 0.55;    /* ~26–27: growth starts mattering more */
     if (a <= 29) return 0.28;
     if (a <= 31) return 0.1;
     return 0; /* ~32+: pot badge irrelevant for ranking */
@@ -2596,8 +2597,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
    * Anbefalt oppstilling ability score (growth-aware pot).
    * r1: OVR + weighted usable growth — pot strongest soft factor after OVR floor.
    * r2/r3: usable pot weighs more (future cover).
-   * Hard OVR floor (≥8 on r1) still in compareRecommendPair:
-   *   55/95 young ≈ 77 ability vs 70/89 ≈ 80 → and ≥8 OVR gap forces 70.
+   * Hard OVR floor (≥10 on r1) still in compareRecommendPair:
+   *   55 never starts over 70; borderline ~8 OVR (62 vs 54) → pot decides.
    */
   function xiAbilityScore(player, rank) {
     var ovr = player.rating || 0;
@@ -2702,11 +2703,14 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 
   /**
    * Pairwise compare for same slot / depth (#1/#2/#3).
-   * 1) Hard OVR floor on r1: gap ≥ 8 → higher OVR (55/95 never starts over 70/89).
-   * 2) Large foot/side soft gap (≥8) still decides (inverted wings, natural backs).
-   * 3) Else usable pot (growth-aware) is highest soft factor — beats small OVR edges
-   *    and 1–3 years age among developable players.
-   * 4) Age only tie-breaks when usable pot is very close (within ~2–3).
+   * Mathias rules (growth-aware pot):
+   * 1) Huge OVR floor on r1: gap ≥ 10 → higher OVR (55 must not start over 70).
+   *    Gap 8 is borderline — pot/ability may still win (Veiga 62/91 over Lamber 54/87).
+   * 2) Clear usable pot (≥ ~2) among developable: pot is king — beats foot AND
+   *    1–3 years age. Lower-pot H-foot kid must not outrank better-pot peer on same wing.
+   * 3) Foot/side soft gap only when pot is close (placement / inverted meta).
+   * 4) Age only tie-breaks when usable pot is very close (<2).
+   * 5) 72/94 @32 → usable ≈ OVR (near-OVR ranking only).
    */
   function compareRecommendPair(a, b, posCode, rank, formation, slotId) {
     var ovrA = a.rating || 0;
@@ -2716,10 +2720,15 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     var ovrGap = ovrA - ovrB;
     var useGap = useA - useB;
 
-    if (rank === 'r1' && Math.abs(ovrGap) >= 8) {
-      /* OVR floor: large current-ability gap → higher OVR starts (win matches).
-         Foot/pot cannot overturn ≥8 OVR (backs/wings included). */
+    if (rank === 'r1' && Math.abs(ovrGap) >= 10) {
+      /* Huge OVR floor only — 55 never starts over 70. Borderline ~8 OVR falls through to pot. */
       if (ovrGap !== 0) return ovrGap > 0 ? -1 : 1;
+    }
+
+    /* Clear usable-pot advantage (≥ ~2): pot ranks highest among growable (16–24+).
+       Beats foot/retrain soft scores and small age gaps on the same wing. */
+    if (Math.abs(useGap) >= 2) {
+      return useGap > 0 ? -1 : 1;
     }
 
     var scoreA = recommendSlotScore(a, posCode, rank, formation, slotId);
@@ -2728,15 +2737,9 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     var abilB = xiAbilityScore(b, rank);
     var softGap = (scoreA - abilA) - (scoreB - abilB);
 
-    /* Clear wrong-foot / wrong-side parking still wins over pot. */
+    /* Pot nearly tied: clear wrong-foot / wrong-side parking may still decide. */
     if (Math.abs(softGap) >= 8) {
       if (scoreB !== scoreA) return scoreB - scoreA;
-    }
-
-    /* Clear usable-pot advantage (≥ ~2): pot ranks highest among growable.
-       Age must not beat a real pot edge; only true near-ties use age. */
-    if (Math.abs(useGap) >= 2) {
-      return useGap > 0 ? -1 : 1;
     }
 
     /* Usable pot very close (<2): age tie-break, then score / OVR. */
@@ -2799,13 +2802,25 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         });
       }
       pairs.sort(function (x, y) {
-        /* Prefer higher slot score; break ties with pairwise rules (OVR gap, age). */
-        var cmp = compareRecommendPair(
-          x.player, y.player, x.pos, rank, formation,
-          x.slotId === y.slotId ? x.slotId : null
-        );
-        if (x.slotId === y.slotId) return cmp;
+        /* Same slot: pure depth ranking (pot > foot > age). */
+        if (x.slotId === y.slotId) {
+          return compareRecommendPair(
+            x.player, y.player, x.pos, rank, formation, x.slotId
+          );
+        }
+        /* Cross-slot assignment: stronger usable pot first (who gets a seat),
+           then foot-fit for THAT slot (which wing). Avoids inconsistent
+           score-vs-pairwise cycles that parked Lamber over Veiga. */
+        var useX = usablePotential(x.player);
+        var useY = usablePotential(y.player);
+        if (Math.abs(useY - useX) >= 2) return useY - useX;
+        var softX = x.score - xiAbilityScore(x.player, rank);
+        var softY = y.score - xiAbilityScore(y.player, rank);
+        if (softY !== softX) return softY - softX;
         if (y.score !== x.score) return y.score - x.score;
+        var cmp = compareRecommendPair(
+          x.player, y.player, x.pos, rank, formation, null
+        );
         if (cmp !== 0) return cmp;
         return (x.slotId || '').localeCompare(y.slotId || '');
       });
