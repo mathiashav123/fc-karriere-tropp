@@ -2315,7 +2315,122 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     return 'stat-low';
   }
 
-  function academyVerdict(prospect) {
+  /** Academy role set: hoved + ekstra (normalized). */
+  function academyRoleSet(p) {
+    var set = {};
+    var h = normalizePosCode(p.hoved);
+    if (h) set[h] = true;
+    (Array.isArray(p.ekstra) ? p.ekstra : []).forEach(function (c) {
+      c = normalizePosCode(c);
+      if (c) set[c] = true;
+    });
+    return set;
+  }
+
+  /** Similar YA prospects: same hoved, or one's hoved is in the other's ekstra. */
+  function academyAreSimilar(a, b) {
+    if (!a || !b || a.id === b.id) return false;
+    var ah = normalizePosCode(a.hoved);
+    var bh = normalizePosCode(b.hoved);
+    if (ah && bh && ah === bh) return true;
+    var aSet = academyRoleSet(a);
+    var bSet = academyRoleSet(b);
+    if (ah && bSet[ah]) return true;
+    if (bh && aSet[bh]) return true;
+    return false;
+  }
+
+  /** Strongest similar rival: prefer same hoved, then highest optimistic pot, then rating. */
+  function findStrongestAcademyPeer(prospect, academyList) {
+    var list = Array.isArray(academyList) ? academyList : (state.akademi || []);
+    var sameHoved = [];
+    var cross = [];
+    var myH = normalizePosCode(prospect.hoved);
+    for (var i = 0; i < list.length; i++) {
+      var o = list[i];
+      if (!academyAreSimilar(prospect, o)) continue;
+      if (myH && normalizePosCode(o.hoved) === myH) sameHoved.push(o);
+      else cross.push(o);
+    }
+    var pool = sameHoved.length ? sameHoved : cross;
+    if (!pool.length) return null;
+    pool.sort(function (a, b) {
+      var ah = academyOptimisticPot(a);
+      var bh = academyOptimisticPot(b);
+      if (bh !== ah) return bh - ah;
+      var ar = a.rating != null ? a.rating : 0;
+      var br = b.rating != null ? b.rating : 0;
+      if (br !== ar) return br - ar;
+      return (a.navn || '').localeCompare(b.navn || '', 'nb');
+    });
+    return pool[0];
+  }
+
+  /** Thin signed coverage for pos (<2 who qualify) — may need both YA prospects. */
+  function isSignedCoverageThin(posCode) {
+    return signedDepthForPos(posCode).length < 2;
+  }
+
+  /**
+   * Compare prospect to a similar academy peer.
+   * Returns relation: better | worse | equal, clearlyWorse/clearlyBetter, preferMe.
+   */
+  function compareAcademyToPeer(me, peer) {
+    var myHi = academyOptimisticPot(me);
+    var peerHi = academyOptimisticPot(peer);
+    var myOvr = me.rating != null ? me.rating : 50;
+    var peerOvr = peer.rating != null ? peer.rating : 50;
+    var myAge = me.alder != null ? me.alder : null;
+    var peerAge = peer.alder != null ? peer.alder : null;
+    var potDiff = myHi - peerHi;
+    var ageWorse = myAge != null && peerAge != null && myAge > peerAge + 1;
+    var ageBetter = myAge != null && peerAge != null && myAge < peerAge - 1;
+    var clearlyWorse = potDiff <= -4 ||
+      (Math.abs(potDiff) <= 1 && myOvr <= peerOvr - 5) ||
+      (Math.abs(potDiff) <= 1 && ageWorse && myOvr <= peerOvr);
+    var clearlyBetter = potDiff >= 4 ||
+      (Math.abs(potDiff) <= 1 && myOvr >= peerOvr + 5) ||
+      (Math.abs(potDiff) <= 1 && ageBetter && myOvr >= peerOvr);
+
+    var preferMe = false;
+    if (clearlyBetter) {
+      preferMe = true;
+    } else if (clearlyWorse) {
+      preferMe = false;
+    } else {
+      // Nearly equal: prefer younger, then higher ceiling, then wider upside, then OVR
+      var mySpan = academyPotSpan(me);
+      var peerSpan = academyPotSpan(peer);
+      if (myAge != null && peerAge != null && myAge !== peerAge) {
+        preferMe = myAge < peerAge;
+      } else if (myHi !== peerHi) {
+        preferMe = myHi > peerHi;
+      } else if (mySpan !== peerSpan) {
+        preferMe = mySpan > peerSpan;
+      } else if (myOvr !== peerOvr) {
+        preferMe = myOvr > peerOvr;
+      } else {
+        preferMe = (me.navn || '').localeCompare(peer.navn || '', 'nb') <= 0;
+      }
+    }
+
+    var relation;
+    if (clearlyBetter) relation = 'better';
+    else if (clearlyWorse) relation = 'worse';
+    else relation = 'equal';
+
+    return {
+      relation: relation,
+      clearlyWorse: clearlyWorse,
+      clearlyBetter: clearlyBetter,
+      preferMe: preferMe,
+      potDiff: potDiff,
+      peerHi: peerHi,
+      peerPotLabel: fmtPotRange(peer) || String(peerHi)
+    };
+  }
+
+  function academyVerdict(prospect, academyList) {
     var pos = prospect.hoved;
     var potHi = academyOptimisticPot(prospect);
     var potLo = academyPessimisticPot(prospect);
@@ -2350,6 +2465,9 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     var gapToCeil = potHi - ovr;
     var tip = '';
     var tipKind = '';
+    var peer = findStrongestAcademyPeer(prospect, academyList);
+    var peerCmp = peer ? compareAcademyToPeer(prospect, peer) : null;
+    var thinSigned = isSignedCoverageThin(pos);
     var starterOvr = best ? best.rating : null;
     // For lav OVR vs A-lag-starter → lån etter opprykk (dynamisk pot trenger spilletid)
     var ovrTooLowForMinutes = starterOvr != null && ovr <= starterOvr - 8;
@@ -2360,6 +2478,57 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       if (!tip) {
         tipKind = tipKind || 'wait';
         tip = 'Behold i akademiet: utvikle videre mot pot ' + potLabel + '.';
+      }
+      // Peer overlay: compare similar YA — keep vs release (unless thin signed depth)
+      if (peer && peerCmp) {
+        var peerName = peer.navn;
+        var peerPot = peerCmp.peerPotLabel;
+        var rest = tip;
+        var posLabel = posDisplayCode(pos);
+        if (peerCmp.relation === 'better' || (peerCmp.relation === 'equal' && peerCmp.preferMe)) {
+          if (peerCmp.relation === 'better') {
+            tip = 'Behold — bedre enn ' + peerName + ' (pot ' + peerPot + '). ' + rest;
+          } else {
+            tip = 'Behold — jevn med ' + peerName + ' (pot ' + peerPot +
+              '), litt foran på alder/tak. ' + rest;
+          }
+          if (v.level === 'drop') {
+            v.level = 'keep';
+            v.chip = 'Behold';
+          }
+          if (tipKind === 'drop') tipKind = 'wait';
+          if (v.reason && /^Slipp/.test(v.reason) && v.level === 'keep') {
+            v.reason = 'Behold — bedre enn ' + peerName + ' i akademiet · ' + phrase;
+          }
+        } else if (thinSigned) {
+          tip = 'Behold begge foreløpig — tynn dybde på ' + posLabel +
+            '; ellers er ' + peerName + ' noe sterkere. ' + rest;
+          tipKind = 'wait';
+          if (v.level !== 'sign') {
+            v.level = 'keep';
+            v.chip = 'Behold begge';
+          }
+          if (!/^Behold/.test(v.reason || '')) {
+            v.reason = 'Behold begge — tynn ' + posLabel + '-dybde · ' + phrase;
+          }
+        } else if (peerCmp.clearlyWorse || peerCmp.relation === 'worse') {
+          tip = 'Slipp — svakere enn ' + peerName + ' på samme rolle. ' + rest;
+          tipKind = 'drop';
+          v.level = 'drop';
+          v.chip = 'Slipp';
+          v.reason = 'Slipp — svakere enn ' + peerName + ' i akademiet · ' + phrase;
+        } else {
+          // Nearly equal, peer preferred — soft watch, don't hard-drop both
+          tip = 'Nesten jevn med ' + peerName +
+            ' — vurder å slippe (foretrekk yngre/høyere tak). ' + rest;
+          tipKind = 'risk';
+          if (v.level === 'sign') {
+            /* keep promote path */
+          } else {
+            v.level = 'watch';
+            v.chip = 'Følg med';
+          }
+        }
       }
       v.tip = tip;
       v.tipKind = tipKind;
@@ -2629,7 +2798,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       return a.navn.localeCompare(b.navn, 'nb');
     });
     list.innerHTML = sorted.map(function (p) {
-      var v = academyVerdict(p);
+      var v = academyVerdict(p, state.akademi);
       var phys = (p.alder != null ? p.alder : '?') +
         (p.hoyde != null ? ' · ' + p.hoyde : '');
       var potLabel = fmtPotRange(p);
