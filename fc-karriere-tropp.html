@@ -1033,7 +1033,15 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 .badge-miss { display:inline-block; margin-left:4px; padding:1px 6px; border-radius:4px;
   font-size:10px; font-weight:600; letter-spacing:.01em;
   background:rgba(212,160,84,.14); color:#e8c48a; border:1px solid rgba(212,160,84,.32); }
-.badge-miss[title] { cursor: help; }
+.badge-miss { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button.badge-miss {
+  font: inherit; font-size: 10px; font-weight: 600; letter-spacing: .01em;
+  margin-left: 4px; padding: 1px 6px; border-radius: 4px;
+  background: rgba(212,160,84,.14); color: #e8c48a;
+  border: 1px solid rgba(212,160,84,.32);
+  line-height: 1.3;
+}
+button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.28); }
 .tren-hint {
   display: block;
   margin-top: 3px;
@@ -1042,6 +1050,81 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   letter-spacing: .01em;
   color: #e8d4a0;
   line-height: 1.2;
+}
+.tips .tip-tag.tren { background: rgba(212,180,106,.2); color: #e8d4a0; }
+.tips .tip-tag.mangler { background: rgba(212,160,84,.18); color: #e8c48a; }
+.tips li.tip-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 7px 0;
+}
+.tips li.tip-row .tip-body { flex: 1; min-width: 0; }
+.tips .tip-check {
+  flex: 0 0 auto;
+  width: 28px; height: 28px; margin-top: 0;
+  border-radius: 8px;
+  border: 1.5px solid rgba(232,212,160,.45);
+  background: rgba(212,180,106,.12);
+  color: #e8d4a0;
+  font-size: 15px; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.tips .tip-check:active { background: rgba(212,180,106,.28); transform: scale(.96); }
+.tips .tip-check[aria-pressed="true"],
+.tips .tip-check.done {
+  background: var(--accent-soft);
+  border-color: rgba(61,154,95,.55);
+  color: #7ddea0;
+}
+.tips .tip-fill {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(212,160,84,.4);
+  background: rgba(212,160,84,.14);
+  color: #e8c48a;
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+}
+.tips .tip-fill:active { background: rgba(212,160,84,.28); }
+.tip-check-inline {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; margin-left: 6px; vertical-align: middle;
+  border-radius: 7px;
+  border: 1.5px solid rgba(232,212,160,.45);
+  background: rgba(212,180,106,.12);
+  color: #e8d4a0;
+  font-size: 13px; line-height: 1;
+  cursor: pointer; padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.tip-check-inline:active { background: rgba(212,180,106,.28); }
+.verdict-tip .tip-check-inline { margin-left: 4px; }
+.promote-range { font-size: 12px; color: var(--muted); margin: 0 0 10px; line-height: 1.4; }
+#promote-error:not(.hidden) { color: #ff8a8a; font-size: 13px; margin: 6px 0 0; }
+.cell.from-academy {
+  border-color: rgba(180,140,255,.45);
+  background: linear-gradient(160deg, rgba(154,122,212,.16), rgba(18,24,20,.35));
+}
+.promote-hint {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: #cbb0ff;
+  line-height: 1.25;
+}
+.promote-hint.soon { color: #e8c48a; }
+.badge-acad {
+  display: inline-block; margin-left: 4px; padding: 1px 5px; border-radius: 4px;
+  font-size: 9px; font-weight: 700; letter-spacing: .03em;
+  background: rgba(180,140,255,.2); color: #cbb0ff;
+  border: 1px solid rgba(180,140,255,.35); vertical-align: 1px;
 }
 </style>
 </head>
@@ -1301,7 +1384,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         <button type="button" class="ghost" id="btn-apply-rec" title="Kopierer anbefalingen til din oppstilling">Bruk anbefaling</button>
       </span>
     </h2>
-    <p class="rec-hint">Basert på OVR og brukbart potensial (aldersjustert). Blant 16–24 er pot konge (fot plasserer side, men slår ikke høyere pot på samme kant); alder/vekst betyr mer fra ~26–27. Alder kun tie-break når pot er jevnt. Endrer ikke din oppstilling før du trykker «Bruk anbefaling».</p>
+    <p class="rec-hint">Basert på OVR og brukbart potensial (aldersjustert). Sterke akademijuniors inngår når de slår tropp-dybde (merke «Bør tas opp»). Blant 16–24 er pot konge (fot plasserer side, men slår ikke høyere pot på samme kant); alder/vekst betyr mer fra ~26–27. Endrer ikke din oppstilling før du trykker «Bruk anbefaling» (kun A-lagsspillere plasseres).</p>
     <div class="pitch readonly" id="pitch-recommended" aria-label="Anbefalt oppstilling"></div>
   </section>
   </div>
@@ -1524,6 +1607,32 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     </form>
   </div>
 </div>
+<div class="modal-backdrop hidden" id="promote-modal" role="dialog" aria-modal="true" aria-labelledby="promote-title">
+  <div class="modal">
+    <h3 id="promote-title">Ta opp til A-laget</h3>
+    <p class="picker-sub" id="promote-sub">Bekreft potensial og alder etter opprykk i spillet.</p>
+    <p class="promote-range" id="promote-range" hidden></p>
+    <form id="promote-form">
+      <input type="hidden" id="promote-id">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="field">
+          <label for="promote-pot">Potensial (ble)</label>
+          <input id="promote-pot" type="number" required min="1" max="99" inputmode="numeric" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="promote-alder">Alder nå</label>
+          <input id="promote-alder" type="number" required min="16" max="45" inputmode="numeric" autocomplete="off">
+        </div>
+      </div>
+      <p class="hint" id="promote-hint">Dynamisk potensial lander ved opprykk — skriv inn det du ser i spillet.</p>
+      <p id="promote-error" class="hidden" role="alert"></p>
+      <div class="modal-actions">
+        <button type="button" class="ghost" id="promote-cancel">Avbryt</button>
+        <button type="submit" class="primary" id="promote-confirm">Ta opp</button>
+      </div>
+    </form>
+  </div>
+</div>
 <div class="modal-backdrop hidden" id="slot-picker-modal" role="dialog" aria-modal="true" aria-labelledby="slot-picker-title">
   <div class="modal picker-modal">
     <h3 id="slot-picker-title">Velg spiller</h3>
@@ -1549,6 +1658,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   /* Akademi ekstra posisjoner: samme UI/shape som tropp; kopieres ved Ta opp. */
   var STORAGE_KEY = 'fc-karriere-tropp-v1';
   var VIEW_KEY = 'fc-karriere-tropp-view-v1';
+  var ACADEMY_MIN_SIGN_AGE = 16;
   var BACKUP_FILENAME = 'fc-tropp-backup.json';
   var EMPTY_SENTINEL = ''; // explicit vacant cell (no auto-fill until Auto-bygg)
   var RANKS = ['r1', 'r2', 'r3'];
@@ -2154,6 +2264,69 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     return footTrenLabel(player);
   }
 
+  function findPlayerById(id) {
+    if (!id) return null;
+    var i, p;
+    for (i = 0; i < (state.players || []).length; i++) {
+      p = state.players[i];
+      if (p.id === id) return { player: p, src: 'tropp' };
+    }
+    for (i = 0; i < (state.akademi || []).length; i++) {
+      p = state.akademi[i];
+      if (p.id === id) return { player: p, src: 'akademi' };
+    }
+    return null;
+  }
+
+  /** Add pos as ekstra when not already hoved/ekstra. Returns true if changed. */
+  function addEkstraPosToPlayer(player, posCode) {
+    if (!player || !posCode) return false;
+    var target = normalizePosCode(posCode) || String(posCode).toUpperCase();
+    if (!target) return false;
+    if (playerHasPos(player, target)) return false;
+    var hoved = normalizePosCode(player.hoved) || player.hoved;
+    if (hoved === target) return false;
+    var ekstra = normalizeEkstra(player.ekstra || []);
+    if (ekstra.indexOf(target) < 0) ekstra.push(target);
+    player.ekstra = ekstra.filter(function (c) { return c !== hoved; });
+    return true;
+  }
+
+  function applyTrenTipDone(playerId, posCode) {
+    var hit = findPlayerById(playerId);
+    if (!hit) {
+      flashMsg('Fant ikke spilleren', 'warn');
+      return;
+    }
+    var target = normalizePosCode(posCode) || String(posCode || '').toUpperCase();
+    var label = posDisplayCode(target);
+    var added = addEkstraPosToPlayer(hit.player, target);
+    saveState();
+    render();
+    if (added) {
+      flashMsg(hit.player.navn + ': ' + label + ' lagt til som ekstra ✓', 'success');
+    } else {
+      flashMsg(hit.player.navn + ' har allerede ' + label);
+    }
+  }
+
+  function openPlayerEditFocus(playerId, field, src) {
+    if (src === 'akademi') openAcademyEdit(playerId, field);
+    else openEdit(playerId, field);
+  }
+
+  function focusEditKey(prefix, field) {
+    var map = {
+      fot: prefix + '-fot',
+      hoyde: prefix + '-hoyde',
+      'høyde': prefix + '-hoyde',
+      alder: prefix + '-alder',
+      navn: prefix + '-navn'
+    };
+    var id = map[field] || (prefix + '-navn');
+    setTimeout(function () { focusField(id); }, 40);
+  }
+
   /**
    * Anbefalt XI may place a wrong-foot wing/back on the foot-correct side
    * even if that side is not yet on the card (hoved/ekstra).
@@ -2185,17 +2358,25 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
    * Light non-blocking ups when useful meta is blank (fot for XI/tips; høyde for akademi-tips).
    * Returns short badge HTML like «Mangler fot».
    */
-  function missingInfoBadges(player) {
+  function missingInfoBadges(player, opts) {
     if (!player) return '';
+    opts = opts || {};
+    var src = opts.src || 'tropp';
+    var id = player.id || '';
     var bits = [];
+    function missBtn(field, label, title) {
+      return '<button type="button" class="badge-miss" data-miss-id="' + esc(id) +
+        '" data-miss-src="' + esc(src) + '" data-miss-field="' + esc(field) +
+        '" title="' + esc(title) + '">' + esc(label) + '</button>';
+    }
     if (!normalizeFot(player.fot)) {
-      bits.push('<span class="badge-miss" title="Sett preferert fot (V/H/B) — brukes i anbefalt oppstilling og tips">Mangler fot</span>');
+      bits.push(missBtn('fot', 'Mangler fot', 'Trykk for å sette fot (V/H/B)'));
     }
     if (player.hoyde == null || player.hoyde === '') {
-      bits.push('<span class="badge-miss" title="Valgfritt, men brukes i akademi-/posisjonstips">Mangler høyde</span>');
+      bits.push(missBtn('hoyde', 'Mangler høyde', 'Trykk for å sette høyde'));
     }
     if (player.alder == null || player.alder === '') {
-      bits.push('<span class="badge-miss" title="Alder er tie-break når brukbart potensial er jevnt (yngre da)">Mangler alder</span>');
+      bits.push(missBtn('alder', 'Mangler alder', 'Trykk for å sette alder'));
     }
     return bits.length ? (' ' + bits.join(' ')) : '';
   }
@@ -2783,26 +2964,68 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   }
 
   /**
-   * Pure recommended XI: ignores manual placements.
-   * Per rank (#1 then #2 then #3): globally assign players to slots by best
-   * (ability + foot-fit) so a natural left-foot HV is not consumed by VV first.
-   * Each player occupies at most one slot across the whole pitch.
+   * Project academy prospect into recommend pool (optimistic pot for usable growth).
+   * Marked _fromAcademy so UI can show «Bør tas opp» without putting them in tropp yet.
    */
-  function buildRecommendedXI() {
-    var formation = getFormation();
+  function academyAsRecommendCandidate(a) {
+    if (!a) return null;
+    var pot = academyOptimisticPot(a);
+    if (pot == null) pot = a.potensial;
+    var canSign = a.alder != null && a.alder >= ACADEMY_MIN_SIGN_AGE;
+    return {
+      id: 'acad:' + a.id,
+      navn: a.navn,
+      rating: a.rating,
+      potensial: pot,
+      potMin: a.potMin,
+      potMax: a.potMax,
+      hoved: a.hoved,
+      ekstra: Array.isArray(a.ekstra) ? a.ekstra.slice() : [],
+      alder: a.alder,
+      hoyde: a.hoyde,
+      fot: a.fot,
+      _fromAcademy: true,
+      _academyId: a.id,
+      _academyCanSign: canSign
+    };
+  }
+
+  /** Academy juniors eligible for anbefalt overlay (not primary seat allocation). */
+  function recommendAcademyPool() {
+    var out = [];
+    (state.akademi || []).forEach(function (a) {
+      var cand = academyAsRecommendCandidate(a);
+      if (!cand) return;
+      if (a.alder == null && academyOptimisticPot(a) < 82) return;
+      out.push(cand);
+    });
+    return out;
+  }
+
+  function recommendUsedSet(result, formation) {
     var used = new Set();
-    var result = {};
+    formation.slots.forEach(function (slot) {
+      var e = result[slot.id];
+      if (!e) return;
+      RANKS.forEach(function (rank) {
+        if (e[rank]) used.add(e[rank].id);
+      });
+    });
+    return used;
+  }
+
+  /**
+   * Exclusive greedy assign for one pool (typically tropp).
+   * Per rank: global best (ability + foot) so inverted wings are not stolen wrong-side first.
+   */
+  function assignRecommendExclusive(result, pool, formation, used) {
     var i, r, slot, entry, rank, pairs, pi, pair;
-    for (i = 0; i < formation.slots.length; i++) {
-      slot = formation.slots[i];
-      result[slot.id] = { r1: null, r2: null, r3: null, pos: slot.pos, forceEmpty: {} };
-    }
     for (r = 0; r < RANKS.length; r++) {
       rank = RANKS[r];
       pairs = [];
       for (i = 0; i < formation.slots.length; i++) {
         slot = formation.slots[i];
-        state.players.forEach(function (p) {
+        pool.forEach(function (p) {
           if (used.has(p.id) || !qualifiesForRecommend(p, slot.pos)) return;
           pairs.push({
             slotId: slot.id,
@@ -2813,15 +3036,11 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         });
       }
       pairs.sort(function (x, y) {
-        /* Same slot: pure depth ranking (pot > foot > age). */
         if (x.slotId === y.slotId) {
           return compareRecommendPair(
             x.player, y.player, x.pos, rank, formation, x.slotId
           );
         }
-        /* Cross-slot assignment: stronger usable pot first (who gets a seat),
-           then foot-fit for THAT slot (which wing). Avoids inconsistent
-           score-vs-pairwise cycles that parked Lamber over Veiga. */
         var useX = usablePotential(x.player);
         var useY = usablePotential(y.player);
         if (Math.abs(useY - useX) >= 2) return useY - useX;
@@ -2839,7 +3058,6 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       for (pi = 0; pi < pairs.length; pi++) {
         pair = pairs[pi];
         if (used.has(pair.player.id) || filledSlots[pair.slotId]) continue;
-        /* Re-check this is still among best for the slot (avoid stale order bias). */
         entry = result[pair.slotId];
         if (entry[rank]) continue;
         entry[rank] = pair.player;
@@ -2847,7 +3065,193 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         filledSlots[pair.slotId] = true;
       }
     }
-    return { formation: formation, result: result, used: used, recommended: true };
+  }
+
+  /**
+   * Place remaining tropp into empty ranks on positions they qualify for.
+   * Fixes "Van Loon on no slots" when greedy left empty seats elsewhere
+   * or academy had consumed their only crowded seats.
+   */
+  function fillRecommendLeftover(result, pool, formation, used) {
+    var leftovers = pool.filter(function (p) { return !used.has(p.id); });
+    leftovers.sort(function (a, b) {
+      return usablePotential(b) - usablePotential(a) || (b.rating || 0) - (a.rating || 0);
+    });
+    leftovers.forEach(function (p) {
+      if (used.has(p.id)) return;
+      var best = null;
+      formation.slots.forEach(function (slot) {
+        if (!qualifiesForRecommend(p, slot.pos)) return;
+        var e = result[slot.id];
+        var ri;
+        for (ri = 0; ri < RANKS.length; ri++) {
+          if (e[RANKS[ri]]) continue;
+          var score = recommendSlotScore(p, slot.pos, RANKS[ri], formation, slot.id);
+          if (!best || score > best.score ||
+              (score === best.score && ri < best.ri)) {
+            best = { slotId: slot.id, rank: RANKS[ri], score: score, ri: ri };
+          }
+          break; /* earliest empty rank on this slot */
+        }
+      });
+      if (!best) return;
+      result[best.slotId][best.rank] = p;
+      used.add(p.id);
+    });
+  }
+
+  /**
+   * Insert academy where they beat the tropp occupant; shift depth down.
+   * Overflow off r3 is freed for leftover refill (never silently lost).
+   */
+  function insertAcademyIntoRecommend(result, formation, used) {
+    var acad = recommendAcademyPool();
+    if (!acad.length) return;
+    formation.slots.forEach(function (slot) {
+      var e = result[slot.id];
+      if (!e) return;
+      acad.forEach(function (a) {
+        if (used.has(a.id) || !qualifiesForRecommend(a, slot.pos)) return;
+        var ri, rank, cur, old, next, d, overflow;
+        for (ri = 0; ri < RANKS.length; ri++) {
+          rank = RANKS[ri];
+          cur = e[rank];
+          if (!cur) {
+            e[rank] = a;
+            used.add(a.id);
+            return;
+          }
+          if (cur._fromAcademy) continue;
+          if (compareRecommendPair(a, cur, slot.pos, rank, formation, slot.id) < 0) {
+            old = [e.r1, e.r2, e.r3];
+            next = old.slice(0, ri).concat([a], old.slice(ri));
+            for (d = 0; d < RANKS.length; d++) {
+              e[RANKS[d]] = next[d] || null;
+            }
+            used.add(a.id);
+            for (d = RANKS.length; d < next.length; d++) {
+              overflow = next[d];
+              if (overflow) used.delete(overflow.id);
+            }
+            return;
+          }
+        }
+      });
+    });
+  }
+
+  /**
+   * Last resort: remaining tropp displace academy on their best slot,
+   * or replace the weakest r3 they beat. Guarantees every tropp player
+   * with a valid pos appears somewhere when any seat exists / is YA-held.
+   */
+  function forcePlaceRemainingTropp(result, pool, formation, used) {
+    var left = pool.filter(function (p) { return !used.has(p.id); });
+    left.sort(function (a, b) {
+      return usablePotential(b) - usablePotential(a);
+    });
+    left.forEach(function (p) {
+      if (used.has(p.id)) return;
+      var options = [];
+      formation.slots.forEach(function (slot) {
+        if (!qualifiesForRecommend(p, slot.pos)) return;
+        var e = result[slot.id];
+        var ri, rank, cur;
+        for (ri = 0; ri < RANKS.length; ri++) {
+          rank = RANKS[ri];
+          cur = e[rank];
+          if (!cur) {
+            options.push({
+              slotId: slot.id, pos: slot.pos, rank: rank, ri: ri,
+              kind: 'empty', score: 1000 - ri
+            });
+            break;
+          }
+          if (cur._fromAcademy) {
+            /* Only steal YA seat when this tropp player actually beats them */
+            if (compareRecommendPair(p, cur, slot.pos, rank, formation, slot.id) < 0) {
+              options.push({
+                slotId: slot.id, pos: slot.pos, rank: rank, ri: ri,
+                kind: 'ya', score: 800 - ri,
+                cur: cur
+              });
+            }
+            break;
+          }
+        }
+        /* Can we beat current r3? */
+        if (e.r3 && !e.r3._fromAcademy &&
+            compareRecommendPair(p, e.r3, slot.pos, 'r3', formation, slot.id) < 0) {
+          options.push({
+            slotId: slot.id, pos: slot.pos, rank: 'r3', ri: 2,
+            kind: 'beat-r3', score: 400,
+            cur: e.r3
+          });
+        }
+      });
+      if (!options.length) {
+        /* Crowded: replace r3 only when we beat them (YA or tropp) */
+        var worst = null;
+        formation.slots.forEach(function (slot) {
+          if (!qualifiesForRecommend(p, slot.pos)) return;
+          var e = result[slot.id];
+          if (!e.r3) return;
+          if (compareRecommendPair(p, e.r3, slot.pos, 'r3', formation, slot.id) >= 0) return;
+          var gap = recommendSlotScore(p, slot.pos, 'r3', formation, slot.id) -
+            recommendSlotScore(e.r3, slot.pos, 'r3', formation, slot.id);
+          if (!worst || gap > worst.gap) {
+            worst = { slotId: slot.id, pos: slot.pos, rank: 'r3', cur: e.r3, gap: gap };
+          }
+        });
+        if (worst) {
+          used.delete(worst.cur.id);
+          result[worst.slotId].r3 = p;
+          used.add(p.id);
+        }
+        return;
+      }
+      options.sort(function (a, b) { return b.score - a.score; });
+      var pick = options[0];
+      var entry = result[pick.slotId];
+      if (pick.cur) used.delete(pick.cur.id);
+      entry[pick.rank] = p;
+      used.add(p.id);
+    });
+  }
+
+  /**
+   * Pure recommended XI: ignores manual placements.
+   * 1) Tropp first (everyone with a valid pos gets a seat when possible)
+   * 2) Leftover tropp → empty ranks
+   * 3) Academy overlay when they beat tropp («Bør tas opp»), shift depth
+   * 4) Refill leftovers / force-place so nobody vanishes (e.g. Van Loon)
+   */
+  function buildRecommendedXI() {
+    var formation = getFormation();
+    var tropp = (state.players || []).slice();
+    var used = new Set();
+    var result = {};
+    var i, slot;
+    for (i = 0; i < formation.slots.length; i++) {
+      slot = formation.slots[i];
+      result[slot.id] = { r1: null, r2: null, r3: null, pos: slot.pos, forceEmpty: {} };
+    }
+    assignRecommendExclusive(result, tropp, formation, used);
+    fillRecommendLeftover(result, tropp, formation, used);
+    insertAcademyIntoRecommend(result, formation, used);
+    /* Rebuild used after academy shifts that free ids */
+    used = recommendUsedSet(result, formation);
+    fillRecommendLeftover(result, tropp, formation, used);
+    forcePlaceRemainingTropp(result, tropp, formation, used);
+    used = recommendUsedSet(result, formation);
+    var unplaced = tropp.filter(function (p) { return !used.has(p.id); });
+    return {
+      formation: formation,
+      result: result,
+      used: used,
+      recommended: true,
+      unplaced: unplaced
+    };
   }
 
   function cellHTMLReadonly(slotId, rank, player, slotPos) {
@@ -2857,8 +3261,11 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         '<div class="role">' + RANK_LABEL[rank] + '</div>' +
         '<div class="' + missCls + '">' + RANK_MISS[rank] + '</div></div>';
     }
+    var fromAcad = !!player._fromAcademy;
     var potChip = (player.potensial - player.rating >= 8)
       ? ' <span class="chip-pot" title="Høyt potensial">↑</span>' : '';
+    var acadBadge = fromAcad
+      ? ' <span class="badge-acad" title="Junior / akademi">YA</span>' : '';
     var trenHtml = '';
     var retrainTo = footRetrainTarget(player);
     if (retrainTo && slotPos && !playerHasPos(player, retrainTo)) {
@@ -2870,13 +3277,28 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         trenHtml = '<span class="tren-hint">Tren til ' + esc(posDisplayCode(retrainTo)) + '</span>';
       }
     }
-    return '<div class="cell" data-role="' + rank + '" data-pid="' + esc(player.id) + '">' +
+    var promoteHtml = '';
+    if (fromAcad) {
+      if (player._academyCanSign) {
+        promoteHtml = '<span class="promote-hint">Bør tas opp · Ta opp til A-laget</span>';
+      } else {
+        promoteHtml = '<span class="promote-hint soon">Ta opp fra ' +
+          ACADEMY_MIN_SIGN_AGE + ' år' +
+          (player.alder != null ? ' (nå ' + player.alder + ')' : '') + '</span>';
+      }
+    }
+    var cellCls = 'cell' + (fromAcad ? ' from-academy' : '');
+    var potTitle = fromAcad ? 'Optimistic pot (akademi)' : 'Potensial';
+    var dataPid = fromAcad
+      ? (' data-academy-id="' + esc(player._academyId || '') + '"')
+      : (' data-pid="' + esc(player.id) + '"');
+    return '<div class="' + cellCls + '" data-role="' + rank + '"' + dataPid + '>' +
       '<div class="role">' + RANK_LABEL[rank] + '</div>' +
-      '<div class="pname">' + esc(player.navn) + potChip + '</div>' +
+      '<div class="pname">' + esc(player.navn) + potChip + acadBadge + '</div>' +
       '<div class="ratings-line"><span class="ovr ' + ratingTier(player.rating) + '" title="Rating">' + player.rating + '</span>' +
       '<span class="ratings-sep" aria-hidden="true">/</span>' +
-      '<span class="pot ' + ratingTier(player.potensial) + '" title="Potensial"><span class="pot-lbl">pot </span>' + player.potensial + '</span></div>' +
-      '<div class="meta"><span class="phys">' + esc(physText(player)) + '</span>' + trenHtml + '</div>' +
+      '<span class="pot ' + ratingTier(player.potensial) + '" title="' + potTitle + '"><span class="pot-lbl">pot </span>' + player.potensial + '</span></div>' +
+      '<div class="meta"><span class="phys">' + esc(physText(player)) + '</span>' + trenHtml + promoteHtml + '</div>' +
       '</div>';
   }
 
@@ -2895,7 +3317,9 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   function renderRecommendedPitch() {
     var pitch = document.getElementById('pitch-recommended');
     if (!pitch) return;
-    if (!state.players || !state.players.length) {
+    var hasTropp = state.players && state.players.length;
+    var hasAcad = state.akademi && state.akademi.length;
+    if (!hasTropp && !hasAcad) {
       pitch.innerHTML = '<p class="rec-hint">Legg til spillere for å se anbefalt oppstilling.</p>';
       return;
     }
@@ -2911,24 +3335,50 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       html.push('</div>');
     });
     html.push('</div>');
+    if (xi.unplaced && xi.unplaced.length) {
+      html.push('<p class="rec-hint" style="margin-top:8px">Ikke plassert i topp-3 (overfylt posisjon): ' +
+        xi.unplaced.map(function (p) {
+          return esc(p.navn) + ' (' + esc(posDisplayCode(p.hoved)) + ')';
+        }).join(', ') + '.</p>');
+    }
     pitch.innerHTML = html.join('');
+    pitch.querySelectorAll('.cell.from-academy[data-academy-id]').forEach(function (cell) {
+      cell.style.cursor = 'pointer';
+      cell.title = 'Trykk for å ta opp til A-laget';
+      cell.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        var aid = cell.getAttribute('data-academy-id');
+        if (aid) signAcademyPlayer(aid);
+      });
+    });
   }
 
   function applyRecommendedXI() {
     var xi = buildRecommendedXI();
     var next = {};
+    var skippedAcad = 0;
     xi.formation.slots.forEach(function (slot) {
       var e = xi.result[slot.id] || {};
       var cell = {};
       RANKS.forEach(function (rank) {
-        if (e[rank]) cell[rank] = e[rank].id;
+        var pl = e[rank];
+        if (!pl) return;
+        if (pl._fromAcademy) { skippedAcad++; return; }
+        if (!(state.players || []).some(function (x) { return x.id === pl.id; })) return;
+        cell[rank] = pl.id;
       });
       if (Object.keys(cell).length) next[slot.id] = cell;
     });
     state.manualSlots = next;
     saveState();
     render();
-    flashMsg('Anbefalt oppstilling er tatt i bruk');
+    if (skippedAcad) {
+      flashMsg('Anbefaling brukt (A-lag). ' + skippedAcad +
+        ' akademiplass(er) hoppet over — ta dem opp først.', 'warn');
+    } else {
+      flashMsg('Anbefalt oppstilling er tatt i bruk');
+    }
   }
 
   function playerUsage(xi) {
@@ -4081,33 +4531,50 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     /* Preferred-foot tips — scan whole tropp (+ akademi). Reserved slots so they are not crowded out. */
     var footTips = [];
     function pushFootTip(p, src) {
+      var target = footRetrainTarget(p);
       var rt = footTrenLabel(p);
-      if (!rt) return;
+      if (!rt || !target) return;
       var fotL = p.fot === 'V' ? 'venstre' : (p.fot === 'H' ? 'høyre' : (p.fot || '?'));
       var srcBit = src === 'akademi' ? ' · akademi' : '';
       footTips.push({
-        kind: 'info',
+        kind: 'tren',
+        action: 'tren',
+        playerId: p.id,
+        pos: target,
+        src: src,
         text: p.navn + ' (' + posDisplayCode(p.hoved || '?') + srcBit + ', ' + fotL + ' fot) — ' + rt
       });
     }
     (state.players || []).forEach(function (p) { pushFootTip(p, 'tropp'); });
     (state.akademi || []).forEach(function (p) { pushFootTip(p, 'akademi'); });
 
-    var missFot = (state.players || []).filter(function (p) { return !normalizeFot(p.fot); }).length;
-    var missTip = null;
-    if (missFot > 0) {
-      missTip = {
-        kind: 'info',
-        text: missFot === 1
-          ? '1 spiller mangler preferert fot — sett V/H/B for bedre anbefalt oppstilling.'
-          : (missFot + ' spillere mangler preferert fot — sett V/H/B for bedre anbefalt oppstilling.')
-      };
+    /* Per-spiller manglende info — rask utfylling via tips */
+    var missTips = [];
+    function pushMissTips(p, src) {
+      var labels = missingInfoLabels(p);
+      if (!labels.length) return;
+      labels.forEach(function (field) {
+        var pretty = field === 'hoyde' ? 'høyde' : field;
+        var srcBit = src === 'akademi' ? ' · akademi' : '';
+        missTips.push({
+          kind: 'mangler',
+          action: 'fill',
+          playerId: p.id,
+          field: field,
+          src: src,
+          text: p.navn + srcBit + ' — mangler ' + pretty
+        });
+      });
     }
+    (state.players || []).forEach(function (p) { pushMissTips(p, 'tropp'); });
+    (state.akademi || []).forEach(function (p) { pushMissTips(p, 'akademi'); });
 
-    /* Keep up to 5 non-foot tips, then all foot tips (cap 8), then miss-fot if room */
+    /* Keep up to 5 non-foot tips, then tren tips (cap 8), then miss (cap rest) */
     var other = tips.slice(0, 5);
     var merged = other.concat(footTips.slice(0, 8));
-    if (missTip && merged.length < 12) merged.push(missTip);
+    missTips.slice(0, Math.max(0, 12 - merged.length)).forEach(function (t) {
+      merged.push(t);
+    });
     return merged.slice(0, 12);
   }
 
@@ -4126,11 +4593,72 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       return;
     }
     el.hidden = false;
-    var tagLabel = { selg: 'Selg', lan: 'Lån', fokus: 'Fokus', info: 'Tips', speid: 'Speid' };
+    var tagLabel = {
+      selg: 'Selg', lan: 'Lån', fokus: 'Fokus', info: 'Tips', speid: 'Speid',
+      tren: 'Tren', mangler: 'Fyll inn'
+    };
     el.innerHTML = '<h3>Tips</h3><ul>' + tips.map(function (t) {
-      return '<li><span class="tip-tag ' + t.kind + '">' + (tagLabel[t.kind] || 'Tips') +
-        '</span>' + esc(t.text.replace(/^(Selg|Lån ut|Fokus|Speid etter):\s*/, '')) + '</li>';
+      var body = esc(t.text.replace(/^(Selg|Lån ut|Fokus|Speid etter):\s*/, ''));
+      var tag = '<span class="tip-tag ' + esc(t.kind) + '">' +
+        esc(tagLabel[t.kind] || 'Tips') + '</span>';
+      var action = '';
+      if (t.action === 'tren' && t.playerId && t.pos) {
+        action = '<button type="button" class="tip-check" data-tren-id="' + esc(t.playerId) +
+          '" data-tren-pos="' + esc(t.pos) +
+          '" title="Merk gjort — legg til ' + esc(posDisplayCode(t.pos)) +
+          ' som ekstra" aria-label="Merk Tren til ' + esc(posDisplayCode(t.pos)) +
+          ' gjort">☐</button>';
+      } else if (t.action === 'fill' && t.playerId && t.field) {
+        action = '<button type="button" class="tip-fill" data-fill-id="' + esc(t.playerId) +
+          '" data-fill-src="' + esc(t.src || 'tropp') +
+          '" data-fill-field="' + esc(t.field) +
+          '" title="Åpne og fyll inn">Fyll inn</button>';
+      }
+      return '<li class="tip-row">' + action +
+        '<div class="tip-body">' + tag + body + '</div></li>';
     }).join('') + '</ul>';
+  }
+
+  function bindTipActions(root) {
+    var scope = root || document;
+    scope.querySelectorAll('[data-tren-id]').forEach(function (btn) {
+      if (btn.getAttribute('data-tren-bound')) return;
+      btn.setAttribute('data-tren-bound', '1');
+      btn.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        btn.classList.add('done');
+        btn.setAttribute('aria-pressed', 'true');
+        btn.textContent = '✓';
+        applyTrenTipDone(btn.getAttribute('data-tren-id'), btn.getAttribute('data-tren-pos'));
+      });
+    });
+    scope.querySelectorAll('[data-fill-id]').forEach(function (btn) {
+      if (btn.getAttribute('data-fill-bound')) return;
+      btn.setAttribute('data-fill-bound', '1');
+      btn.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        openPlayerEditFocus(
+          btn.getAttribute('data-fill-id'),
+          btn.getAttribute('data-fill-field'),
+          btn.getAttribute('data-fill-src') || 'tropp'
+        );
+      });
+    });
+    scope.querySelectorAll('[data-miss-id]').forEach(function (btn) {
+      if (btn.getAttribute('data-miss-bound')) return;
+      btn.setAttribute('data-miss-bound', '1');
+      btn.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        openPlayerEditFocus(
+          btn.getAttribute('data-miss-id'),
+          btn.getAttribute('data-miss-field'),
+          btn.getAttribute('data-miss-src') || 'tropp'
+        );
+      });
+    });
   }
 
 
@@ -4521,8 +5049,6 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
    * Keep / release / sign verdict vs signed squad.
    * Uses optimistic potMax for primary; mentions pessimistic when range is wide.
    */
-
-  var ACADEMY_MIN_SIGN_AGE = 16;
 
   /** Color tier for rating/potensial numbers (elite → low). */
   function ratingTier(n) {
@@ -5117,7 +5643,17 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
           : '';
         var tipText = (v.tip && String(v.tip).trim()) ||
           ('Behold i akademiet: utvikle videre mot pot ' + potLabel + '.');
-        var tipHtml = '<span class="verdict-tip ' + esc(v.tipKind || 'wait') + '">' + esc(tipText) + '</span>';
+        var acadTrenBtn = '';
+        var acadTrenPos = footRetrainTarget(p);
+        if (acadTrenPos && tipText.indexOf('Tren til') >= 0) {
+          acadTrenBtn = '<button type="button" class="tip-check-inline" data-tren-id="' + esc(p.id) +
+            '" data-tren-pos="' + esc(acadTrenPos) +
+            '" title="Merk gjort — legg til ' + esc(posDisplayCode(acadTrenPos)) +
+            ' som ekstra" aria-label="Merk Tren til ' + esc(posDisplayCode(acadTrenPos)) +
+            ' gjort">☐</button>';
+        }
+        var tipHtml = '<span class="verdict-tip ' + esc(v.tipKind || 'wait') + '">' +
+          esc(tipText) + acadTrenBtn + '</span>';
         var signDisabled = v.canSign ? '' : ' disabled';
         var signTitle = v.canSign
           ? 'Ta opp til A-laget'
@@ -5129,7 +5665,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         htmlOut += '<li class="akademi-row" data-aid="' + esc(p.id) + '">' +
           '<div class="p-name">' + esc(p.navn) +
           ' <span class="badge depth">' + esc(posDisplayCode(p.hoved)) + '</span>' + ekstraBadges +
-          missingInfoBadges(p) + '</div>' +
+          missingInfoBadges(p, { src: 'akademi' }) + '</div>' +
           '<div class="akademi-meta">' +
           '<span class="akademi-ovr ' + ratingTier(p.rating) + '">' + p.rating + '</span>' +
           '<span class="akademi-pot ' + ratingTier(potColorN) + '">pot ' + esc(potLabel) + '</span>' +
@@ -5169,6 +5705,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
         signAcademyPlayer(btn.getAttribute('data-asign'));
       });
     });
+    bindTipActions(list);
   }
 
   function addAcademyPlayer(data) {
@@ -5202,26 +5739,86 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     if (p) flashMsg('Fjernet fra akademi: ' + p.navn);
   }
 
-  function signAcademyPlayer(id) {
+  function closePromoteModal() {
+    var modal = document.getElementById('promote-modal');
+    if (modal) modal.classList.add('hidden');
+    var err = document.getElementById('promote-error');
+    if (err) { err.textContent = ''; err.classList.add('hidden'); }
+  }
+
+  function openPromoteModal(id) {
+    if (!state.akademi) return;
+    var a = state.akademi.find(function (x) { return x.id === id; });
+    if (!a) return;
+    if (a.alder != null && a.alder < ACADEMY_MIN_SIGN_AGE) {
+      flashMsg('Kan bare tas opp til A-laget fra ' + ACADEMY_MIN_SIGN_AGE + ' år' +
+        ' (nå ' + a.alder + ')', 'error');
+      return;
+    }
+    closeAcademyEdit();
+    var potDefault = academyOptimisticPot(a);
+    if (potDefault == null) potDefault = a.potensial;
+    var alderDefault = a.alder != null ? a.alder : ACADEMY_MIN_SIGN_AGE;
+    document.getElementById('promote-id').value = a.id;
+    document.getElementById('promote-pot').value = potDefault != null ? potDefault : '';
+    document.getElementById('promote-alder').value = alderDefault;
+    var sub = document.getElementById('promote-sub');
+    if (sub) {
+      sub.textContent = a.navn + ' · OVR ' + a.rating +
+        ' — bekreft potensial og alder etter opprykk i spillet.';
+    }
+    var rangeEl = document.getElementById('promote-range');
+    if (rangeEl) {
+      var rng = fmtPotRange(a);
+      if (rng && a.potMin != null && a.potMax != null && a.potMin !== a.potMax) {
+        rangeEl.hidden = false;
+        rangeEl.textContent = 'Akademikort: pot ' + rng + ' (forslag = øvre).';
+      } else {
+        rangeEl.hidden = true;
+        rangeEl.textContent = '';
+      }
+    }
+    var err = document.getElementById('promote-error');
+    if (err) { err.textContent = ''; err.classList.add('hidden'); }
+    var modal = document.getElementById('promote-modal');
+    if (modal) modal.classList.remove('hidden');
+    setTimeout(function () { focusField('promote-pot'); }, 40);
+  }
+
+  function confirmPromoteFromModal() {
+    var id = document.getElementById('promote-id').value;
+    var pot = clampNum(document.getElementById('promote-pot').value, 1, 99);
+    var alder = clampNum(document.getElementById('promote-alder').value, ACADEMY_MIN_SIGN_AGE, 45);
+    var err = document.getElementById('promote-error');
+    function showErr(m) {
+      if (!err) return;
+      if (!m) { err.textContent = ''; err.classList.add('hidden'); return; }
+      err.textContent = m; err.classList.remove('hidden');
+    }
+    showErr('');
+    if (pot == null) { showErr('Potensial må være 1–99'); focusField('promote-pot'); return; }
+    if (alder == null) {
+      showErr('Alder må være ' + ACADEMY_MIN_SIGN_AGE + '–45');
+      focusField('promote-alder');
+      return;
+    }
     if (!state.akademi) return;
     var idx = -1;
     for (var i = 0; i < state.akademi.length; i++) {
       if (state.akademi[i].id === id) { idx = i; break; }
     }
-    if (idx < 0) return;
-    var a = state.akademi[idx];
-    if (a.alder == null || a.alder < ACADEMY_MIN_SIGN_AGE) {
-      flashMsg('Kan bare tas opp til A-laget fra ' + ACADEMY_MIN_SIGN_AGE + ' år' +
-        (a.alder != null ? ' (nå ' + a.alder + ')' : ' — sett alder først'), 'error');
+    if (idx < 0) {
+      showErr('Fant ikke akademispilleren');
       return;
     }
+    var a = state.akademi[idx];
     state.akademi.splice(idx, 1);
     var player = normalizePlayer({
       id: uid(),
       navn: a.navn,
       rating: a.rating,
-      potensial: a.potensial,
-      alder: a.alder,
+      potensial: pot,
+      alder: alder,
       hoyde: a.hoyde,
       fot: a.fot,
       hoved: a.hoved,
@@ -5229,14 +5826,20 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     });
     state.players.push(player);
     saveState();
+    closePromoteModal();
     closeAcademyEdit();
     render();
-    flashMsg('Signert til tropp: ' + player.navn, 'success');
+    flashMsg('Signert til tropp: ' + player.navn + ' (' + player.rating + '→' + player.potensial + ', ' + player.alder + ' år)', 'success');
     setView('tropp');
     highlightAndScrollPlayer(player.id);
   }
 
-  function openAcademyEdit(id) {
+  /** Opens promote dialog (pot + alder) before moving academy → tropp. */
+  function signAcademyPlayer(id) {
+    openPromoteModal(id);
+  }
+
+  function openAcademyEdit(id, focusKey) {
     var p = (state.akademi || []).find(function (x) { return x.id === id; });
     if (!p) return;
     var modal = document.getElementById('akademi-modal');
@@ -5254,6 +5857,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     document.getElementById('ae-hoved').value = p.hoved;
     fillEkstraChecks(document.getElementById('ae-ekstra'), p.ekstra || [], p.hoved);
     if (modal) modal.classList.remove('hidden');
+    if (focusKey) focusEditKey('ae', focusKey);
   }
 
   function closeAcademyEdit() {
@@ -5327,6 +5931,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     }
 
     renderTips(xi);
+    bindTipActions(document.getElementById('tips'));
   }
 
   function rowSlotIds(formation) {
@@ -5886,11 +6491,21 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
         var ekstra = ekstraStr ? ', ' + esc(ekstraStr) : '';
         var v = troppVerdict(p, xi);
         var tipText = (v.tip && String(v.tip).trim()) || 'Behold i troppen.';
-        var tipHtml = '<span class="verdict-tip ' + esc(v.tipKind || 'wait') + '">' + esc(tipText) + '</span>';
+        var trenBtn = '';
+        var trenPos = footRetrainTarget(p);
+        if (trenPos && v.footRetrain) {
+          trenBtn = '<button type="button" class="tip-check-inline" data-tren-id="' + esc(p.id) +
+            '" data-tren-pos="' + esc(trenPos) +
+            '" title="Merk gjort — legg til ' + esc(posDisplayCode(trenPos)) +
+            ' som ekstra" aria-label="Merk Tren til ' + esc(posDisplayCode(trenPos)) +
+            ' gjort">☐</button>';
+        }
+        var tipHtml = '<span class="verdict-tip ' + esc(v.tipKind || 'wait') + '">' +
+          esc(tipText) + trenBtn + '</span>';
         htmlOut += '<li class="player-row cardish ' + cls + '" data-edit="' + esc(p.id) +
           '" draggable="true" data-pid="' + esc(p.id) + '" title="Trykk for å redigere">' +
           '<div class="p-info"><div class="p-name">' + esc(p.navn) + ' ' + potChip + ' ' + badge +
-          missingInfoBadges(p) +
+          missingInfoBadges(p, { src: 'tropp' }) +
           '</div><div class="p-sub"><span class="p-pos">' + esc(posDisplayCode(p.hoved)) + ekstra +
           '</span> <span class="p-phys">' + esc(physText(p)) + footBadgeHtml(p.fot) + '</span></div>' +
           '<div class="verdict">' +
@@ -6635,11 +7250,12 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     });
     list.querySelectorAll('[data-edit]').forEach(function (row) {
       row.addEventListener('click', function (ev) {
-        if (ev.target.closest('[data-del], [data-edit-btn]')) return;
+        if (ev.target.closest('[data-del], [data-edit-btn], [data-tren-id], [data-miss-id], [data-fill-id]')) return;
         if (dragState && dragState.moved) return;
         openEdit(row.getAttribute('data-edit'));
       });
     });
+    bindTipActions(list);
   }
 
   function onDragStart(ev) {
@@ -6831,7 +7447,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     render();
   }
 
-  function openEdit(id) {
+  function openEdit(id, focusKey) {
     hideCellMenu();
     var p = state.players.find(function (x) { return x.id === id; });
     if (!p) return;
@@ -6876,7 +7492,8 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     }
 
     document.getElementById('edit-modal').classList.remove('hidden');
-    document.getElementById('e-navn').focus();
+    if (focusKey) focusEditKey('e', focusKey);
+    else focusField('e-navn');
   }
 
   function closeEdit() {
@@ -6904,11 +7521,15 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
   var btnApplyRec = document.getElementById('btn-apply-rec');
   if (btnApplyRec) {
     btnApplyRec.addEventListener('click', function () {
-      if (!state.players.length) {
+      if (!state.players.length && !(state.akademi && state.akademi.length)) {
         flashMsg('Ingen spillere å anbefale ennå', 'warn');
         return;
       }
-      if (!confirm('Erstatt din nåværende oppstilling med anbefalingen?')) return;
+      if (!state.players.length) {
+        flashMsg('Anbefalingen har bare akademi — ta opp juniors først før du plasserer XI', 'warn');
+        return;
+      }
+      if (!confirm('Erstatt din nåværende oppstilling med anbefalingen? (Akademi merket «Bør tas opp» plasseres ikke før opprykk.)')) return;
       applyRecommendedXI();
     });
   }
@@ -9213,6 +9834,20 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     var modal = document.getElementById('akademi-modal');
     if (modal) modal.addEventListener('click', function (ev) {
       if (ev.target.id === 'akademi-modal') closeAcademyEdit();
+    });
+
+    var promoteForm = document.getElementById('promote-form');
+    if (promoteForm) {
+      promoteForm.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        confirmPromoteFromModal();
+      });
+    }
+    var promoteCancel = document.getElementById('promote-cancel');
+    if (promoteCancel) promoteCancel.addEventListener('click', closePromoteModal);
+    var promoteModal = document.getElementById('promote-modal');
+    if (promoteModal) promoteModal.addEventListener('click', function (ev) {
+      if (ev.target.id === 'promote-modal') closePromoteModal();
     });
   })();
 
