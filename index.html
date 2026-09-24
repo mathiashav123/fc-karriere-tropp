@@ -1248,6 +1248,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     { code: 'SDM', label: 'SDM · sittende midtbane / 6-er' },
     { code: 'SM', label: 'SM · sentral midtbane / 8-er' },
     { code: 'AM', label: 'AM · angripende midtbane / 10-er' },
+    { code: 'LM', label: 'LM · venstre midtbane' },
+    { code: 'RM', label: 'RM · høyre midtbane' },
     { code: 'VV', label: 'VV · venstre ving' },
     { code: 'S', label: 'S · spiss' },
     { code: 'HV', label: 'HV · høyre ving' }
@@ -1269,8 +1271,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   POS_BY_CODE['RWB'] = { code: 'RWB', label: 'HWB · høyre wingback' };
   POS_BY_CODE['CDM'] = { code: 'CDM', label: 'SDM · sittende midtbane / 6-er' };
   POS_BY_CODE['CM'] = { code: 'CM', label: 'SM · sentral midtbane / 8-er' };
-  POS_BY_CODE['LM'] = { code: 'LM', label: 'SM · sentral midtbane' };
-  POS_BY_CODE['RM'] = { code: 'RM', label: 'SM · sentral midtbane' };
+  POS_BY_CODE['LM'] = { code: 'LM', label: 'LM · venstre midtbane' };
+  POS_BY_CODE['RM'] = { code: 'RM', label: 'RM · høyre midtbane' };
   POS_BY_CODE['LW'] = { code: 'LW', label: 'VV · venstre ving' };
   POS_BY_CODE['RW'] = { code: 'RW', label: 'HV · høyre ving' };
   POS_BY_CODE['ST'] = { code: 'ST', label: 'S · spiss' };
@@ -1282,7 +1284,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   var OLD_TO = {
     GK: 'K', LB: 'VB', RB: 'HB', LWB: 'VWB', RWB: 'HWB',
     CDM: 'SDM', CM: 'SM', CAM: 'AM',
-    LM: 'SM', RM: 'SM', VSM: 'SM', HSM: 'SM',
+    VSM: 'SM', HSM: 'SM',
     LW: 'VV', RW: 'HV', ST: 'S', CF: 'S', LF: 'VV', RF: 'HV',
     CB: 'MS', VMS: 'MS', HMS: 'MS'
   };
@@ -1301,10 +1303,12 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     SM:  ['SM', 'CM'],
     AM:  ['AM', 'CAM', 'SM', 'CM'],
     CAM: ['AM', 'CAM', 'SM', 'CM'],
-    VSM: ['SM', 'CM', 'VSM', 'HSM', 'LM', 'RM'],
-    HSM: ['SM', 'CM', 'HSM', 'VSM', 'RM', 'LM'],
-    VV:  ['VV', 'LW', 'LF'],
-    HV:  ['HV', 'RW', 'RF'],
+    LM:  ['LM', 'VV', 'LW', 'LF'],
+    RM:  ['RM', 'HV', 'RW', 'RF'],
+    VSM: ['LM', 'SM', 'CM', 'VSM', 'HSM'],
+    HSM: ['RM', 'SM', 'CM', 'HSM', 'VSM'],
+    VV:  ['VV', 'LM', 'LW', 'LF'],
+    HV:  ['HV', 'RM', 'RW', 'RF'],
     S:   ['S', 'ST', 'CF']
   };
 
@@ -1857,7 +1861,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   function posDisplayCode(code) {
     if (!code) return '';
     if (code === 'CB' || code === 'VMS' || code === 'HMS') return 'MS';
-    if (code === 'VSM' || code === 'HSM' || code === 'LM' || code === 'RM' || code === 'CM') return 'SM';
+    if (code === 'VSM' || code === 'HSM' || code === 'CM') return 'SM';
     if (code === 'CAM') return 'AM';
     if (code === 'GK') return 'K';
     if (code === 'LB') return 'VB';
@@ -5526,7 +5530,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 
     // —— Position: short code above name. Prefer MS/CB; avoid false S from "PES"/noise ——
     var AMBIGUOUS_POS = { S: 1, K: 1, ST: 1, CM: 1, AM: 1 };
-    var PREFERRED_POS = { MS: 30, CB: 28, SDM: 18, SM: 16, AM: 14, VB: 14, HB: 14, VV: 12, HV: 12, VWB: 12, HWB: 12, GK: 12, K: 4, S: 2, ST: 3 };
+    var PREFERRED_POS = { MS: 30, CB: 28, SDM: 18, SM: 16, AM: 14, LM: 13, RM: 13, VB: 14, HB: 14, VV: 12, HV: 12, VWB: 12, HWB: 12, GK: 12, K: 4, S: 2, ST: 3 };
     var posCands = [];
     words.forEach(function (w) {
       var rawTok = w.text.replace(/[^A-Za-zÆØÅæøå]/g, '');
