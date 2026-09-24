@@ -2692,15 +2692,57 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
    * Best unused player for a formation slot at this depth rank.
    * Sorts live from state.players each call (edit OVR/pot/age/foot/pos → new order).
    */
+
+  /**
+   * Clear tip-style «Selg» / strong surplus «Lån ut» — deprioritize in anbefalt XI
+   * and auto #1–#3. Independent of current XI seats (uses depth rank, not starter).
+   * Thin depth never sell-outs. Keep/develop/start still considered (Van Loon).
+   * Soft «Vurder salg» (tipKind risk) is NOT treated as clear sell-out.
+   */
+  function isClearSellOutForXI(player) {
+    if (!player || player._fromAcademy) return false;
+    var role = troppRoleForPlayer(player);
+    if (!role || role.thin || !(role.depth && role.depth.length >= 2)) return false;
+    var age = player.alder;
+    var growth = troppGrowth(player);
+    var nearPot = troppNearPot(player);
+    var depthN = role.depth.length;
+    var repl = pickReplacement(player, role);
+    var hasRepl = !!(repl && repl.p);
+
+    /* Hard Selg: near pot + named replacement + crowded depth */
+    if (nearPot && hasRepl && role.crowded && depthN >= 3) return true;
+
+    /* Clear sell mirrors tipKind «sell» (aging / deep surplus near pot) */
+    if (nearPot && hasRepl) {
+      if (age != null && age >= 28) return true;
+      if (role.rank >= 3 && growth <= 2) return true;
+      if (role.rank >= 2 && age != null && age >= 26 && growth <= 3) return true;
+    }
+
+    /* Aging stagnant deep surplus with replacement */
+    if (hasRepl && role.rank >= 3 && age != null && age >= 28 && growth <= 3) return true;
+
+    /* Strong surplus loan-out: overcrowded weak/old #3+ (not young develop loans) */
+    if (role.crowded && depthN >= 3 && role.rank >= 3 &&
+        (age == null || age >= 24) && growth <= 4) {
+      return true;
+    }
+    return false;
+  }
+
   function pickBest(posCode, used, rank) {
     var rk = rank || 'r1';
     var form = getFormation();
     var candidates = state.players
       .filter(function (p) { return !used.has(p.id) && qualifies(p, posCode); });
-    candidates.sort(function (a, b) {
+    /* Prefer non-sell; only fill with clear sell-outs when nobody else fits the slot. */
+    var preferred = candidates.filter(function (p) { return !isClearSellOutForXI(p); });
+    var pool = preferred.length ? preferred : candidates;
+    pool.sort(function (a, b) {
       return compareRecommendPair(a, b, posCode, rk, form);
     });
-    return candidates[0] || null;
+    return pool[0] || null;
   }
 
   function physText(player) {
@@ -2957,10 +2999,12 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     var form = formation || getFormation();
     var candidates = state.players
       .filter(function (p) { return !used.has(p.id) && qualifiesForRecommend(p, posCode); });
-    candidates.sort(function (a, b) {
+    var preferred = candidates.filter(function (p) { return !isClearSellOutForXI(p); });
+    var pool = preferred.length ? preferred : candidates;
+    pool.sort(function (a, b) {
       return compareRecommendPair(a, b, posCode, rk, form);
     });
-    return candidates[0] || null;
+    return pool[0] || null;
   }
 
   /**
@@ -3036,6 +3080,10 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
         });
       }
       pairs.sort(function (x, y) {
+        /* Clear sell/loan-out last — fill keep/develop/start first. */
+        var sx = isClearSellOutForXI(x.player) ? 1 : 0;
+        var sy = isClearSellOutForXI(y.player) ? 1 : 0;
+        if (sx !== sy) return sx - sy;
         if (x.slotId === y.slotId) {
           return compareRecommendPair(
             x.player, y.player, x.pos, rank, formation, x.slotId
@@ -3075,6 +3123,9 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   function fillRecommendLeftover(result, pool, formation, used) {
     var leftovers = pool.filter(function (p) { return !used.has(p.id); });
     leftovers.sort(function (a, b) {
+      var sa = isClearSellOutForXI(a) ? 1 : 0;
+      var sb = isClearSellOutForXI(b) ? 1 : 0;
+      if (sa !== sb) return sa - sb;
       return usablePotential(b) - usablePotential(a) || (b.rating || 0) - (a.rating || 0);
     });
     leftovers.forEach(function (p) {
@@ -3146,7 +3197,11 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
    * with a valid pos appears somewhere when any seat exists / is YA-held.
    */
   function forcePlaceRemainingTropp(result, pool, formation, used) {
-    var left = pool.filter(function (p) { return !used.has(p.id); });
+    /* Skip clear sell/loan-outs — they may fall out of #1–#3 / sit unplaced.
+       Keep/develop/start still force-placed (Van Loon-style). */
+    var left = pool.filter(function (p) {
+      return !used.has(p.id) && !isClearSellOutForXI(p);
+    });
     left.sort(function (a, b) {
       return usablePotential(b) - usablePotential(a);
     });
@@ -3221,10 +3276,10 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
 
   /**
    * Pure recommended XI: ignores manual placements.
-   * 1) Tropp first (everyone with a valid pos gets a seat when possible)
-   * 2) Leftover tropp → empty ranks
+   * 1) Tropp first — clear tip-Selg / strong surplus-Lån last (only if slot empty)
+   * 2) Leftover tropp → empty ranks (sell-outs after keep/develop/start)
    * 3) Academy overlay when they beat tropp («Bør tas opp»), shift depth
-   * 4) Refill leftovers / force-place so nobody vanishes (e.g. Van Loon)
+   * 4) Refill leftovers / force-place keep/develop/start (Van Loon); sell may stay unplaced
    */
   function buildRecommendedXI() {
     var formation = getFormation();
