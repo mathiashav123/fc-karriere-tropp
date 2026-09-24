@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#121814">
 <title>FC Karriere-tropp</title>
-<meta name="app-build" content="20260924-scout-spiss3">
-<!-- build: 20260924-ba-hv-softfix — rank-major per-slot; soft never beats clear pot across slots -->
+<meta name="app-build" content="20260924-fot-tip">
+<!-- build: 20260924-fot-tip — foot mismatch tip uses player fot, not role prefer -->
 <style>
 :root {
   --bg: #121814;
@@ -1438,7 +1438,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   </section>
 <section class="card pitch-card recommended" style="padding:10px">
     <h2 style="padding:4px 4px 8px">Anbefalt oppstilling
-      <span class="rec-build" title="App build" style="font-size:11px;font-weight:500;opacity:.55;margin-left:6px">build 20260924-ba-hv-softfix</span>
+      <span class="rec-build" title="App build" style="font-size:11px;font-weight:500;opacity:.55;margin-left:6px">build 20260924-fot-tip</span>
       <span class="rec-actions">
         <span class="rec-junior-toggle" role="group" aria-label="Vis juniorer i anbefaling">
           <button type="button" id="btn-rec-no-junior" class="active" aria-pressed="true" title="Kun A-lag — hvem som starter nå">Uten junior</button>
@@ -2249,7 +2249,8 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     } else if (weight === 'light') {
       noteBad = (fotN === 'H' ? 'høyre' : 'venstre') + ' fot — motsatt side av ' + pos + ' (lett)';
     } else {
-      noteBad = 'Fot matcher ikke ' + pos + ' (naturlig fot er ' + prefer + ')';
+      /* Player's actual foot (fotN), NOT role ideal (prefer) — prefer is what the pos wants. */
+      noteBad = 'Fot matcher ikke ' + pos + ' (naturlig fot er ' + fotN + ')';
     }
     var retrain = null;
     if (retrainTo) {
