@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#121814">
 <title>FC Karriere-tropp</title>
-<meta name="app-build" content="20260924-ba-hv-softfix">
+<meta name="app-build" content="20260924-scout-mangler">
 <!-- build: 20260924-ba-hv-softfix — rank-major per-slot; soft never beats clear pot across slots -->
 <style>
 :root {
@@ -4359,8 +4359,8 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
    */
 
   /**
-   * Positions to scout: used in formation, thin/weak in tropp, and no strong YA prospect.
-   * Uses same formation remaps (SOM→SM etc. already reflected in used set).
+   * Positions to scout: used in formation, thin in anbefalt XI (#1/#2), weak tropp, YA.
+   * Must-hunt mirrors anbefalt thin slots (Med/Uten junior). Shared-pool alone is not enough.
    * Speiderplan always outputs exactly 3 oppdrag (Speider 1–3).
    */
 
@@ -4757,7 +4757,49 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     return out;
   }
 
-  function scoreScoutPosition(pos) {
+  /**
+   * Anbefalt XI thin map (same #1/#2 bar as pitch «thin» slots).
+   * Respects Med/Uten junior toggle. Maps VMS/HMS→MS etc. via posDisplayCode.
+   * A role is thin when ANY formation slot of that role lacks r1 or r2 —
+   * catches midtstoppere short after exclusive assign (Vlasic on SDM ≠ MS #2).
+   */
+  function scoutXiThinByPos() {
+    if (scoutXiThinByPos._cache) return scoutXiThinByPos._cache;
+    var map = {};
+    var xi;
+    try {
+      xi = buildRecommendedXI({ includeAcademy: !!recommendIncludeJuniors });
+    } catch (eThin) {
+      scoutXiThinByPos._cache = map;
+      return map;
+    }
+    if (!xi || !xi.formation) {
+      scoutXiThinByPos._cache = map;
+      return map;
+    }
+    xi.formation.slots.forEach(function (slot) {
+      var key = posDisplayCode(slot.pos) || slot.pos;
+      if (!key) return;
+      if (!map[key]) map[key] = { thinSlots: 0, missR1: 0, missR2: 0, slotN: 0 };
+      map[key].slotN++;
+      var e = (xi.result && xi.result[slot.id]) || {};
+      if (!e.r1) {
+        map[key].missR1++;
+        map[key].thinSlots++;
+      } else if (!e.r2) {
+        map[key].missR2++;
+        map[key].thinSlots++;
+      }
+    });
+    scoutXiThinByPos._cache = map;
+    return map;
+  }
+
+  function invalidateScoutXiThinCache() {
+    scoutXiThinByPos._cache = null;
+  }
+
+  function scoreScoutPosition(pos, thinMapOpt) {
     /* Full signed depth (for OVR/pot labels) — not sell-filtered */
     var depthAll = signedDepthForPos(scoutProbeSlot(pos));
     if (!depthAll.length) depthAll = signedDepthForPos(pos);
@@ -4774,39 +4816,49 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       });
     }
     var slots = formationSlotDemand(pos);
-    /* Ideal #1+#2 per slot (MS/VMS/HMS → 4). Soft target only — not must-hunt. */
+    /* Ideal #1+#2 per slot (MS/VMS/HMS → 4). Soft target when XI already fills #1+#2. */
     var needMin = 2 * slots;
     var yaList = academyUsableForPos(pos);
     var yaGood = yaList.filter(function (y) { return y.potHi >= 78; });
-    /* Usable = XI-style tropp (sell-outs out) + YA overlay pool after remaps */
-    var usable = depth.length + yaList.length;
+    /* Med junior: YA counts toward soft usable. Uten junior: tropp only (toggle). */
+    var withJunior = !!recommendIncludeJuniors;
+    var usable = depth.length + (withJunior ? yaList.length : 0);
     var shortfall = Math.max(0, needMin - usable);
     var thinTropp = depth.length < 2;
     var thinSlots = usable < needMin; /* soft under-depth vs ideal 2/slot */
-    /* Must-hunt ONLY when shared depth < 2 — same bar as anbefalt thin (#1/#2).
-       Do NOT force MS just because ideal 4 is unmet when XI already looks fine. */
-    var mustHunt = usable < 2;
+
+    var code = posDisplayCode(normalizePosCode(pos) || pos) || pos;
+    var thinMap = thinMapOpt || scoutXiThinByPos();
+    var xiThin = thinMap[code] || thinMap[pos] || null;
+    /* Must-hunt = same thin bar as anbefalt pitch: any slot of this role lacks #1 or #2.
+       Shared-pool count alone misses this (e.g. 4 MS-qualifiers but VMS without #2
+       because Vlasic is exclusive on SDM). */
+    var xiRoleThin = !!(xiThin && xiThin.thinSlots > 0);
+    var mustHunt = xiRoleThin || usable < 2;
     var weak = depth.length === 0 ||
       (bestOvr < 72 && bestPot < 80) ||
       (bestPot < 76 && bestOvr < 75) ||
       (depth.length === 1 && bestPot < 82 && bestOvr < 78);
 
-    var yaCovered = yaGood.length > 0;
-    var yaStrong = !mustHunt && (
+    /* YA cover/skip only when Med junior — Uten junior ignores akademi for priority */
+    var yaCovered = withJunior && yaGood.length > 0;
+    var yaStrong = withJunior && !mustHunt && (
       yaGood.some(function (y) { return y.potHi >= 82; }) ||
       (yaGood.length >= 2 && yaGood[0].potHi >= 78)
     );
 
     var gap = mustHunt || ((thinTropp || weak) && !yaCovered);
     var severity;
-    if (mustHunt && usable === 0) {
-      severity = 6; /* empty XI-usable tropp+YA for a used formation role */
+    if (mustHunt && xiThin && xiThin.missR1 > 0) {
+      severity = 6; /* mangler #1 on a formation slot of this role */
+    } else if (mustHunt && usable === 0) {
+      severity = 6;
     } else if (mustHunt) {
-      severity = 5; /* < 2 usable — must-hunt */
+      severity = 5; /* mangler #2 / under 2 usable — must-hunt */
     } else if (yaStrong) {
       severity = 0;
     } else if (thinSlots && shortfall >= 2) {
-      severity = 2; /* soft: under ideal 2/slot (e.g. 2–3 MS for 2 CB) — not must-hunt */
+      severity = 2; /* soft: under ideal 2/slot — not must-hunt when XI #1+#2 filled */
     } else if (thinTropp && !yaCovered) {
       severity = 3;
     } else if (weak && !yaCovered) {
@@ -4825,8 +4877,16 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
 
     var why;
     var label = posDisplayCode(pos);
-    if (mustHunt && usable === 0) {
-      why = 'mangler ' + label + ' — 0 brukbare i tropp/akademi (anbefalt XI-dybde)';
+    var juniorBit = withJunior ? ' (med junior)' : ' (uten junior)';
+    if (mustHunt && xiThin && xiThin.missR1 > 0) {
+      why = 'mangler ' + label + ' #1 i anbefalt XI' + juniorBit;
+    } else if (mustHunt && xiRoleThin) {
+      why = 'tynn ' + label + '-dybde i anbefalt XI (mangler #2' +
+        (xiThin.thinSlots > 1 ? ' på ' + xiThin.thinSlots + ' plasser' : '') +
+        juniorBit + ')';
+    } else if (mustHunt && usable === 0) {
+      why = 'mangler ' + label + ' — 0 brukbare i tropp' +
+        (withJunior ? '/akademi' : '') + ' (anbefalt XI-dybde)';
     } else if (mustHunt) {
       why = 'tynn ' + label + '-dybde (' + usable + ' brukbar' + (usable === 1 ? '' : 'e') +
         ' etter anbefalt-regler, trenger minst 2' +
@@ -4836,12 +4896,13 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     } else if (depth.length === 0) {
       why = yaCovered ? 'ingen i tropp (YA dekker delvis)' : 'ingen i tropp eller akademi med bra potensial';
     } else if (thinTropp && !yaCovered) {
-      why = 'mangler dybde / ingen god nok i tropp eller akademi';
+      why = 'mangler dybde / ingen god nok i tropp' + (withJunior ? ' eller akademi' : '');
     } else if (weak && !yaCovered) {
-      why = 'svak dekning (' + bestOvr + '→' + bestPot + '), ingen god YA';
+      why = 'svak dekning (' + bestOvr + '→' + bestPot + ')' +
+        (withJunior ? ', ingen god YA' : '');
     } else if (thinSlots) {
       why = 'dybdeforsikring (' + usable + '/' + needMin +
-        ' mot 2 per plass — anbefalt har dekning, speid valgfritt)';
+        ' mot 2 per plass — anbefalt har #1+#2, speid valgfritt)';
     } else if (depth.length <= 1) {
       why = 'dybdeforsikring (bare ' + depth.length + ' i tropp)';
     } else {
@@ -4855,6 +4916,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       weak: weak,
       gap: gap,
       mustHunt: mustHunt,
+      xiThin: !!xiRoleThin,
       slots: slots,
       needMin: needMin,
       usable: usable,
@@ -4888,8 +4950,10 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   /** Legacy gap list (thin/weak, no YA) — used as base for Speiderplan. */
   function computeScoutNeeds() {
     var needs = [];
+    invalidateScoutXiThinCache();
+    var thinMap = scoutXiThinByPos();
     usedPositionsOrdered().forEach(function (pos) {
-      var s = scoreScoutPosition(pos);
+      var s = scoreScoutPosition(pos, thinMap);
       if (!s.gap) return;
       needs.push(s);
     });
@@ -4905,11 +4969,18 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   function computeScoutPlan() {
     var FALLBACK_ORDER = ['MS', 'S', 'SM', 'VB', 'VV', 'HV', 'SDM', 'HB', 'K', 'SOM', 'VM', 'HM'];
     var usedForm = formationUsedPlayerPositions();
-    var scored = usedPositionsOrdered().map(scoreScoutPosition);
+    invalidateScoutXiThinCache();
+    var thinMap = scoutXiThinByPos();
+    var scored = usedPositionsOrdered().map(function (pos) {
+      return scoreScoutPosition(pos, thinMap);
+    });
     scored.sort(function (a, b) {
-      /* Must-hunt (<2 XI-usable) before soft dybde / backs/wings */
+      /* Must-hunt (anbefalt thin / <2 usable) before soft dybde / backs/wings */
       var ma = a.mustHunt ? 1 : 0, mb = b.mustHunt ? 1 : 0;
       if (mb !== ma) return mb - ma;
+      /* Prefer roles with missing #1, then more thin slots */
+      var xa = (a.xiThin ? 1 : 0), xb = (b.xiThin ? 1 : 0);
+      if (xb !== xa) return xb - xa;
       if (b.shortfall !== a.shortfall) return b.shortfall - a.shortfall;
       return b.severity - a.severity || a.usable - b.usable || a.bestPot - b.bestPot || a.pos.localeCompare(b.pos);
     });
@@ -4936,7 +5007,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       return true;
     }
 
-    /* 1) All must-hunt first (<2 usable — same bar as anbefalt thin) */
+    /* 1) All must-hunt first (anbefalt XI thin #1/#2 — same bar as pitch) */
     candidates.filter(function (s) { return s.mustHunt; }).forEach(function (s) {
       if (picked.length < 3) pushMission(s);
     });
@@ -4956,7 +5027,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     if (picked.length < 3) {
       FALLBACK_ORDER.forEach(function (fp) {
         if (picked.length >= 3) return;
-        var fs = scoreScoutPosition(fp);
+        var fs = scoreScoutPosition(fp, thinMap);
         if (seenPos[fp]) return;
         /* Prefer non-yaStrong; if still short, allow yaStrong as last resort */
         if (fs.yaStrong && picked.length + (FALLBACK_ORDER.length) > 3) {
@@ -4971,7 +5042,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       FALLBACK_ORDER.forEach(function (fp) {
         if (picked.length >= 3) return;
         if (seenPos[fp]) return;
-        var fs = scoreScoutPosition(fp);
+        var fs = scoreScoutPosition(fp, thinMap);
         pushMission(fs, fs.yaStrong
           ? 'speid bredt (YA finnes — hold øye med tak)'
           : 'dybdeforsikring / speid og se');
@@ -5091,7 +5162,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
         (sc.positions || []).forEach(function (p) { usedScoutPos[p] = true; });
       });
       var alt = null;
-      scored.concat(FALLBACK_ORDER.map(scoreScoutPosition)).forEach(function (s) {
+      scored.concat(FALLBACK_ORDER.map(function (fp) { return scoreScoutPosition(fp, thinMap); })).forEach(function (s) {
         if (alt) return;
         if (!s || usedScoutPos[s.pos]) return;
         var rel = relatedPositionsFor(s.pos, 3, usedForm);
@@ -8378,14 +8449,18 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     btnRecNoJunior.addEventListener('click', function () {
       if (!recommendIncludeJuniors) return;
       setRecommendIncludeJuniors(false);
+      invalidateScoutXiThinCache();
       renderRecommendedPitch();
+      renderScoutTips();
     });
   }
   if (btnRecWithJunior) {
     btnRecWithJunior.addEventListener('click', function () {
       if (recommendIncludeJuniors) return;
       setRecommendIncludeJuniors(true);
+      invalidateScoutXiThinCache();
       renderRecommendedPitch();
+      renderScoutTips();
     });
   }
 
