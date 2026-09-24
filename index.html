@@ -250,6 +250,17 @@ label {
 .ocr-status { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.4; min-height: 1.2em; }
 .ocr-status.warn { color: var(--warn); }
 .ocr-status.ok { color: #7ddea0; }
+.ocr-preview-note {
+  font-size: 11px; color: var(--muted); margin: 6px 0 0; line-height: 1.35;
+}
+.ocr-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.ocr-retry-btn {
+  font-size: 13px; font-weight: 650; padding: 8px 12px; border-radius: 10px;
+  border: 1px solid rgba(212,160,84,.4); background: rgba(212,160,84,.12);
+  color: #f0d8a0; cursor: pointer;
+}
+.ocr-retry-btn:disabled { opacity: .45; cursor: default; }
+.ocr-retry-btn[hidden] { display: none !important; }
 
 .sync-status-bar {
   font-size: 12px; color: var(--muted); margin: 0 0 10px; line-height: 1.4;
@@ -834,11 +845,15 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       <button type="button" class="add-mode-btn" id="mode-tropp-image" data-target="tropp" data-mode="image" aria-selected="false">📷 Fra bilde</button>
     </div>
     <div class="ocr-panel" id="ocr-panel-tropp" hidden>
-      <p class="ocr-hint">Best på spillerkort / akademi-skjerm. Sjekk feltene før du legger til.</p>
+      <p class="ocr-hint">Ta <strong>skjermbilde</strong> av spillerkortet med OVR/POT synlig, og beskær tett rundt kortet. Telefonbilde av TV feiler ofte — spill-skjermbilde er best. Bildet forbehandles (kontrast) før lesing. Sjekk feltene før du legger til.</p>
       <button type="button" class="btn-from-image" id="btn-img-tropp">📷 Ta bilde / Velg fra galleri</button>
       <input type="file" id="img-tropp" class="ocr-file" accept="image/*" aria-hidden="true" tabindex="-1">
       <div id="ocr-preview-tropp" class="ocr-preview hidden"></div>
+      <p class="ocr-preview-note" id="ocr-preview-note-tropp" hidden></p>
       <div id="ocr-status-tropp" class="ocr-status" hidden></div>
+      <div class="ocr-actions">
+        <button type="button" class="ocr-retry-btn" id="ocr-retry-tropp" hidden>Prøv igjen med sterkere kontrast</button>
+      </div>
       <div class="ocr-fields-label" id="ocr-fields-label-tropp" hidden>Sjekk / rediger før du legger til</div>
     </div>
     <form id="add-form" class="form-grid add-grid" autocomplete="off" novalidate>
@@ -959,11 +974,15 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         <button type="button" class="add-mode-btn" id="mode-akademi-image" data-target="akademi" data-mode="image" aria-selected="false">📷 Fra bilde</button>
       </div>
       <div class="ocr-panel" id="ocr-panel-akademi" hidden>
-        <p class="ocr-hint">Best på spillerkort / akademi-skjerm. Sjekk feltene før du legger til.</p>
+        <p class="ocr-hint">Ta <strong>skjermbilde</strong> av akademi-/spillerkort med OVR og potensial-område (f.eks. 62–96) synlig. Beskær tett. Telefonbilde av TV er vanskelig — foretrekk in-game screenshot. Sjekk feltene før du legger til.</p>
         <button type="button" class="btn-from-image" id="btn-img-akademi">📷 Ta bilde / Velg fra galleri</button>
         <input type="file" id="img-akademi" class="ocr-file" accept="image/*" aria-hidden="true" tabindex="-1">
         <div id="ocr-preview-akademi" class="ocr-preview hidden"></div>
+        <p class="ocr-preview-note" id="ocr-preview-note-akademi" hidden></p>
         <div id="ocr-status-akademi" class="ocr-status" hidden></div>
+        <div class="ocr-actions">
+          <button type="button" class="ocr-retry-btn" id="ocr-retry-akademi" hidden>Prøv igjen med sterkere kontrast</button>
+        </div>
         <div class="ocr-fields-label" id="ocr-fields-label-akademi" hidden>Sjekk / rediger før du legger til</div>
       </div>
       <form id="akademi-form" class="form-grid add-grid" autocomplete="off" novalidate>
@@ -4468,6 +4487,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   // —— Tesseract OCR (lazy CDN load, 100% in-browser) ——
   var TESSERACT_CDN = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
   var tesseractLoadPromise = null;
+  var ocrLastByTarget = { tropp: null, akademi: null }; // { file, objectUrl, aggressive }
 
   function loadTesseract() {
     if (window.Tesseract) return Promise.resolve(window.Tesseract);
@@ -4508,12 +4528,31 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     if (kind === 'ok') el.classList.add('ok');
   }
 
-  function showOcrPreview(target, objectUrl, spinning) {
+  function setOcrPreviewNote(target, msg) {
+    var el = document.getElementById('ocr-preview-note-' + target);
+    if (!el) return;
+    if (!msg) {
+      el.hidden = true;
+      el.textContent = '';
+      return;
+    }
+    el.hidden = false;
+    el.textContent = msg;
+  }
+
+  function setOcrRetryVisible(target, visible) {
+    var btn = document.getElementById('ocr-retry-' + target);
+    if (!btn) return;
+    btn.hidden = !visible;
+    btn.disabled = false;
+  }
+
+  function showOcrPreview(target, objectUrl, spinning, spinText) {
     var box = document.getElementById('ocr-preview-' + target);
     if (!box) return;
     box.classList.remove('hidden');
     var spin = spinning
-      ? '<div class="ocr-spin">Leser bilde…</div>'
+      ? '<div class="ocr-spin">' + (spinText || 'Leser bilde…') + '</div>'
       : '';
     box.innerHTML = '<img alt="Forhåndsvisning" src="' + objectUrl + '">' + spin;
   }
@@ -4525,39 +4564,207 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     if (spin) spin.remove();
   }
 
+  function updateOcrSpin(target, text) {
+    var box = document.getElementById('ocr-preview-' + target);
+    if (!box) return;
+    var spin = box.querySelector('.ocr-spin');
+    if (spin) spin.textContent = text || 'Leser bilde…';
+  }
+
+  /** Load File/Blob into HTMLImageElement */
+  function loadImageFromBlob(blob) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(blob);
+      var img = new Image();
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        resolve(img);
+      };
+      img.onerror = function () {
+        URL.revokeObjectURL(url);
+        reject(new Error('bilde'));
+      };
+      img.src = url;
+    });
+  }
+
+  /**
+   * Preprocess EA FC screenshots for OCR: scale, grayscale, boost contrast
+   * so yellow/white HUD text on dark UI pops. aggressive = harder threshold.
+   * Returns { blob, width, height, note, processed }.
+   */
+  function preprocessImageForOcr(file, opts) {
+    opts = opts || {};
+    var aggressive = !!opts.aggressive;
+    var maxSide = 1800;
+    var minSide = 720;
+
+    return loadImageFromBlob(file).then(function (img) {
+      var w = img.naturalWidth || img.width;
+      var h = img.naturalHeight || img.height;
+      if (!w || !h) throw new Error('bilde');
+
+      var scale = 1;
+      var longest = Math.max(w, h);
+      var shortest = Math.min(w, h);
+      if (longest > maxSide) scale = maxSide / longest;
+      else if (shortest < minSide && longest < maxSide) {
+        scale = Math.min(minSide / shortest, maxSide / longest);
+      }
+
+      var dw = Math.max(1, Math.round(w * scale));
+      var dh = Math.max(1, Math.round(h * scale));
+      var canvas = document.createElement('canvas');
+      canvas.width = dw;
+      canvas.height = dh;
+      var ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, dw, dh);
+
+      var imageData = ctx.getImageData(0, 0, dw, dh);
+      var d = imageData.data;
+      // Midtone lift + contrast: brighten HUD yellows/whites on dark FC UI
+      var contrast = aggressive ? 1.85 : 1.45;
+      var midLift = aggressive ? 28 : 18;
+      var thresh = aggressive ? 118 : 0; // 0 = soft stretch only
+
+      for (var i = 0; i < d.length; i += 4) {
+        // Luma, bias toward green/yellow channel (EA yellow OVR)
+        var y = 0.25 * d[i] + 0.55 * d[i + 1] + 0.2 * d[i + 2];
+        y = y + midLift;
+        y = (y - 128) * contrast + 128;
+        if (y < 0) y = 0;
+        if (y > 255) y = 255;
+        if (thresh > 0) {
+          y = y >= thresh ? 255 : Math.max(0, Math.round(y * 0.35));
+        }
+        var v = Math.round(y);
+        d[i] = v;
+        d[i + 1] = v;
+        d[i + 2] = v;
+        // alpha unchanged
+      }
+
+      // Light unsharp / edge emphasis (3x3-ish via neighbor sample every N)
+      if (!aggressive) {
+        var copy = new Uint8ClampedArray(d);
+        for (var py = 1; py < dh - 1; py++) {
+          for (var px = 1; px < dw - 1; px++) {
+            var idx = (py * dw + px) * 4;
+            var c = copy[idx];
+            var n =
+              -copy[((py - 1) * dw + px) * 4] +
+              -copy[(py * dw + (px - 1)) * 4] +
+              5 * c +
+              -copy[(py * dw + (px + 1)) * 4] +
+              -copy[((py + 1) * dw + px) * 4];
+            n = Math.max(0, Math.min(255, n));
+            d[idx] = d[idx + 1] = d[idx + 2] = n;
+          }
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+
+      var noteParts = [];
+      if (scale !== 1) {
+        noteParts.push(scale < 1 ? 'nedskalert' : 'oppskalert');
+      }
+      noteParts.push(aggressive ? 'sterk kontrast' : 'kontrastforsterket');
+      var note = 'Forbehandlet bilde (' + noteParts.join(', ') + ') · ' + dw + '\u00d7' + dh;
+
+      return new Promise(function (resolve, reject) {
+        canvas.toBlob(function (blob) {
+          if (!blob) {
+            reject(new Error('canvas'));
+            return;
+          }
+          resolve({
+            blob: blob,
+            width: dw,
+            height: dh,
+            note: note,
+            processed: true,
+            scale: scale,
+            aggressive: aggressive
+          });
+        }, 'image/png');
+      });
+    });
+  }
+
+  function formatPreprocessNote(info) {
+    var parts = [];
+    if (info.scale && info.scale !== 1) {
+      parts.push(info.scale < 1 ? 'nedskalert' : 'oppskalert');
+    }
+    parts.push(info.aggressive ? 'sterk kontrast' : 'kontrastforsterket');
+    return 'Forbehandlet bilde (' + parts.join(', ') + ') · ' + info.width + '\u00d7' + info.height;
+  }
+
   var POS_OCR_TOKENS = [
-    'K', 'VB', 'MS', 'VMS', 'HMS', 'HB', 'SDM', 'SM', 'AM', 'VSM', 'HSM', 'VV', 'S', 'HV', 'VWB', 'HWB',
-    'GK', 'CB', 'LB', 'RB', 'LWB', 'RWB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST', 'CF', 'LF', 'RF', 'MS'
+    'LWB', 'RWB', 'CDM', 'CAM', 'VWB', 'HWB', 'SDM', 'VMS', 'HMS', 'VSM', 'HSM',
+    'GK', 'CB', 'LB', 'RB', 'CM', 'LM', 'RM', 'LW', 'RW', 'ST', 'CF', 'LF', 'RF',
+    'VB', 'MS', 'HB', 'SM', 'AM', 'VV', 'HV', 'K', 'S'
   ];
 
   function parseEaFcOcrText(raw) {
     var text = String(raw || '').replace(/\r/g, '\n');
     var lines = text.split(/\n+/).map(function (l) { return l.trim(); }).filter(Boolean);
-    var flat = text.replace(/\n/g, ' ');
-    var out = { navn: '', rating: null, potensial: null, potMin: null, potMax: null, alder: null, hoyde: null, hoved: '', confidence: 0 };
+    var flat = text.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+    var out = {
+      navn: '', rating: null, potensial: null, potMin: null, potMax: null,
+      alder: null, hoyde: null, hoved: '', confidence: 0, fields: []
+    };
     var hits = 0;
 
-    // Potential range: 62-96 / 62–96 / 62—96 / 62 96 near POT/POTENSIAL
-    var rangeRe = /(?:pot(?:ensial|ential)?|pot\.?)\s*[:\.]?\s*(\d{2})\s*[-–—~]\s*(\d{2})/i;
-    var rangeRe2 = /(\d{2})\s*[-–—]\s*(\d{2})(?!\d)/g;
-    var rm = flat.match(rangeRe);
-    if (rm) {
-      var a = parseInt(rm[1], 10), b = parseInt(rm[2], 10);
+    function claim(field) {
+      if (out.fields.indexOf(field) === -1) out.fields.push(field);
+    }
+
+    // Potential range near POT label: 62-96 / 62–96 / 62 / 96 / 62/96
+    var rangeLabeled = flat.match(
+      /(?:pot(?:ensial|ential)?|pot\.?|potential)\s*[:.]?\s*(\d{2})\s*(?:[-–—~]|\/|\\)\s*(\d{2})/i
+    );
+    // also "62 / 96" with spaces
+    if (!rangeLabeled) {
+      rangeLabeled = flat.match(
+        /(?:pot(?:ensial|ential)?|pot\.?)\s*[:.]?\s*(\d{2})\s*[\/|]\s*(\d{2})/i
+      );
+    }
+    if (rangeLabeled) {
+      var a = parseInt(rangeLabeled[1], 10), b = parseInt(rangeLabeled[2], 10);
       if (a >= 1 && a <= 99 && b >= 1 && b <= 99) {
         out.potMin = Math.min(a, b);
         out.potMax = Math.max(a, b);
         out.potensial = Math.round((out.potMin + out.potMax) / 2);
         hits += 2;
+        claim('pot');
       }
     } else {
+      var rangeRe2 = /(\d{2})\s*[-–—]\s*(\d{2})(?!\d)/g;
       var m2, bestSpan = -1, bestPair = null;
       while ((m2 = rangeRe2.exec(flat))) {
         var x = parseInt(m2[1], 10), y = parseInt(m2[2], 10);
         if (x < 40 || y > 99 || x >= y) continue;
         var span = y - x;
-        if (span >= 5 && span <= 50 && span > bestSpan) {
+        if (span >= 5 && span <= 55 && span > bestSpan) {
           bestSpan = span;
           bestPair = [x, y];
+        }
+      }
+      // slash ranges without label (academy cards often show 62/96)
+      if (!bestPair) {
+        var slashRe = /(\d{2})\s*[\/|]\s*(\d{2})(?!\d)/g;
+        while ((m2 = slashRe.exec(flat))) {
+          var x2 = parseInt(m2[1], 10), y2 = parseInt(m2[2], 10);
+          if (x2 < 40 || y2 > 99 || x2 >= y2) continue;
+          var sp2 = y2 - x2;
+          if (sp2 >= 5 && sp2 <= 55 && sp2 > bestSpan) {
+            bestSpan = sp2;
+            bestPair = [x2, y2];
+          }
         }
       }
       if (bestPair) {
@@ -4565,99 +4772,169 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         out.potMax = bestPair[1];
         out.potensial = Math.round((out.potMin + out.potMax) / 2);
         hits += 2;
+        claim('pot');
       }
     }
 
     // Single potential
     if (out.potensial == null) {
-      var potSingle = flat.match(/(?:pot(?:ensial|ential)?|pot\.?)\s*[:\.]?\s*(\d{2})/i);
+      var potSingle = flat.match(/(?:pot(?:ensial|ential)?|pot\.?)\s*[:.]?\s*(\d{2})\b/i);
       if (potSingle) {
         var pv = parseInt(potSingle[1], 10);
-        if (pv >= 1 && pv <= 99) {
+        if (pv >= 40 && pv <= 99) {
           out.potensial = pv;
           out.potMin = pv;
           out.potMax = pv;
           hits++;
+          claim('pot');
         }
       }
     }
 
-    // Overall / rating
-    var ovr = flat.match(/(?:ovr|overall|rating|rat\.?|o\s*v\s*r)\s*[:\.]?\s*(\d{2})/i);
+    // Overall / rating — labeled first
+    var ovr = flat.match(/(?:ovr|overall|rating|rat\.?|o\s*v\s*r)\s*[:.]?\s*(\d{2})\b/i);
     if (ovr) {
       var ov = parseInt(ovr[1], 10);
-      if (ov >= 1 && ov <= 99) { out.rating = ov; hits++; }
+      if (ov >= 40 && ov <= 99) {
+        out.rating = ov;
+        hits++;
+        claim('ovr');
+      }
     }
     if (out.rating == null) {
-      // big standalone 2-digit near top lines
-      for (var i = 0; i < Math.min(lines.length, 8); i++) {
-        var nm = lines[i].match(/^(?:OVR|RAT)?\s*(\d{2})\s*$/i) || lines[i].match(/\b(\d{2})\b/);
+      for (var i = 0; i < Math.min(lines.length, 12); i++) {
+        var nm = lines[i].match(/^(?:OVR|RAT|OVERALL)?\s*(\d{2})\s*$/i);
+        if (!nm) nm = lines[i].match(/\b(\d{2})\b/);
         if (!nm) continue;
         var n = parseInt(nm[1], 10);
-        if (n >= 45 && n <= 99 && (out.potensial == null || n !== out.potensial) &&
-            (out.potMin == null || n !== out.potMin)) {
+        if (n >= 45 && n <= 99 &&
+            (out.potensial == null || n !== out.potensial) &&
+            (out.potMin == null || n !== out.potMin) &&
+            (out.potMax == null || n !== out.potMax)) {
           out.rating = n;
           hits++;
+          claim('ovr');
           break;
         }
       }
     }
 
     // Age
-    var ageM = flat.match(/(?:alder|age|år)\s*[:\.]?\s*(\d{1,2})/i);
+    var ageM = flat.match(/(?:alder|age|år|yrs?)\s*[:.]?\s*(\d{1,2})\b/i);
     if (ageM) {
       var ag = parseInt(ageM[1], 10);
-      if (ag >= 14 && ag <= 45) { out.alder = ag; hits++; }
+      if (ag >= 14 && ag <= 45) {
+        out.alder = ag;
+        hits++;
+        claim('alder');
+      }
     }
 
-    // Height
-    var hM = flat.match(/(?:høyde|hoyde|height|ht)\s*[:\.]?\s*(\d{3})\s*(?:cm)?/i) ||
-      flat.match(/\b(1[5-9]\d|20\d|210)\s*cm\b/i) ||
-      flat.match(/\b(1[5-9]\d|20[0-9]|210)\b/);
+    // Height cm or feet'inches
+    var hM = flat.match(/(?:høyde|hoyde|height|ht)\s*[:.]?\s*(\d{3})\s*(?:cm)?/i) ||
+      flat.match(/\b(1[5-9]\d|20\d|210)\s*cm\b/i);
     if (hM) {
       var hy = parseInt(hM[1], 10);
-      if (hy >= 150 && hy <= 210) { out.hoyde = hy; hits++; }
+      if (hy >= 150 && hy <= 210) {
+        out.hoyde = hy;
+        hits++;
+        claim('hoyde');
+      }
+    } else {
+      var ft = flat.match(/\b([4-7])\s*[\'′']\s*(\d{1,2})\s*[\"″"]?/);
+      if (ft) {
+        var cm = Math.round((parseInt(ft[1], 10) * 12 + parseInt(ft[2], 10)) * 2.54);
+        if (cm >= 150 && cm <= 210) {
+          out.hoyde = cm;
+          hits++;
+          claim('hoyde');
+        }
+      } else {
+        // bare 3-digit in plausible height range (avoid OVR confusion: heights >= 150)
+        var bareH = flat.match(/\b(1[5-9]\d|20[0-9]|210)\b/);
+        if (bareH) {
+          var hy2 = parseInt(bareH[1], 10);
+          out.hoyde = hy2;
+          hits++;
+          claim('hoyde');
+        }
+      }
     }
 
-    // Position
+    // Position — labeled or token scan (longer tokens first)
     var posFound = '';
-    var posLabel = flat.match(/(?:pos(?:isjon|ition)?|pos\.?)\s*[:\.]?\s*([A-Za-zÆØÅæøå]{1,4})/i);
+    var posLabel = flat.match(
+      /(?:pos(?:isjon|ition)?|pos\.?)\s*[:.]?\s*([A-Za-zÆØÅæøå]{1,4})\b/i
+    );
     if (posLabel) {
       var cand = normalizePosCode(posLabel[1]);
       if (cand && POS_BY_CODE[cand]) posFound = cand;
     }
+    // Norwegian words
     if (!posFound) {
-      for (var pi = 0; pi < POS_OCR_TOKENS.length; pi++) {
-        var tok = POS_OCR_TOKENS[pi];
-        var re = new RegExp('\\b' + tok + '\\b', 'i');
-        if (re.test(flat)) {
-          var nc = normalizePosCode(tok);
-          if (nc && POS_BY_CODE[nc]) { posFound = nc; break; }
+      var noMap = [
+        [/\bmidtstopper\b/i, 'MS'], [/\bkeeper\b/i, 'K'], [/\bmålvakt\b/i, 'K'],
+        [/\bvenstreback\b/i, 'VB'], [/\bhøyreback\b/i, 'HB'], [/\bhoyreback\b/i, 'HB'],
+        [/\bvingback\b/i, 'VWB'], [/\bspiss\b/i, 'S'], [/\bvenstre\s*ving\b/i, 'VV'],
+        [/\bhøyre\s*ving\b/i, 'HV'], [/\bsittende\b/i, 'SDM'], [/\bangripende\b/i, 'AM']
+      ];
+      for (var ni = 0; ni < noMap.length; ni++) {
+        if (noMap[ni][0].test(flat)) {
+          posFound = noMap[ni][1];
+          break;
         }
       }
     }
-    if (posFound) { out.hoved = posFound; hits++; }
+    if (!posFound) {
+      // Case-sensitive first: EA FC shows GK/CB/ST uppercase — avoids matching "cm" as CM
+      for (var pass = 0; pass < 2 && !posFound; pass++) {
+        var flags = pass === 0 ? '' : 'i';
+        for (var pi = 0; pi < POS_OCR_TOKENS.length; pi++) {
+          var tok = POS_OCR_TOKENS[pi];
+          // Skip ambiguous short tokens on case-insensitive pass (cm/kg/st noise)
+          if (pass === 1 && (tok === 'CM' || tok === 'ST' || tok === 'S' || tok === 'K' || tok === 'AM')) continue;
+          var re = new RegExp('\\b' + tok + '\\b', flags);
+          if (re.test(flat)) {
+            var nc = normalizePosCode(tok);
+            if (nc && KARRIERE_POSITIONS.some(function (p) { return p.code === nc; })) {
+              posFound = nc;
+              break;
+            }
+          }
+        }
+      }
+    }
+    if (posFound) {
+      // Extra safety: sided → generic for player attribute
+      posFound = normalizePosCode(posFound);
+      if (KARRIERE_POSITIONS.some(function (p) { return p.code === posFound; })) {
+        out.hoved = posFound;
+        hits++;
+        claim('pos');
+      }
+    }
 
-    // Name: longest title-case / ALL CAPS player-like line
-    var skipWords = /^(OVR|POT|POTENTIAL|POTENSIAL|AGE|ALDER|HEIGHT|HØYDE|HOYDE|POSITION|POSISJON|RAT|OVERALL|CM|KG|FIFA|EA|FC|CAREER|KARRIERE|YOUTH|AKADEMIE|ACADEMY)$/i;
+    // Name: best player-like line near top
+    var skipWords = /^(OVR|POT|POTENTIAL|POTENSIAL|AGE|ALDER|HEIGHT|HØYDE|HOYDE|POSITION|POSISJON|RAT|OVERALL|CM|KG|FIFA|EA|FC|CAREER|KARRIERE|YOUTH|AKADEMIE|ACADEMY|PLAYER|STATS|INFO|CLUB|NATIONALITY|NATION|CONTRACT|WAGE|VALUE|YOUTH PLAYER|PLAYER NAME)$/i;
     var bestName = '';
     var bestScore = 0;
     lines.forEach(function (line, idx) {
       var cleaned = line.replace(/[^A-Za-zÆØÅæøåÄÖäöÜüß\-'\s\.]/g, ' ').replace(/\s+/g, ' ').trim();
-      if (cleaned.length < 3 || cleaned.length > 40) return;
+      if (cleaned.length < 3 || cleaned.length > 42) return;
       if (skipWords.test(cleaned)) return;
+      if (/^(position|posisjon|overall|potential|potensial|age|alder|height|høyde|hoyde|ovr|pot)\b/i.test(cleaned)) return;
       if (/^\d+$/.test(cleaned)) return;
+      if (POS_OCR_TOKENS.some(function (t) { return t.toUpperCase() === cleaned.toUpperCase(); })) return;
       var words = cleaned.split(' ');
       if (words.length > 5) return;
       var letters = cleaned.replace(/[^A-Za-zÆØÅæøå]/g, '');
       if (letters.length < 3) return;
       var titleish = /^[A-ZÆØÅÄÖÜ][A-Za-zÆØÅæøåÄÖäöÜüß'\-\.]+(?:\s+[A-ZÆØÅÄÖÜ][A-Za-zÆØÅæøåÄÖäöÜüß'\-\.]+)*$/.test(cleaned) ||
         /^[A-ZÆØÅÄÖÜ\-'\s]{3,}$/.test(cleaned);
-      var score = letters.length + (titleish ? 20 : 0) + (idx < 6 ? 8 : 0) - (words.length > 3 ? 5 : 0);
+      var score = letters.length + (titleish ? 20 : 0) + (idx < 8 ? 10 - idx : 0) - (words.length > 3 ? 5 : 0);
       if (score > bestScore) {
         bestScore = score;
         bestName = cleaned.replace(/\s+/g, ' ');
-        // Title-case ALL CAPS names lightly
         if (/^[A-ZÆØÅÄÖÜ\-'\s]+$/.test(bestName) && bestName.length > 3) {
           bestName = bestName.toLowerCase().replace(/(^|[\s\-'])([a-zæøåäöü])/g, function (_, a, b) {
             return a + b.toUpperCase();
@@ -4665,10 +4942,29 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         }
       }
     });
-    if (bestName) { out.navn = bestName; hits++; }
+    if (bestName) {
+      out.navn = bestName;
+      hits++;
+      claim('navn');
+    }
 
     out.confidence = hits;
     return out;
+  }
+
+  function describeOcrParse(parsed) {
+    var bits = [];
+    if (parsed.navn) bits.push(parsed.navn);
+    if (parsed.rating != null) bits.push('OVR ' + parsed.rating);
+    if (parsed.potMin != null && parsed.potMax != null && parsed.potMin !== parsed.potMax) {
+      bits.push('POT ' + parsed.potMin + '\u2013' + parsed.potMax);
+    } else if (parsed.potensial != null) {
+      bits.push('POT ' + parsed.potensial);
+    }
+    if (parsed.alder != null) bits.push('alder ' + parsed.alder);
+    if (parsed.hoyde != null) bits.push(parsed.hoyde + ' cm');
+    if (parsed.hoved) bits.push(parsed.hoved);
+    return bits;
   }
 
   function fillTroppFormFromOcr(parsed) {
@@ -4678,10 +4974,13 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     if (parsed.alder != null) document.getElementById('f-alder').value = parsed.alder;
     if (parsed.hoyde != null) document.getElementById('f-hoyde').value = parsed.hoyde;
     if (parsed.hoved) {
-      var sel = document.getElementById('f-hoved');
-      ensurePosOption(sel, parsed.hoved);
-      sel.value = parsed.hoved;
-      syncEkstraDisable(document.getElementById('f-ekstra'), parsed.hoved);
+      var hoved = normalizePosCode(parsed.hoved);
+      if (KARRIERE_POSITIONS.some(function (p) { return p.code === hoved; })) {
+        var sel = document.getElementById('f-hoved');
+        ensurePosOption(sel, hoved);
+        sel.value = hoved;
+        syncEkstraDisable(document.getElementById('f-ekstra'), hoved);
+      }
     }
   }
 
@@ -4695,55 +4994,192 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     if (parsed.alder != null) document.getElementById('a-alder').value = parsed.alder;
     if (parsed.hoyde != null) document.getElementById('a-hoyde').value = parsed.hoyde;
     if (parsed.hoved) {
-      var sel = document.getElementById('a-hoved');
-      ensurePosOption(sel, parsed.hoved);
-      sel.value = parsed.hoved;
+      var hoved = normalizePosCode(parsed.hoved);
+      if (KARRIERE_POSITIONS.some(function (p) { return p.code === hoved; })) {
+        var sel = document.getElementById('a-hoved');
+        ensurePosOption(sel, hoved);
+        sel.value = hoved;
+      }
     }
   }
 
-  function runOcrOnFile(target, file) {
-    if (!file || !file.type || file.type.indexOf('image/') !== 0) {
-      setOcrStatus(target, 'Velg et bilde (jpg/png).', 'warn');
-      return;
+  function mergeOcrParses(a, b) {
+    // Prefer higher confidence; fill missing fields from the other
+    var primary = (a.confidence >= b.confidence) ? a : b;
+    var secondary = (primary === a) ? b : a;
+    var out = {
+      navn: primary.navn || secondary.navn || '',
+      rating: primary.rating != null ? primary.rating : secondary.rating,
+      potensial: primary.potensial != null ? primary.potensial : secondary.potensial,
+      potMin: primary.potMin != null ? primary.potMin : secondary.potMin,
+      potMax: primary.potMax != null ? primary.potMax : secondary.potMax,
+      alder: primary.alder != null ? primary.alder : secondary.alder,
+      hoyde: primary.hoyde != null ? primary.hoyde : secondary.hoyde,
+      hoved: primary.hoved || secondary.hoved || '',
+      confidence: 0,
+      fields: []
+    };
+    // Recompute confidence / fields
+    if (out.navn) { out.confidence++; out.fields.push('navn'); }
+    if (out.rating != null) { out.confidence++; out.fields.push('ovr'); }
+    if (out.potensial != null || out.potMin != null) {
+      out.confidence += (out.potMin != null && out.potMax != null && out.potMin !== out.potMax) ? 2 : 1;
+      out.fields.push('pot');
     }
-    var url = URL.createObjectURL(file);
-    showOcrPreview(target, url, true);
-    setOcrStatus(target, 'Leser bilde…', null);
-    var label = document.getElementById('ocr-fields-label-' + target);
-    if (label) label.hidden = false;
+    if (out.alder != null) { out.confidence++; out.fields.push('alder'); }
+    if (out.hoyde != null) { out.confidence++; out.fields.push('hoyde'); }
+    if (out.hoved) { out.confidence++; out.fields.push('pos'); }
+    return out;
+  }
 
-    loadTesseract().then(function (Tesseract) {
-      return Tesseract.recognize(file, 'eng', {
-        logger: function () {}
-      });
-    }).then(function (result) {
-      clearOcrPreviewSpin(target);
+  function recognizeWithPsm(Tesseract, imageSource, psm, whitelist) {
+    var opts = {
+      logger: function () {},
+      tessedit_pageseg_mode: String(psm)
+    };
+    if (whitelist) {
+      opts.tessedit_char_whitelist = whitelist;
+    }
+    return Tesseract.recognize(imageSource, 'eng', opts).then(function (result) {
       var text = (result && result.data && result.data.text) || '';
       var conf = result && result.data && typeof result.data.confidence === 'number'
         ? result.data.confidence : 0;
-      var parsed = parseEaFcOcrText(text);
-      var weak = parsed.confidence < 2 || conf < 35 || !text.trim();
+      return { text: text, conf: conf, parsed: parseEaFcOcrText(text) };
+    });
+  }
+
+  function runOcrOnFile(target, file, options) {
+    options = options || {};
+    var aggressive = !!options.aggressive;
+    if (!file || !file.type || file.type.indexOf('image/') !== 0) {
+      setOcrStatus(target, 'Velg et bilde (jpg/png/webp).', 'warn');
+      return;
+    }
+
+    // Revoke previous object URL
+    if (ocrLastByTarget[target] && ocrLastByTarget[target].objectUrl) {
+      try { URL.revokeObjectURL(ocrLastByTarget[target].objectUrl); } catch (e) {}
+    }
+
+    var previewUrl = URL.createObjectURL(file);
+    ocrLastByTarget[target] = { file: file, objectUrl: previewUrl, aggressive: aggressive };
+    showOcrPreview(target, previewUrl, true, 'Forbehandler bilde…');
+    setOcrPreviewNote(target, '');
+    setOcrStatus(target, 'Forbehandler bilde for bedre lesing…', null);
+    setOcrRetryVisible(target, false);
+    var label = document.getElementById('ocr-fields-label-' + target);
+    if (label) label.hidden = false;
+    var retryBtn = document.getElementById('ocr-retry-' + target);
+    if (retryBtn) retryBtn.disabled = true;
+
+    var processedInfo = null;
+    var ocrSource = file;
+
+    preprocessImageForOcr(file, { aggressive: aggressive }).then(function (info) {
+      processedInfo = info;
+      ocrSource = info.blob;
+      // Prefer showing processed preview so user sees what OCR sees
+      var procUrl = URL.createObjectURL(info.blob);
+      if (ocrLastByTarget[target].objectUrl) {
+        try { URL.revokeObjectURL(ocrLastByTarget[target].objectUrl); } catch (e2) {}
+      }
+      ocrLastByTarget[target].objectUrl = procUrl;
+      ocrLastByTarget[target].processed = info;
+      showOcrPreview(target, procUrl, true, 'Leser tekst (0 %)…');
+      setOcrPreviewNote(target, formatPreprocessNote(info));
+      setOcrStatus(target, 'Leser tekst…', null);
+      return loadTesseract();
+    }).then(function (Tesseract) {
+      var lastPct = -1;
+      function onProgress(m) {
+        if (!m || m.status !== 'recognizing text') return;
+        var pct = Math.round((m.progress || 0) * 100);
+        if (pct === lastPct) return;
+        lastPct = pct;
+        updateOcrSpin(target, 'Leser tekst (' + pct + ' %)…');
+        setOcrStatus(target, 'Leser tekst (' + pct + ' %)…', null);
+      }
+
+      // Pass 1: PSM 6 (block of text) — good for player cards
+      return Tesseract.recognize(ocrSource, 'eng', {
+        logger: onProgress,
+        tessedit_pageseg_mode: '6'
+      }).then(function (r1) {
+        var text1 = (r1 && r1.data && r1.data.text) || '';
+        var conf1 = r1 && r1.data && typeof r1.data.confidence === 'number' ? r1.data.confidence : 0;
+        var parsed1 = parseEaFcOcrText(text1);
+        updateOcrSpin(target, 'Andre pass (sparse UI)…');
+        setOcrStatus(target, 'Andre pass for UI-tekst…', null);
+
+        // Pass 2: PSM 11 sparse + optional whitelist for numbers/positions
+        var wl = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÆØÅæøå -–—:./\'|′″';
+        return Tesseract.recognize(ocrSource, 'eng', {
+          logger: function () {},
+          tessedit_pageseg_mode: '11',
+          tessedit_char_whitelist: wl
+        }).then(function (r2) {
+          var text2 = (r2 && r2.data && r2.data.text) || '';
+          var conf2 = r2 && r2.data && typeof r2.data.confidence === 'number' ? r2.data.confidence : 0;
+          var parsed2 = parseEaFcOcrText(text2);
+          var merged = mergeOcrParses(parsed1, parsed2);
+          // Also merge raw texts for one more parse (catches split labels)
+          var combined = parseEaFcOcrText(text1 + '\n' + text2);
+          merged = mergeOcrParses(merged, combined);
+          return {
+            parsed: merged,
+            conf: Math.max(conf1, conf2),
+            text: (text1 + '\n' + text2).trim(),
+            pass1Hits: parsed1.confidence,
+            pass2Hits: parsed2.confidence
+          };
+        }, function () {
+          // Second pass failed — use first
+          return { parsed: parsed1, conf: conf1, text: text1, pass1Hits: parsed1.confidence, pass2Hits: 0 };
+        });
+      });
+    }).then(function (result) {
+      clearOcrPreviewSpin(target);
+      if (retryBtn) retryBtn.disabled = false;
+      var parsed = result.parsed;
+      var conf = result.conf;
+      var weak = parsed.confidence < 2 || (!result.text) || (conf < 30 && parsed.confidence < 3);
+
       if (target === 'tropp') fillTroppFormFromOcr(parsed);
       else fillAkademiFormFromOcr(parsed);
-      if (weak) {
-        setOcrStatus(target, 'Usikker lesing — sjekk/fyll feltene manuelt.', 'warn');
-        flashMsg('Kunne ikke lese alt fra bildet — fyll inn resten', 'warn');
+
+      var bits = describeOcrParse(parsed);
+      setOcrRetryVisible(target, true);
+
+      if (parsed.confidence === 0 || (weak && bits.length === 0)) {
+        setOcrStatus(
+          target,
+          'Fant nesten ingenting — prøv nærmere bilde av spillerkortet / zoom inn på OVR og POT. Bruk «sterkere kontrast» eller et in-game skjermbilde (ikke foto av TV).',
+          'warn'
+        );
+        flashMsg('Kunne ikke lese spillerinfo — prøv beskåret skjermbilde', 'warn');
+      } else if (weak) {
+        setOcrStatus(
+          target,
+          'Fant delvis: ' + bits.join(' · ') + '. Sjekk/fyll resten manuelt — eller prøv sterkere kontrast.',
+          'warn'
+        );
+        flashMsg('Usikker lesing — sjekk feltene', 'warn');
       } else {
-        var bits = [];
-        if (parsed.navn) bits.push(parsed.navn);
-        if (parsed.rating != null) bits.push('OVR ' + parsed.rating);
-        if (parsed.potMin != null && parsed.potMax != null && parsed.potMin !== parsed.potMax) {
-          bits.push('pot ' + parsed.potMin + '\u2013' + parsed.potMax);
-        } else if (parsed.potensial != null) {
-          bits.push('pot ' + parsed.potensial);
-        }
-        setOcrStatus(target, 'Fylt inn: ' + (bits.join(' · ') || 'delvis') + '. Sjekk før du legger til.', 'ok');
+        setOcrStatus(
+          target,
+          'Fant: ' + bits.join(' · ') + '. Sjekk før du legger til.',
+          'ok'
+        );
       }
     }).catch(function (err) {
       clearOcrPreviewSpin(target);
+      if (retryBtn) retryBtn.disabled = false;
+      setOcrRetryVisible(target, !!(ocrLastByTarget[target] && ocrLastByTarget[target].file));
       var msg = (err && err.message === 'cdn')
         ? 'Kunne ikke laste bilde-lesing (nett trengs første gang)'
-        : 'Kunne ikke lese bildet — fyll inn manuelt.';
+        : (err && err.message === 'bilde')
+          ? 'Kunne ikke åpne bildet'
+          : 'Kunne ikke lese bildet — fyll inn manuelt.';
       setOcrStatus(target, msg, 'warn');
       flashMsg(msg, 'warn');
     });
@@ -4760,8 +5196,19 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     });
     input.addEventListener('change', function () {
       var f = input.files && input.files[0];
-      if (f) runOcrOnFile(target, f);
+      if (f) runOcrOnFile(target, f, { aggressive: false });
     });
+    var retry = document.getElementById('ocr-retry-' + target);
+    if (retry) {
+      retry.addEventListener('click', function () {
+        var last = ocrLastByTarget[target];
+        if (!last || !last.file) {
+          setOcrStatus(target, 'Velg et bilde først.', 'warn');
+          return;
+        }
+        runOcrOnFile(target, last.file, { aggressive: true });
+      });
+    }
   }
 
   wireImageAdd('tropp', 'btn-img-tropp', 'img-tropp');
