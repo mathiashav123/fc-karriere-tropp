@@ -973,6 +973,10 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 .badge-fot.v { background:rgba(120,180,120,.18); color:#b7e0b7; border-color:rgba(120,180,120,.3); }
 .badge-fot.h { background:rgba(180,140,255,.18); color:#d4c4f0; border-color:rgba(180,140,255,.3); }
 .badge-fot.b { background:rgba(212,180,106,.18); color:#e8d4a0; border-color:rgba(212,180,106,.3); }
+.badge-miss { display:inline-block; margin-left:4px; padding:1px 6px; border-radius:4px;
+  font-size:10px; font-weight:600; letter-spacing:.01em;
+  background:rgba(212,160,84,.14); color:#e8c48a; border:1px solid rgba(212,160,84,.32); }
+.badge-miss[title] { cursor: help; }
 </style>
 </head>
 <body>
@@ -1814,11 +1818,12 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   }
 
   /**
-   * Soft preferred-foot fit for a formation/player pos.
-   * Inverted wings: VV prefers H, HV prefers V (cut inside).
-   * Fullbacks/wingbacks: VB/VWB prefer V, HB/HWB prefer H.
-   * Returns { score: -1..+1, note: string|null }. Missing fot → neutral 0.
-   * Never a hard gate — caller must keep need/OVR/pot/hoved dominant.
+   * Preferred-foot fit for a formation/player pos.
+   * Wings (VV/HV, VM/HM): inverted meta — VV prefer H, HV prefer V (strong).
+   * Backs (VB/HB, VWB/HWB): natural side — left foot left, right foot right (strong).
+   * Sided SM/MS slots (VSM/HSM, VMS/HMS): natural side, light weight only.
+   * Central SM/SOM/MS: near-neutral (begge = tiny plus).
+   * Returns { score, note, weight: strong|light|none, retrain }. Missing fot → 0.
    */
   function footFitForPos(fot, posCode) {
     var fotN = normalizeFot(fot);
@@ -1830,12 +1835,14 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     if (pos === 'RW' || pos === 'RF') pos = 'HV';
     if (pos === 'LM') pos = 'VM';
     if (pos === 'RM') pos = 'HM';
-    if (pos === 'CB' || pos === 'VMS' || pos === 'HMS') pos = 'MS';
     if (pos === 'CDM') pos = 'SDM';
     if (pos === 'CM') pos = 'SM';
     if (pos === 'CAM' || pos === 'AM') pos = 'SOM';
     if (pos === 'ST' || pos === 'CF') pos = 'S';
     if (pos === 'GK') pos = 'K';
+    /* Keep VMS/HMS/VSM/HSM as sided codes for light natural-foot preference.
+       Plain CB → central MS (no side). */
+    if (pos === 'CB') pos = 'MS';
 
     /* Zero foot factor */
     if (pos === 'S' || pos === 'K' || pos === 'SDM') {
@@ -1848,38 +1855,51 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     var retrainTo = null;
 
     if (pos === 'VV' || pos === 'VM') {
-      prefer = 'H'; weight = (pos === 'VV') ? 'strong' : 'strong'; kind = 'inverted';
+      /* Inverted wings / wide mids — cut inside */
+      prefer = 'H'; weight = 'strong'; kind = 'inverted';
       if (fotN === 'V') retrainTo = 'HV';
     } else if (pos === 'HV' || pos === 'HM') {
-      prefer = 'V'; weight = (pos === 'HV') ? 'strong' : 'strong'; kind = 'inverted';
+      prefer = 'V'; weight = 'strong'; kind = 'inverted';
       if (fotN === 'H') retrainTo = 'VV';
     } else if (pos === 'VB' || pos === 'VWB') {
+      /* Backs: natural foot on that side — high priority */
       prefer = 'V'; weight = 'strong'; kind = 'natural';
       if (fotN === 'H') retrainTo = (pos === 'VWB') ? 'HWB' : 'HB';
     } else if (pos === 'HB' || pos === 'HWB') {
       prefer = 'H'; weight = 'strong'; kind = 'natural';
       if (fotN === 'V') retrainTo = (pos === 'HWB') ? 'VWB' : 'VB';
+    } else if (pos === 'VMS' || pos === 'VSM') {
+      /* Left-sided MS/SM: soft natural-side preference */
+      prefer = 'V'; weight = 'light'; kind = 'natural';
+    } else if (pos === 'HMS' || pos === 'HSM') {
+      prefer = 'H'; weight = 'light'; kind = 'natural';
     } else if (pos === 'SM' || pos === 'SOM' || pos === 'MS') {
-      /* weak/light note only — no real side preference */
+      /* Central mid / CB: near-neutral; begge slightly nice */
       weight = 'light';
       kind = 'light';
       prefer = null;
     }
 
-    if (weight === 'light') {
-      /* Tiny optional note; no scoring swing for SM/MS/SOM */
+    if (weight === 'light' && !prefer) {
       var lightNote = null;
-      if (fotN === 'B') lightNote = 'begge føtter — lite utslag på ' + pos;
-      return { score: 0, note: lightNote, weight: 'light', retrain: null };
+      var lightScore = 0;
+      if (fotN === 'B') {
+        lightScore = 0.25;
+        lightNote = 'begge føtter — lite utslag på ' + pos;
+      }
+      return { score: lightScore, note: lightNote, weight: 'light', retrain: null };
     }
 
     if (!prefer) return { score: 0, note: null, weight: 'none', retrain: null };
 
-    var boost = 1.2;   /* strong match */
-    var penalty = -0.9; /* strong mismatch — meaningful in XI/best-pos */
+    /* Magnitudes: strong for backs/wings; light for sided SM/MS */
+    var boost = (weight === 'light') ? 0.45 : 1.2;
+    var penalty = (weight === 'light') ? -0.35 : -0.9;
+    var bothScore = (weight === 'light') ? 0.3 : 0.55;
+
     if (fotN === 'B') {
       return {
-        score: 0.55,
+        score: bothScore,
         note: 'begge føtter passer ' + pos,
         weight: weight,
         retrain: null
@@ -1889,8 +1909,10 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       var noteOk;
       if (kind === 'inverted') {
         noteOk = (fotN === 'V' ? 'venstre' : 'høyre') + ' fot — bra for å kutte inn som ' + pos;
+      } else if (weight === 'light') {
+        noteOk = (fotN === 'V' ? 'venstre' : 'høyre') + ' fot — naturlig side for ' + pos;
       } else {
-        noteOk = pos + ' passer foten';
+        noteOk = pos + ' passer foten (naturlig side)';
       }
       return { score: boost, note: noteOk, weight: weight, retrain: null };
     }
@@ -1899,32 +1921,65 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     if (kind === 'inverted') {
       noteBad = (fotN === 'H' ? 'høyre' : 'venstre') + ' fot på ' + pos +
         ' — bedre å kutte inn fra motsatt kant';
+    } else if (weight === 'light') {
+      noteBad = (fotN === 'H' ? 'høyre' : 'venstre') + ' fot — motsatt side av ' + pos + ' (lett)';
     } else {
       noteBad = 'Fot matcher ikke ' + pos + ' (naturlig fot er ' + prefer + ')';
     }
     var retrain = null;
     if (retrainTo) {
       if (kind === 'inverted') {
-        retrain = 'Tren til ' + retrainTo + ' (' +
-          (fotN === 'V' ? 'venstre' : 'høyre') + ' fot — kutte inn)';
+        retrain = 'Utvikle/tren ' + retrainTo + ' (' +
+          (fotN === 'V' ? 'venstre' : 'høyre') + ' fot — kutte inn fra motsatt kant)';
       } else {
-        retrain = 'Tren til ' + retrainTo + ' (naturlig fot)';
+        /* Backs: right-footed VB → Utvikle/tren HB, etc. */
+        retrain = 'Utvikle/tren ' + retrainTo + ' (naturlig ' +
+          (fotN === 'V' ? 'venstre' : 'høyre') + ' fot på den siden)';
       }
     }
     return { score: penalty, note: noteBad, weight: weight, retrain: retrain };
   }
 
-  /** Soft score delta for recommended XI / best-pos (wings+backs meaningful). */
+  /**
+   * Score delta for XI / best-pos.
+   * strong (wings+backs): full ±; light (sided SM/MS): included at face value
+   * so callers can scale — central light with prefer=null stays tiny.
+   */
   function footScoreDelta(fot, posCode) {
     var f = footFitForPos(fot, posCode);
-    if (!f || f.weight === 'none' || f.weight === 'light') return 0;
-    return f.score; /* ~ -0.9 .. +1.2 */
+    if (!f || f.weight === 'none') return 0;
+    return f.score; /* strong ~ -0.9..+1.2; light ~ -0.35..+0.45 */
   }
 
+  /** Role class for XI foot scaling: back | wing | mid | none */
+  function footRoleClass(posCode) {
+    var pos = normalizePosCode(posCode) || String(posCode || '').toUpperCase();
+    if (pos === 'LB' || pos === 'LWB') pos = pos.indexOf('W') >= 0 ? 'VWB' : 'VB';
+    if (pos === 'RB' || pos === 'RWB') pos = pos.indexOf('W') >= 0 ? 'HWB' : 'HB';
+    if (pos === 'LW' || pos === 'LF') pos = 'VV';
+    if (pos === 'RW' || pos === 'RF') pos = 'HV';
+    if (pos === 'LM') pos = 'VM';
+    if (pos === 'RM') pos = 'HM';
+    if (pos === 'VB' || pos === 'HB' || pos === 'VWB' || pos === 'HWB') return 'back';
+    if (pos === 'VV' || pos === 'HV' || pos === 'VM' || pos === 'HM') return 'wing';
+    if (pos === 'VSM' || pos === 'HSM' || pos === 'VMS' || pos === 'HMS' ||
+        pos === 'SM' || pos === 'SOM' || pos === 'MS' || pos === 'CM' || pos === 'CAM' || pos === 'AM') {
+      return 'mid';
+    }
+    return 'none';
+  }
+
+  /**
+   * Tip only (never moves manual XI): if hoved is a wing/back with wrong preferred
+   * foot, recommend developing the natural/inverted other side.
+   * e.g. right-footed VB → «Utvikle/tren HB»; left-footed VV → «Utvikle/tren HV».
+   */
   function footRetrainTip(player) {
     if (!player || !player.fot || !player.hoved) return null;
-    var f = footFitForPos(player.fot, player.hoved);
-    return (f && f.retrain) ? f.retrain : null;
+    var hoved = normalizePosCode(player.hoved) || player.hoved;
+    var f = footFitForPos(player.fot, hoved);
+    if (!f || !f.retrain || f.weight !== 'strong') return null;
+    return f.retrain;
   }
 
   function footBadgeHtml(fot) {
@@ -1933,6 +1988,34 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     var cls = f === 'V' ? 'v' : (f === 'H' ? 'h' : 'b');
     var title = f === 'V' ? 'Venstre fot' : (f === 'H' ? 'Høyre fot' : 'Begge føtter');
     return ' <span class="badge-fot ' + cls + '" title="' + title + '">' + f + '</span>';
+  }
+
+  /**
+   * Light non-blocking ups when useful meta is blank (fot for XI/tips; høyde for akademi-tips).
+   * Returns short badge HTML like «Mangler fot».
+   */
+  function missingInfoBadges(player) {
+    if (!player) return '';
+    var bits = [];
+    if (!normalizeFot(player.fot)) {
+      bits.push('<span class="badge-miss" title="Sett preferert fot (V/H/B) — brukes i anbefalt oppstilling og tips">Mangler fot</span>');
+    }
+    if (player.hoyde == null || player.hoyde === '') {
+      bits.push('<span class="badge-miss" title="Valgfritt, men brukes i akademi-/posisjonstips">Mangler høyde</span>');
+    }
+    if (player.alder == null || player.alder === '') {
+      bits.push('<span class="badge-miss" title="Alder hjelper når spillere er jevne (yngre prioriteres)">Mangler alder</span>');
+    }
+    return bits.length ? (' ' + bits.join(' ')) : '';
+  }
+
+  function missingInfoLabels(player) {
+    if (!player) return [];
+    var out = [];
+    if (!normalizeFot(player.fot)) out.push('fot');
+    if (player.hoyde == null || player.hoyde === '') out.push('høyde');
+    if (player.alder == null || player.alder === '') out.push('alder');
+    return out;
   }
 
 
@@ -2292,66 +2375,210 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   }
 
   /**
-   * Recommendation ranking: weigh potensial more, soft-prefer younger when close.
-   * Used for «Anbefalt oppstilling» only — does not touch manual slots.
+   * Anbefalt oppstilling ability score.
+   * r1 (starters): current OVR primary; pot is a strong secondary (growth * 0.35).
+   * r2/r3 (bench/depth): pot weighs more — future cover & projects.
+   * Example: 55/95 → 69; 70/89 → 76.65 → 70 OVR starts.
    */
-  function comparePlayersRecommend(a, b) {
-    var scoreA = (a.potensial || 0) * 2 + (a.rating || 0);
-    var scoreB = (b.potensial || 0) * 2 + (b.rating || 0);
-    if (Math.abs(scoreA - scoreB) <= 5) {
+  function xiAbilityScore(player, rank) {
+    var ovr = player.rating || 0;
+    var pot = player.potensial != null ? player.potensial : ovr;
+    var growth = pot - ovr;
+    if (rank === 'r1') return ovr + 0.35 * growth;
+    if (rank === 'r2') return ovr + 0.55 * growth + pot * 0.08;
+    return ovr * 0.55 + pot * 0.7;
+  }
+
+  /**
+   * Foot weight for anbefalt XI by rank + role.
+   * Backs: near top after OVR floor (natural side).
+   * Wings: strong inverted meta (stop parking best HV on VV).
+   * SM / sided mid: light — OVR/pot/need still win when filling XI.
+   */
+  function xiFootWeight(rank, posCode) {
+    var role = footRoleClass(posCode);
+    var base;
+    if (rank === 'r1') base = 12;
+    else if (rank === 'r2') base = 9;
+    else base = 6;
+    if (role === 'back') return base + 2;   /* r1 ≈ 14 — high after OVR floor */
+    if (role === 'wing') return base;      /* r1 ≈ 12 — strong inverted */
+    if (role === 'mid') return rank === 'r1' ? 3 : 2; /* light side preference */
+    return 0;
+  }
+
+  /**
+   * Among formation slots this player qualifies for (hoved+ekstra + SOM→SM etc.),
+   * return best foot-fit score. Used to penalize parking them on a worse-foot side.
+   */
+  function playerBestFootFitInFormation(player, formation) {
+    var usedSet = formationUsedPlayerPositions();
+    var raws = playerPositions(player);
+    if (!raws.length) raws = [normalizePosCode(player.hoved) || 'SM'];
+    var best = null;
+    var i, j, raw, eff, pos, fit, slot;
+    for (i = 0; i < raws.length; i++) {
+      raw = normalizePosCode(raws[i]) || raws[i];
+      if (!raw) continue;
+      eff = academyEffectivePos(raw, usedSet);
+      pos = eff.effective;
+      for (j = 0; j < formation.slots.length; j++) {
+        slot = formation.slots[j];
+        if (!qualifies(player, slot.pos)) continue;
+        /* Also accept if effective remapped role matches this slot's player-facing pos. */
+        fit = footScoreDelta(player.fot, slot.pos);
+        if (best == null || fit > best) best = fit;
+      }
+    }
+    if (best == null) best = 0;
+    return best;
+  }
+
+  /**
+   * Slot score for anbefalt: ability + foot + don't-park-on-wrong-side.
+   * Large OVR gaps on r1 dominate pot (handled in compareRecommendPair).
+   */
+  function recommendSlotScore(player, posCode, rank, formation) {
+    var ability = xiAbilityScore(player, rank);
+    var foot = footScoreDelta(player.fot, posCode);
+    var fw = xiFootWeight(rank, posCode);
+    var score = ability + foot * fw;
+    var bestFoot = playerBestFootFitInFormation(player, formation);
+    var role = footRoleClass(posCode);
+    /* Don't park a natural/best HV on VV (or wrong-side back) just to fill a hole. */
+    if (bestFoot - foot >= 0.8 && (role === 'wing' || role === 'back')) {
+      score -= (rank === 'r1' ? 14 : (rank === 'r2' ? 10 : 6));
+    }
+    /* Mild hoved preference (after remaps SOM→SM etc.) when they qualify here. */
+    var hoved = normalizePosCode(player.hoved);
+    if (hoved) {
+      var usedSet = formationUsedPlayerPositions();
+      var effH = academyEffectivePos(hoved, usedSet);
+      var aliases = SLOT_ALIASES[posCode] || [posCode];
+      var i;
+      for (i = 0; i < aliases.length; i++) {
+        if (aliases[i] === effH.effective || aliases[i] === hoved) {
+          score += 1.5;
+          break;
+        }
+      }
+    }
+    return score;
+  }
+
+  /**
+   * Pairwise compare for same slot. Hard rule on r1: OVR gap ≥ 8 → higher OVR
+   * wins regardless of pot (still allow foot to matter via precomputed scores
+   * only when OVR is close). When OVR within ~5 and pot within ~4, prefer younger + pot.
+   */
+  function compareRecommendPair(a, b, posCode, rank, formation) {
+    var ovrA = a.rating || 0;
+    var ovrB = b.rating || 0;
+    var potA = a.potensial != null ? a.potensial : ovrA;
+    var potB = b.potensial != null ? b.potensial : ovrB;
+    var ovrGap = ovrA - ovrB;
+    var potGap = potA - potB;
+
+    if (rank === 'r1' && Math.abs(ovrGap) >= 8) {
+      /* OVR floor: large current-ability gap → higher OVR starts (win matches).
+         Foot/pot cannot overturn ≥8 OVR (backs/wings included). */
+      if (ovrGap !== 0) return ovrGap > 0 ? -1 : 1;
+    }
+
+    var scoreA = recommendSlotScore(a, posCode, rank, formation);
+    var scoreB = recommendSlotScore(b, posCode, rank, formation);
+
+    /* Close on ability+foot: prefer younger with higher pot. */
+    var closeOvr = Math.abs(ovrGap) <= 5;
+    var closePot = Math.abs(potGap) <= 4;
+    var closeScore = Math.abs(scoreA - scoreB) <= 3.5;
+    if (closeScore || (closeOvr && closePot)) {
       var aa = a.alder != null ? a.alder : 99;
       var ba = b.alder != null ? b.alder : 99;
-      if (aa !== ba) return aa - ba;
+      if (aa !== ba && Math.abs(aa - ba) >= 1) {
+        /* Younger wins when litt jevne — especially with equal/higher pot. */
+        if (potGap >= -2 && aa < ba) return -1;
+        if (potGap <= 2 && ba < aa) return 1;
+        if (closeOvr && closePot && aa !== ba) return aa - ba;
+      }
+      if (potGap !== 0 && Math.abs(scoreA - scoreB) <= 2.5) {
+        return potGap > 0 ? -1 : 1;
+      }
     }
+
     if (scoreB !== scoreA) return scoreB - scoreA;
-    if (b.rating !== a.rating) return b.rating - a.rating;
-    if (b.potensial !== a.potensial) return b.potensial - a.potensial;
+    if (ovrB !== ovrA) return ovrB - ovrA;
+    if (potB !== potA) return potB - potA;
     var aa2 = a.alder != null ? a.alder : 99;
     var ba2 = b.alder != null ? b.alder : 99;
     if (aa2 !== ba2) return aa2 - ba2;
     return (a.navn || '').localeCompare(b.navn || '', 'nb');
   }
 
-  function pickBestRecommend(posCode, used) {
+  function comparePlayersRecommend(a, b) {
+    return compareRecommendPair(a, b, a.hoved || 'SM', 'r1', getFormation());
+  }
+
+  function pickBestRecommend(posCode, used, rank, formation) {
+    var rk = rank || 'r1';
+    var form = formation || getFormation();
     var candidates = state.players
-      .filter(function (p) { return !used.has(p.id) && qualifies(p, posCode); })
-      .sort(function (a, b) {
-        /* Base: pot*2 + OVR + tiny age — then meaningful foot for wings/backs. */
-        var scoreA = (a.potensial || 0) * 2 + (a.rating || 0);
-        var scoreB = (b.potensial || 0) * 2 + (b.rating || 0);
-        /* Foot delta scaled so ±1.2 ≈ ±3.5 on pot/OVR scale — strong but not above need/OVR. */
-        scoreA += footScoreDelta(a.fot, posCode) * 3;
-        scoreB += footScoreDelta(b.fot, posCode) * 3;
-        if (Math.abs(scoreA - scoreB) <= 4) {
-          var aa = a.alder != null ? a.alder : 99;
-          var ba = b.alder != null ? b.alder : 99;
-          if (aa !== ba) return aa - ba;
-        }
-        if (scoreB !== scoreA) return scoreB - scoreA;
-        if (b.rating !== a.rating) return b.rating - a.rating;
-        if (b.potensial !== a.potensial) return b.potensial - a.potensial;
-        return (a.navn || '').localeCompare(b.navn || '', 'nb');
-      });
+      .filter(function (p) { return !used.has(p.id) && qualifies(p, posCode); });
+    candidates.sort(function (a, b) {
+      return compareRecommendPair(a, b, posCode, rk, form);
+    });
     return candidates[0] || null;
   }
 
-  /** Pure recommended XI: ignores manual placements. Same r1/r2/r3 layout. */
+  /**
+   * Pure recommended XI: ignores manual placements.
+   * Per rank (#1 then #2 then #3): globally assign players to slots by best
+   * (ability + foot-fit) so a natural left-foot HV is not consumed by VV first.
+   * Each player occupies at most one slot across the whole pitch.
+   */
   function buildRecommendedXI() {
     var formation = getFormation();
     var used = new Set();
     var result = {};
-    var i, r, slot, entry, pick;
+    var i, r, slot, entry, rank, pairs, pi, pair;
     for (i = 0; i < formation.slots.length; i++) {
       slot = formation.slots[i];
-      entry = { r1: null, r2: null, r3: null, pos: slot.pos, forceEmpty: {} };
-      for (r = 0; r < RANKS.length; r++) {
-        pick = pickBestRecommend(slot.pos, used);
-        if (pick) {
-          entry[RANKS[r]] = pick;
-          used.add(pick.id);
-        }
+      result[slot.id] = { r1: null, r2: null, r3: null, pos: slot.pos, forceEmpty: {} };
+    }
+    for (r = 0; r < RANKS.length; r++) {
+      rank = RANKS[r];
+      pairs = [];
+      for (i = 0; i < formation.slots.length; i++) {
+        slot = formation.slots[i];
+        state.players.forEach(function (p) {
+          if (used.has(p.id) || !qualifies(p, slot.pos)) return;
+          pairs.push({
+            slotId: slot.id,
+            pos: slot.pos,
+            player: p,
+            score: recommendSlotScore(p, slot.pos, rank, formation)
+          });
+        });
       }
-      result[slot.id] = entry;
+      pairs.sort(function (x, y) {
+        /* Prefer higher slot score; break ties with pairwise rules (OVR gap, age). */
+        var cmp = compareRecommendPair(x.player, y.player, x.pos, rank, formation);
+        if (x.slotId === y.slotId) return cmp;
+        if (y.score !== x.score) return y.score - x.score;
+        if (cmp !== 0) return cmp;
+        return (x.slotId || '').localeCompare(y.slotId || '');
+      });
+      var filledSlots = {};
+      for (pi = 0; pi < pairs.length; pi++) {
+        pair = pairs[pi];
+        if (used.has(pair.player.id) || filledSlots[pair.slotId]) continue;
+        /* Re-check this is still among best for the slot (avoid stale order bias). */
+        entry = result[pair.slotId];
+        if (entry[rank]) continue;
+        entry[rank] = pair.player;
+        used.add(pair.player.id);
+        filledSlots[pair.slotId] = true;
+      }
     }
     return { formation: formation, result: result, used: used, recommended: true };
   }
@@ -3312,19 +3539,30 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 
     // Cap readable list (scout gaps rendered separately via renderScoutTips)
 
-    /* Preferred-foot retrain tips (wings/backs) — recommend convert, don't force wrong side */
+    /* Preferred-foot retrain tips (wings/backs) — tip only, never force manual XI */
     state.players.forEach(function (p) {
-      if (tips.length >= 6) return;
+      if (tips.length >= 8) return;
       var rt = footRetrainTip(p);
       if (!rt) return;
-      if (tips.some(function (t) { return t.text.indexOf(p.navn) >= 0; })) return;
+      if (tips.some(function (t) { return t.text.indexOf(p.navn) >= 0 && t.text.indexOf('Utvikle/tren') >= 0; })) return;
+      var fotL = p.fot === 'V' ? 'venstre' : (p.fot === 'H' ? 'høyre' : (p.fot || '?'));
       tips.push({
         kind: 'info',
-        text: p.navn + ' (' + (p.hoved || '?') + ', fot ' + (p.fot || '?') + ') — ' + rt
+        text: p.navn + ' (' + posDisplayCode(p.hoved || '?') + ', ' + fotL + ' fot) — ' + rt
       });
     });
 
-    return tips.slice(0, 6);
+    var missFot = state.players.filter(function (p) { return !normalizeFot(p.fot); }).length;
+    if (missFot > 0 && tips.length < 8) {
+      tips.push({
+        kind: 'info',
+        text: missFot === 1
+          ? '1 spiller mangler preferert fot — sett V/H/B for bedre anbefalt oppstilling.'
+          : (missFot + ' spillere mangler preferert fot — sett V/H/B for bedre anbefalt oppstilling.')
+      });
+    }
+
+    return tips.slice(0, 8);
   }
 
 
@@ -4340,11 +4578,12 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         }).join('');
         htmlOut += '<li class="akademi-row" data-aid="' + esc(p.id) + '">' +
           '<div class="p-name">' + esc(p.navn) +
-          ' <span class="badge depth">' + esc(posDisplayCode(p.hoved)) + '</span>' + ekstraBadges + '</div>' +
+          ' <span class="badge depth">' + esc(posDisplayCode(p.hoved)) + '</span>' + ekstraBadges +
+          missingInfoBadges(p) + '</div>' +
           '<div class="akademi-meta">' +
           '<span class="akademi-ovr ' + ratingTier(p.rating) + '">' + p.rating + '</span>' +
           '<span class="akademi-pot ' + ratingTier(potColorN) + '">pot ' + esc(potLabel) + '</span>' +
-          '<span class="p-phys">' + esc(phys) + '</span>' +
+          '<span class="p-phys">' + esc(phys) + footBadgeHtml(p.fot) + '</span>' +
           '</div>' +
           '<div class="verdict">' +
           '<span class="verdict-chip ' + v.level + '">' + esc(v.chip) + '</span>' +
@@ -4893,17 +5132,30 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     var replFromAcademy = repl && repl.from === 'akademi';
 
     function pack(level, chip, tipKind, tip, reason) {
+      var footRt = footRetrainTip(player);
+      var tipOut = tip || '';
+      var reasonOut = reason || tip || '';
+      if (footRt) {
+        /* Clear per-player tip — do not auto-move manual XI */
+        if (tipOut.indexOf('Utvikle/tren') < 0) {
+          tipOut = tipOut.replace(/\.?\s*$/, '') + ' · ' + footRt + '.';
+        }
+        if (reasonOut.indexOf('Utvikle/tren') < 0) {
+          reasonOut = reasonOut.replace(/\.?\s*$/, '') + ' · ' + footRt;
+        }
+      }
       var v = {
         level: level,
         chip: chip,
         tipKind: tipKind,
-        tip: tip,
-        reason: reason || tip,
+        tip: tipOut,
+        reason: reasonOut,
         pos: pos,
         rawPos: role.raw,
         remap: role.remap,
         rank: role.rank,
-        replacementId: repl && repl.p ? repl.p.id : null
+        replacementId: repl && repl.p ? repl.p.id : null,
+        footRetrain: footRt || null
       };
       return applyTroppAgePreference(player, role, v);
     }
@@ -5087,8 +5339,9 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
         htmlOut += '<li class="player-row cardish ' + cls + '" data-edit="' + esc(p.id) +
           '" draggable="true" data-pid="' + esc(p.id) + '" title="Trykk for å redigere">' +
           '<div class="p-info"><div class="p-name">' + esc(p.navn) + ' ' + potChip + ' ' + badge +
+          missingInfoBadges(p) +
           '</div><div class="p-sub"><span class="p-pos">' + esc(posDisplayCode(p.hoved)) + ekstra +
-          '</span> <span class="p-phys">' + esc(physText(p)) + '</span></div>' +
+          '</span> <span class="p-phys">' + esc(physText(p)) + footBadgeHtml(p.fot) + '</span></div>' +
           '<div class="verdict">' +
           '<span class="verdict-chip ' + esc(v.level) + '">' + esc(v.chip) + '</span>' +
           '<span class="verdict-reason">' + esc(v.reason) + '</span>' +
