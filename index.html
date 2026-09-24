@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#121814">
 <title>FC Karriere-tropp</title>
-<meta name="app-build" content="20260924-fot-tip">
-<!-- build: 20260924-fot-tip — foot mismatch tip uses player fot, not role prefer -->
+<meta name="app-build" content="20260924-fot-back">
+<!-- build: 20260924-fot-back — fullbacks: natural foot wins best-pos over depth (unless critically thin) -->
 <style>
 :root {
   --bg: #121814;
@@ -1438,7 +1438,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   </section>
 <section class="card pitch-card recommended" style="padding:10px">
     <h2 style="padding:4px 4px 8px">Anbefalt oppstilling
-      <span class="rec-build" title="App build" style="font-size:11px;font-weight:500;opacity:.55;margin-left:6px">build 20260924-fot-tip</span>
+      <span class="rec-build" title="App build" style="font-size:11px;font-weight:500;opacity:.55;margin-left:6px">build 20260924-fot-back</span>
       <span class="rec-actions">
         <span class="rec-junior-toggle" role="group" aria-label="Vis juniorer i anbefaling">
           <button type="button" id="btn-rec-no-junior" class="active" aria-pressed="true" title="Kun A-lag — hvem som starter nå">Uten junior</button>
@@ -5703,8 +5703,61 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     return Math.abs(a.score - b.score) <= 4;
   }
 
-  function academyPreferTarget(a, b) {
-    // Need/depth PRIMARY
+  /** True for fullback / wingback codes (VB/HB/VWB/HWB). */
+  function isBackPosCode(posCode) {
+    var p = normalizePosCode(posCode) || String(posCode || '').toUpperCase();
+    if (p === 'LB' || p === 'LWB') p = p.indexOf('W') >= 0 ? 'VWB' : 'VB';
+    if (p === 'RB' || p === 'RWB') p = p.indexOf('W') >= 0 ? 'HWB' : 'HB';
+    return p === 'VB' || p === 'HB' || p === 'VWB' || p === 'HWB';
+  }
+
+  /** Side of a back: V (left) / H (right) / null. */
+  function backSideOf(posCode) {
+    var p = normalizePosCode(posCode) || String(posCode || '').toUpperCase();
+    if (p === 'LB' || p === 'LWB') p = p.indexOf('W') >= 0 ? 'VWB' : 'VB';
+    if (p === 'RB' || p === 'RWB') p = p.indexOf('W') >= 0 ? 'HWB' : 'HB';
+    if (p === 'VB' || p === 'VWB') return 'V';
+    if (p === 'HB' || p === 'HWB') return 'H';
+    return null;
+  }
+
+  /**
+   * Opposite fullbacks (VB vs HB / VWB vs HWB): strongly prefer natural foot.
+   * fot=H → HB/HWB; fot=V → VB/VWB. Wings stay inverted elsewhere.
+   * Exception: recommend wrong-foot side only when it is critically empty (depth 0)
+   * AND the natural side already has ≥2 signed — tip must explain (footDepthOverride).
+   * Returns true if a beats b, false if b beats a, null if N/A.
+   */
+  function academyBackFootPrefer(a, b, fot) {
+    if (!a || !b || !isBackPosCode(a.pos) || !isBackPosCode(b.pos)) return null;
+    var sa = backSideOf(a.pos);
+    var sb = backSideOf(b.pos);
+    if (!sa || !sb || sa === sb) return null;
+    var prefer = normalizeFot(fot);
+    if (prefer !== 'V' && prefer !== 'H') return null;
+    var aMatch = sa === prefer;
+    var bMatch = sb === prefer;
+    if (aMatch === bMatch) return null;
+    var natural = aMatch ? a : b;
+    var other = aMatch ? b : a;
+    var natDepth = natural.depth ? natural.depth.length : 0;
+    var otherDepth = other.depth ? other.depth.length : 0;
+    /* Critically thin wrong side + natural already covered → allow depth override */
+    if (otherDepth === 0 && natDepth >= 2) {
+      other.footDepthOverride = true;
+      other.footNaturalPos = natural.pos;
+      return aMatch ? false : true; /* prefer other (wrong-foot / empty side) */
+    }
+    /* Default: natural foot wins even if wrong side is thinner (incl. depth 1) */
+    natural.footDepthOverride = false;
+    return aMatch;
+  }
+
+  function academyPreferTarget(a, b, fot) {
+    // Opposite fullbacks: natural foot BEFORE need/depth (unless critically thin override)
+    var backFoot = academyBackFootPrefer(a, b, fot);
+    if (backFoot !== null) return backFoot;
+    // Need/depth PRIMARY (non-back-pair / wings / central)
     if (!academyNeedSimilar(a, b)) {
       if (a.score !== b.score) return a.score > b.score;
     } else if (a.hTier != null && b.hTier != null && a.hTier !== b.hTier) {
@@ -5809,8 +5862,11 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       var need = academyPosNeedScore(info.depth.length);
       var fit = academyPosFitScore(info.rank, potHi, info.depth);
       var foot = footFitForPos(prospect.fot, pos);
-      /* Strong foot swing for wings/backs; zero for S/K/SDM; light ignored for SM/MS/SOM */
-      var footBoost = (foot.weight === 'strong') ? (foot.score * 2.5) : 0;
+      /* Strong foot swing for wings/backs; backs get extra so natural side beats mild depth gaps.
+         Opposite-back pairs are decided in academyPreferTarget (natural foot first).
+         Zero for S/K/SDM; light ignored for SM/MS/SOM */
+      var footMult = (foot.weight === 'strong') ? (isBackPosCode(pos) ? 6 : 2.5) : 0;
+      var footBoost = footMult ? (foot.score * footMult) : 0;
       var score = need * fit + footBoost;
       var isHoved = !!hoved && rawPos === hoved && !eff.remap;
       var hFit = cm != null ? academyHeightFitForPos(pos, cm) : null;
@@ -5834,7 +5890,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
         footWeight: foot.weight || 'none'
       };
       scored.push(entry);
-      if (!best || academyPreferTarget(entry, best)) best = entry;
+      if (!best || academyPreferTarget(entry, best, prospect.fot)) best = entry;
     }
     if (!best) {
       var p0raw = hoved || 'SM';
@@ -5929,7 +5985,11 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       var mTren = String(target.footRetrain).match(/Tren til\s+(\S+)/);
       if (mTren && !playerHasPos(prospect, mTren[1])) acadTren = 'Tren til ' + posDisplayCode(mTren[1]);
     }
-    if (acadTren) {
+    if (target.footDepthOverride && target.footNaturalPos) {
+      lead += ' — fot er ' + (prospect && normalizeFot(prospect.fot) ? normalizeFot(prospect.fot) : '?') +
+        ' (naturlig ' + posDisplayCode(target.footNaturalPos) + '), men ' + code +
+        ' mangler helt i troppen';
+    } else if (acadTren) {
       lead += ' — ' + acadTren;
     } else if (target.footNote && target.footWeight === 'strong') {
       lead += ' — ' + target.footNote;
@@ -7016,12 +7076,28 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
         crowded: depth.length >= 3,
         isHoved: !!hoved && raw === hoved
       };
-      // Prefer hoved unless remap makes ekstra clearly better for used formation
-      if (!best) best = entry;
-      else if (entry.isHoved && !best.isHoved && !entry.remap) best = entry;
-      else if (best.remap && !entry.remap) best = entry;
-      else if (entry.thin && !best.thin) best = entry;
-      else if (entry.isHoved && best.isHoved === false) best = entry;
+      // Prefer hoved unless remap makes ekstra clearly better for used formation.
+      // Opposite fullbacks: natural foot before «thin side» (unless critically empty).
+      if (!best) {
+        best = entry;
+      } else {
+        var backPick = academyBackFootPrefer(entry, best, player.fot);
+        if (backPick === true) best = entry;
+        else if (backPick === false) { /* keep best */ }
+        else if (entry.isHoved && !best.isHoved && !entry.remap) best = entry;
+        else if (best.remap && !entry.remap) best = entry;
+        else if (entry.thin && !best.thin) {
+          /* Only flip to thin wrong-foot back when critically empty (depth 0) */
+          if (isBackPosCode(entry.pos) && isBackPosCode(best.pos) &&
+              backSideOf(entry.pos) && backSideOf(best.pos) &&
+              backSideOf(entry.pos) !== backSideOf(best.pos)) {
+            if (entry.depth.length === 0 && best.depth.length >= 2) best = entry;
+            /* else keep natural / current best */
+          } else {
+            best = entry;
+          }
+        } else if (entry.isHoved && best.isHoved === false) best = entry;
+      }
     }
     return best || {
       raw: hoved || 'SM',

@@ -54,14 +54,43 @@ parts.push(`'use strict';\nvar state = { players: [], akademi: [], formationId: 
 [
   'normalizeFot','normalizePosCode','playerPositions','fotLabel',
   'plainSmCode','footPosForSlot','footFitForPos','footScoreDelta','footRoleClass',
-  'footRetrainTarget','playerHasPos','footTrenLabel','footRetrainTip','footOppositePos'
-].forEach(f => parts.push(extractFunc(code, f)));
+  'footRetrainTarget','playerHasPos','footTrenLabel','footRetrainTip','footOppositePos',
+  'isBackPosCode','backSideOf','academyBackFootPrefer','academyNeedSimilar','academyPreferTarget',
+  'academyPosNeedScore','academyPosFitScore','academyHeightCm','academyHeightFitForPos',
+  'academyOptimisticPot','formationUsedPlayerPositions','academyEffectivePos',
+  'pickBestAcademyTarget','academyBestPosLead','qualifies'
+].forEach(f => {
+  try { parts.push(extractFunc(code, f)); } catch (e) { console.error(e.message); process.exit(1); }
+});
+['ACADEMY_HEIGHT_BANDS'].forEach(v => { const x = extractVar(code, v); if (x) parts.push(x); });
+parts.push(`
+function posDisplayCode(c){ return c; }
+function fmtPlayerArrow(p){ return p && p.navn ? p.navn : '?'; }
+function getFormation(){ return FORMATIONS[state.formationId] || FORMATIONS['433']; }
+function signedDepthForPos(posCode) {
+  return state.players.filter(function(p){ return qualifies(p, posCode); })
+    .sort(function(a,b){ return (b.potensial||0)-(a.potensial||0); });
+}
+function projectedAcademyRank(prospect, potOverride, posCode) {
+  var pot = potOverride != null ? potOverride : academyOptimisticPot(prospect);
+  var pos = posCode || prospect.hoved;
+  var depth = signedDepthForPos(pos);
+  var rank = 1;
+  for (var i = 0; i < depth.length; i++) {
+    var s = depth[i];
+    if (pot > s.potensial) break;
+    if (pot === s.potensial && prospect.rating > s.rating) break;
+    rank++;
+  }
+  return { rank: rank, depth: depth, pot: pot, pos: pos };
+}
+`);
 
 const sandbox = { console, Set, Map, Array, Object, Math, Number, String, Date, JSON, parseInt, parseFloat, isNaN, Infinity, NaN, undefined, Error, TypeError, RegExp };
 sandbox.global = sandbox;
 sandbox.globalThis = sandbox;
-vm.runInNewContext(parts.join('\n') + '\nthis.__ex={footFitForPos,footRetrainTarget,footTrenLabel,normalizeFot};', sandbox);
-const { footFitForPos, footRetrainTarget, footTrenLabel } = sandbox.__ex;
+vm.runInNewContext(parts.join('\n') + '\nthis.__ex={footFitForPos,footRetrainTarget,footTrenLabel,normalizeFot,pickBestAcademyTarget,academyBestPosLead,academyOptimisticPot,academyBackFootPrefer};', sandbox);
+const { footFitForPos, footRetrainTarget, footTrenLabel, pickBestAcademyTarget, academyBestPosLead, academyOptimisticPot } = sandbox.__ex;
 
 let failed = 0;
 function assert(cond, msg) {
@@ -112,8 +141,68 @@ assert(footRetrainTarget({ fot: 'H', hoved: 'VB', ekstra: [] }) === 'HB',
 assert(footTrenLabel({ fot: 'H', hoved: 'HB', ekstra: ['VB'] }) === null,
   'H hoved HB already has correct side — no Tren tip');
 
+
+/* --- Best-pos: natural foot for dual HB/VB (Schuster-like) --- */
+function setPlayers(list) { sandbox.state.players = list; }
+
+const thickHB = [
+  {id:'h1', navn:'A', rating:70, potensial:80, hoved:'HB', ekstra:[], fot:'H'},
+  {id:'h2', navn:'B', rating:68, potensial:78, hoved:'HB', ekstra:[], fot:'H'},
+  {id:'h3', navn:'C', rating:66, potensial:76, hoved:'HB', ekstra:[], fot:'H'}
+];
+const oneVB = [{id:'v1', navn:'V1', rating:70, potensial:80, hoved:'VB', ekstra:[], fot:'V'}];
+
+const schusterLike = { navn:'Schuster', rating:63, potMax:94, potensial:81, hoved:'HB', ekstra:['VB'], fot:'H', alder:16, hoyde:173 };
+const leftFootDual = { navn:'LeftDual', rating:63, potMax:94, potensial:81, hoved:'HB', ekstra:['VB'], fot:'V', alder:16, hoyde:173 };
+
+setPlayers(thickHB.concat(oneVB)); /* HB=3, VB=1 — depth would old-pick VB */
+{
+  const potHi = academyOptimisticPot(schusterLike);
+  const t = pickBestAcademyTarget(schusterLike, potHi);
+  assert(t && t.pos === 'HB', 'Schuster-like fot=H dual HB+VB (VB thinner) → best HB, got ' + (t && t.pos));
+  const lead = academyBestPosLead(t, schusterLike);
+  assert(lead.indexOf('Best på HB') === 0 || lead.indexOf('Best som HB') === 0,
+    'lead starts Best på HB: ' + lead);
+  assert(lead.indexOf('Best på VB') < 0, 'lead must not recommend VB: ' + lead);
+}
+{
+  const potHi = academyOptimisticPot(leftFootDual);
+  const t = pickBestAcademyTarget(leftFootDual, potHi);
+  assert(t && t.pos === 'VB', 'fot=V dual HB+VB → best VB, got ' + (t && t.pos));
+}
+
+/* Empty both sides: foot still decides */
+setPlayers([]);
+{
+  const t = pickBestAcademyTarget(schusterLike, academyOptimisticPot(schusterLike));
+  assert(t.pos === 'HB', 'empty squad fot=H → HB');
+  const t2 = pickBestAcademyTarget(leftFootDual, academyOptimisticPot(leftFootDual));
+  assert(t2.pos === 'VB', 'empty squad fot=V → VB');
+}
+
+/* Critical thin override: VB empty + HB≥2 → may pick VB with explanation */
+setPlayers(thickHB); /* HB=3, VB=0 */
+{
+  const t = pickBestAcademyTarget(schusterLike, academyOptimisticPot(schusterLike));
+  assert(t.pos === 'VB', 'critically empty VB + covered HB → allow VB, got ' + t.pos);
+  assert(t.footDepthOverride === true, 'footDepthOverride set when picking wrong-foot back');
+  const lead = academyBestPosLead(t, schusterLike);
+  assert(lead.indexOf('mangler helt') >= 0 || lead.indexOf('naturlig') >= 0,
+    'override tip explains: ' + lead);
+}
+
+/* Wings inverted meta intact: VV prefer H */
+{
+  const fVV = footFitForPos('H', 'VV');
+  const fHV = footFitForPos('H', 'HV');
+  assert(fVV.score > 0 && fHV.score < 0, 'inverted wing: H prefers VV over HV');
+  const fVVonV = footFitForPos('V', 'VV');
+  assert(fVVonV.score < 0, 'inverted wing: V on VV is mismatch');
+}
+
 if (failed) {
   console.error('\n' + failed + ' assert(s) failed');
   process.exit(1);
 }
 console.log('\nAll fot-tip sanity asserts passed');
+
