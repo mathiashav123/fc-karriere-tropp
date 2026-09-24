@@ -2940,11 +2940,14 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
    * Mathias rules (growth-aware pot):
    * 1) Huge OVR floor on r1: gap ≥ 10 → higher OVR (55 must not start over 70).
    *    Gap 8 is borderline — pot/ability may still win (Veiga 62/91 over Lamber 54/87).
-   * 2) Clear usable pot (≥ ~2) among developable: pot is king — beats foot AND
+   * 2) Close usable pot (within ~2–3) + clearly higher OVR (≥ ~4–5): higher OVR ranks
+   *    above — even if YA is ~1y younger. 63/94 age17 must not beat 68/95 age18.
+   * 3) Clear usable pot (≥ ~2) among developable: pot is king — beats foot AND
    *    1–3 years age. Lower-pot H-foot kid must not outrank better-pot peer on same wing.
-   * 3) Foot/side soft gap only when pot is close (placement / inverted meta).
-   * 4) Age only tie-breaks when usable pot is very close (<2).
-   * 5) 72/94 @32 → usable ≈ OVR (near-OVR ranking only).
+   * 4) Foot/side soft gap only when pot is close (placement / inverted meta).
+   * 5) Prefer higher OVR / ability before age when pot is still close.
+   * 6) Age only final tie-break when OVR also nearly equal.
+   * 7) 72/94 @32 → usable ≈ OVR (near-OVR ranking only).
    */
   function compareRecommendPair(a, b, posCode, rank, formation, slotId) {
     var ovrA = a.rating || 0;
@@ -2956,6 +2959,12 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
 
     if (rank === 'r1' && Math.abs(ovrGap) >= 10) {
       /* Huge OVR floor only — 55 never starts over 70. Borderline ~8 OVR falls through to pot. */
+      if (ovrGap !== 0) return ovrGap > 0 ? -1 : 1;
+    }
+
+    /* Close pot + clearly higher OVR → start with the better OVR now.
+       Jovanovic 68/95 > Markovic YA 63/94 despite 1y younger academy. */
+    if (Math.abs(useGap) <= 3 && Math.abs(ovrGap) >= 4) {
       if (ovrGap !== 0) return ovrGap > 0 ? -1 : 1;
     }
 
@@ -2976,13 +2985,18 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       if (scoreB !== scoreA) return scoreB - scoreA;
     }
 
-    /* Usable pot very close (<2): age tie-break, then score / OVR. */
+    /* Pot still close: higher OVR / ability before younger-age tie-break. */
+    if (Math.abs(ovrGap) >= 2) {
+      return ovrGap > 0 ? -1 : 1;
+    }
+    if (abilB !== abilA) return abilB - abilA;
+    if (scoreB !== scoreA) return scoreB - scoreA;
+    if (useB !== useA) return useB - useA;
+
     var aa = a.alder != null ? a.alder : 99;
     var ba = b.alder != null ? b.alder : 99;
     if (aa !== ba) return aa - ba;
 
-    if (scoreB !== scoreA) return scoreB - scoreA;
-    if (useB !== useA) return useB - useA;
     if (ovrB !== ovrA) return ovrB - ovrA;
     var potA = a.potensial != null ? a.potensial : ovrA;
     var potB = b.potensial != null ? b.potensial : ovrB;
@@ -3153,6 +3167,8 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
 
   /**
    * Insert academy where they beat the tropp occupant; shift depth down.
+   * Max ONE YA / «ta opp» recommendation per formation slot (position column).
+   * Prefer tropp starter as #1 when comparable; YA may sit #2 with promote note.
    * Overflow off r3 is freed for leftover refill (never silently lost).
    */
   function insertAcademyIntoRecommend(result, formation, used) {
@@ -3161,18 +3177,31 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     formation.slots.forEach(function (slot) {
       var e = result[slot.id];
       if (!e) return;
-      acad.forEach(function (a) {
-        if (used.has(a.id) || !qualifiesForRecommend(a, slot.pos)) return;
-        var ri, rank, cur, old, next, d, overflow;
+      /* Already has a YA overlay — never stack Reuter/Herrmann/Kopp as #1–#3. */
+      var hasYa = RANKS.some(function (rk) { return e[rk] && e[rk]._fromAcademy; });
+      if (hasYa) return;
+
+      var cands = acad.filter(function (a) {
+        return !used.has(a.id) && qualifiesForRecommend(a, slot.pos);
+      });
+      if (!cands.length) return;
+      cands.sort(function (x, y) {
+        return compareRecommendPair(x, y, slot.pos, 'r1', formation, slot.id);
+      });
+
+      var ai, a, ri, rank, cur, old, next, d, overflow;
+      for (ai = 0; ai < cands.length; ai++) {
+        a = cands[ai];
+        if (used.has(a.id)) continue;
         for (ri = 0; ri < RANKS.length; ri++) {
           rank = RANKS[ri];
           cur = e[rank];
           if (!cur) {
             e[rank] = a;
             used.add(a.id);
-            return;
+            return; /* ≤1 YA per slot */
           }
-          if (cur._fromAcademy) continue;
+          if (cur._fromAcademy) return;
           if (compareRecommendPair(a, cur, slot.pos, rank, formation, slot.id) < 0) {
             old = [e.r1, e.r2, e.r3];
             next = old.slice(0, ri).concat([a], old.slice(ri));
@@ -3184,10 +3213,10 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
               overflow = next[d];
               if (overflow) used.delete(overflow.id);
             }
-            return;
+            return; /* ≤1 YA per slot */
           }
         }
-      });
+      }
     });
   }
 
@@ -3317,7 +3346,8 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
         '<div class="' + missCls + '">' + RANK_MISS[rank] + '</div></div>';
     }
     var fromAcad = !!player._fromAcademy;
-    var potChip = (player.potensial - player.rating >= 8)
+    var potCeil = (player.potMax != null ? player.potMax : player.potensial) || 0;
+    var potChip = (potCeil - (player.rating || 0) >= 8)
       ? ' <span class="chip-pot" title="Høyt potensial">↑</span>' : '';
     var acadBadge = fromAcad
       ? ' <span class="badge-acad" title="Junior / akademi">YA</span>' : '';
@@ -3343,7 +3373,16 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       }
     }
     var cellCls = 'cell' + (fromAcad ? ' from-academy' : '');
-    var potTitle = fromAcad ? 'Optimistic pot (akademi)' : 'Potensial';
+    /* YA: show potMin–potMax when span; tropp keeps single potensial. */
+    var potLo = player.potMin != null ? player.potMin : player.potensial;
+    var potHi = player.potMax != null ? player.potMax : player.potensial;
+    var potHasRange = fromAcad && potLo != null && potHi != null && potLo !== potHi;
+    var potText = potHasRange ? fmtPotRange(player) : String(player.potensial != null ? player.potensial : '');
+    var potTierN = potHasRange ? potHi : player.potensial;
+    var potTitle = potHasRange
+      ? ('Akademi potensial ' + potText + ' (mulighet)')
+      : (fromAcad ? 'Akademi potensial' : 'Potensial');
+    var potLbl = 'pot ';
     var dataPid = fromAcad
       ? (' data-academy-id="' + esc(player._academyId || '') + '"')
       : (' data-pid="' + esc(player.id) + '"');
@@ -3352,7 +3391,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       '<div class="pname">' + esc(player.navn) + potChip + acadBadge + '</div>' +
       '<div class="ratings-line"><span class="ovr ' + ratingTier(player.rating) + '" title="Rating">' + player.rating + '</span>' +
       '<span class="ratings-sep" aria-hidden="true">/</span>' +
-      '<span class="pot ' + ratingTier(player.potensial) + '" title="' + potTitle + '"><span class="pot-lbl">pot </span>' + player.potensial + '</span></div>' +
+      '<span class="pot ' + ratingTier(potTierN) + '" title="' + esc(potTitle) + '"><span class="pot-lbl">' + potLbl + '</span>' + esc(potText) + '</span></div>' +
       '<div class="meta"><span class="phys">' + esc(physText(player)) + '</span>' + trenHtml + promoteHtml + '</div>' +
       '</div>';
   }
