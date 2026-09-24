@@ -523,6 +523,7 @@ label {
 .badge.r2 { background: rgba(106,154,212,.2); color: #9bc0ea; }
 .badge.r3 { background: rgba(176,138,212,.22); color: #c9b0e8; }
 .badge.depth { background: rgba(255,255,255,.08); color: var(--muted); font-size: 11px; }
+.akademi-row .badge.ekstra { font-size: 10px; opacity: .72; font-weight: 500; margin-left: 2px; }
 .chip-pot {
   font-size: 10px; font-weight: 700; color: #7ddea0;
   background: var(--accent-soft); padding: 1px 5px; border-radius: 6px;
@@ -1029,6 +1030,10 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
             <option value="" disabled selected>Velg posisjon…</option>
           </select>
         </div>
+        <div class="field span2 ekstra-field">
+          <label>Ekstra posisjoner</label>
+          <div class="pos-checks" id="a-ekstra" role="group" aria-label="Ekstra posisjoner"></div>
+        </div>
         <div class="field btn-add span2">
           <label>&nbsp;</label>
           <button type="button" class="primary" style="width:100%" id="btn-akademi-add">Legg til i akademi</button>
@@ -1199,6 +1204,10 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
           <select id="ae-hoved" required>
             <option value="" disabled selected>Velg posisjon…</option>
           </select>
+        </div>
+        <div class="field span2">
+          <label>Ekstra posisjoner</label>
+          <div class="pos-checks" id="ae-ekstra" role="group" aria-label="Ekstra posisjoner"></div>
         </div>
       </div>
       <div class="modal-actions">
@@ -1508,6 +1517,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       var swap = potMin; potMin = potMax; potMax = swap;
     }
     var mid = Math.round((potMin + potMax) / 2);
+    var ekstra = normalizeEkstra(p.ekstra).filter(function (c) { return c !== hoved; });
     return {
       id: p.id || uid(),
       navn: String(p.navn || '').trim(),
@@ -1516,6 +1526,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       potMax: potMax,
       potensial: mid,
       hoved: hoved,
+      ekstra: ekstra,
       alder: alder,
       hoyde: hoyde
     };
@@ -1945,6 +1956,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     fillPosSelect(document.getElementById('ae-hoved'), false);
     fillEkstraChecks(fEkstra, [], fHoved ? fHoved.value : '');
     fillEkstraChecks(eEkstra, [], '');
+    fillEkstraChecks(document.getElementById('a-ekstra'), [], '');
+    fillEkstraChecks(document.getElementById('ae-ekstra'), [], '');
 
     // Rebuild ekstra if somehow still empty after init
     if (fEkstra && !fEkstra.querySelector('input[type=checkbox]')) {
@@ -2563,9 +2576,12 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         ? 'Ta opp til A-laget'
         : ('Kan bare tas opp fra ' + ACADEMY_MIN_SIGN_AGE + ' år');
       var signLabel = v.canSign ? 'Ta opp til A-laget' : 'Opprykk fra 16';
+      var ekstraBadges = (Array.isArray(p.ekstra) ? p.ekstra : []).map(function (c) {
+        return ' <span class="badge depth ekstra" title="Ekstra posisjon">' + esc(posDisplayCode(c)) + '</span>';
+      }).join('');
       return '<li class="akademi-row" data-aid="' + esc(p.id) + '">' +
         '<div class="p-name">' + esc(p.navn) +
-        ' <span class="badge depth">' + esc(posDisplayCode(p.hoved)) + '</span></div>' +
+        ' <span class="badge depth">' + esc(posDisplayCode(p.hoved)) + '</span>' + ekstraBadges + '</div>' +
         '<div class="akademi-meta">' +
         '<span class="akademi-ovr ' + ratingTier(p.rating) + '">' + p.rating + '</span>' +
         '<span class="akademi-pot ' + ratingTier(potColorN) + '">pot ' + esc(potLabel) + '</span>' +
@@ -2615,7 +2631,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       potensial: data.potensial,
       alder: data.alder,
       hoyde: data.hoyde,
-      hoved: data.hoved
+      hoved: data.hoved,
+      ekstra: data.ekstra
     });
     if (!state.akademi) state.akademi = [];
     state.akademi.push(p);
@@ -2656,7 +2673,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       alder: a.alder,
       hoyde: a.hoyde,
       hoved: a.hoved,
-      ekstra: []
+      ekstra: Array.isArray(a.ekstra) ? a.ekstra : []
     });
     state.players.push(player);
     saveState();
@@ -2681,6 +2698,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     document.getElementById('ae-alder').value = p.alder != null ? p.alder : '';
     document.getElementById('ae-hoyde').value = p.hoyde != null ? p.hoyde : '';
     document.getElementById('ae-hoved').value = p.hoved;
+    fillEkstraChecks(document.getElementById('ae-ekstra'), p.ekstra || [], p.hoved);
     if (modal) modal.classList.remove('hidden');
   }
 
@@ -2706,6 +2724,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     var hoydeRaw = document.getElementById('a-hoyde').value;
     var hoyde = hoydeRaw === '' || hoydeRaw == null ? null : clampNum(hoydeRaw, 150, 210);
     var hoved = document.getElementById('a-hoved').value;
+    var ekstra = readEkstraChecks(document.getElementById('a-ekstra'), hoved);
     if (!navn) { showErr('Skriv inn navn'); return; }
     if (rating == null) { showErr('Rating må være 1–99'); return; }
     if (potMin == null || potMax == null) { showErr('Potensial fra/til må være 1–99'); return; }
@@ -2713,10 +2732,11 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     if (alder == null) { showErr('Alder må være 14–23'); return; }
     if (hoydeRaw && hoyde == null) { showErr('Høyde må være 150–210 cm'); return; }
     if (!hoved) { showErr('Velg hovedposisjon'); return; }
-    addAcademyPlayer({ navn: navn, rating: rating, potMin: potMin, potMax: potMax, alder: alder, hoyde: hoyde, hoved: hoved });
+    addAcademyPlayer({ navn: navn, rating: rating, potMin: potMin, potMax: potMax, alder: alder, hoyde: hoyde, hoved: hoved, ekstra: ekstra });
     var form = document.getElementById('akademi-form');
     if (form) form.reset();
     fillPosSelect(document.getElementById('a-hoved'), false);
+    fillEkstraChecks(document.getElementById('a-ekstra'), [], '');
     showErr('');
   }
 
@@ -3768,6 +3788,14 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   document.getElementById('e-hoved').addEventListener('change', function () {
     syncEkstraDisable(document.getElementById('e-ekstra'), this.value);
   });
+  var aHovedEl = document.getElementById('a-hoved');
+  if (aHovedEl) aHovedEl.addEventListener('change', function () {
+    syncEkstraDisable(document.getElementById('a-ekstra'), this.value);
+  });
+  var aeHovedEl = document.getElementById('ae-hoved');
+  if (aeHovedEl) aeHovedEl.addEventListener('change', function () {
+    syncEkstraDisable(document.getElementById('ae-ekstra'), this.value);
+  });
 
   document.addEventListener('click', function (ev) {
     var menu = document.getElementById('cell-menu');
@@ -4616,7 +4644,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   var OCR_LETTER_RE = new RegExp('[^' + OCR_LETTER + ']', 'g');
   var OCR_LETTER_KEEP_RE = new RegExp('[^' + OCR_LETTER + "\\-'\\.\\s]", 'g');
 
-  var OCR_HEX_STAT_LABELS = /^(PAC|SHO|PAS|DRI|DEF|PHY|ACC|SPR|FIN|SHA|VOL|PEN|CRO|FRE|SHO?T|SHT|TAC|STR|JMP|STA|AGI|BAL|REA|COM|POS|ATT|INT|VIS|LBS|KG)$/i;
+  var OCR_HEX_STAT_LABELS = /^(PAC|SHO|PAS|DRI|DEF|PHY|TMP|SKU|FOR|FYS|ACC|SPR|FIN|SHA|VOL|PEN|CRO|FRE|SHO?T|SHT|TAC|STR|JMP|STA|AGI|BAL|REA|COM|POS|ATT|INT|VIS|LBS|KG)$/i;
 
   /**
    * Preprocess EA FC screenshots for OCR.
@@ -4657,34 +4685,45 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       var d = imageData.data;
 
       if (aggressive) {
-        // Harsh B&W — only when user taps «Prøv igjen med sterkere kontrast»
-        var contrast = 1.9;
-        var midLift = 30;
-        var thresh = 120;
-        for (var i = 0; i < d.length; i += 4) {
+        // White-luminance B&W + 1px blur reconnect (helps TV moiré stroke gaps)
+        var tmp = new Float32Array(dw * dh);
+        for (var i = 0, p = 0; i < d.length; i += 4, p++) {
           var y = 0.25 * d[i] + 0.55 * d[i + 1] + 0.2 * d[i + 2];
-          y = y + midLift;
-          y = (y - 128) * contrast + 128;
-          if (y < 0) y = 0;
-          if (y > 255) y = 255;
-          y = y >= thresh ? 255 : 0;
-          d[i] = d[i + 1] = d[i + 2] = y;
+          // Keep bright HUD text; crush dark jersey/bg
+          tmp[p] = y >= 145 ? y : 0;
+        }
+        // Box blur ~radius 1 then threshold
+        var blur = new Float32Array(dw * dh);
+        for (var yy = 0; yy < dh; yy++) {
+          for (var xx = 0; xx < dw; xx++) {
+            var sum = 0, n = 0;
+            for (var dy = -1; dy <= 1; dy++) {
+              for (var dx = -1; dx <= 1; dx++) {
+                var sx = xx + dx, sy = yy + dy;
+                if (sx < 0 || sy < 0 || sx >= dw || sy >= dh) continue;
+                sum += tmp[sy * dw + sx];
+                n++;
+              }
+            }
+            blur[yy * dw + xx] = sum / n;
+          }
+        }
+        for (var j = 0, q = 0; j < d.length; j += 4, q++) {
+          var v = blur[q] >= 90 ? 255 : 0;
+          d[j] = d[j + 1] = d[j + 2] = v;
         }
       } else {
-        // Soft: mild grayscale + gentle contrast/brightness — keeps midtones readable
-        // (NOT binary). Helps yellow/white HUD on dark FC UI without nuking the card.
-        var softContrast = 1.28;
-        var softLift = 12;
-        for (var j = 0; j < d.length; j += 4) {
-          var yg = 0.25 * d[j] + 0.55 * d[j + 1] + 0.2 * d[j + 2];
-          yg = yg + softLift;
-          yg = (yg - 128) * softContrast + 128;
-          if (yg < 0) yg = 0;
-          if (yg > 255) yg = 255;
-          var v = Math.round(yg);
-          d[j] = v;
-          d[j + 1] = v;
-          d[j + 2] = v;
+        // Soft COLOR: gentle lift/contrast — do NOT force grayscale (TV moiré + gray kills digits)
+        var softContrast = 1.18;
+        var softLift = 8;
+        for (var k = 0; k < d.length; k += 4) {
+          for (var c = 0; c < 3; c++) {
+            var ch = d[k + c] + softLift;
+            ch = (ch - 128) * softContrast + 128;
+            if (ch < 0) ch = 0;
+            if (ch > 255) ch = 255;
+            d[k + c] = Math.round(ch);
+          }
         }
       }
 
@@ -4694,7 +4733,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       if (scale !== 1) {
         noteParts.push(scale < 1 ? 'nedskalert' : 'oppskalert');
       }
-      noteParts.push(aggressive ? 'sterk kontrast (svart/hvitt)' : 'myk forbehandling');
+      noteParts.push(aggressive ? 'sterk kontrast (svart/hvitt + moiré-bro)' : 'myk fargeforbehandling');
       var note = 'OCR-forbehandling (' + noteParts.join(', ') + ') · ' + dw + '\u00d7' + dh;
 
       return new Promise(function (resolve, reject) {
@@ -4753,7 +4792,10 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   function isLikelyPlayerName(raw) {
     var cleaned = ocrCleanNameLine(raw);
     if (!cleaned || cleaned.length < 3 || cleaned.length > 42) return false;
-    if (/^(OVR|POT|POTENTIAL|POTENSIAL|AGE|ALDER|HEIGHT|H[ØO]YDE|POSITION|POSISJON|RAT|OVERALL|CM|KG|FIFA|EA|FC|YOUTH|ACADEMY|PLAYER|STATS|INFO|CLUB|NATION)$/i.test(cleaned)) return false;
+    if (/^(OVR|POT|POTENTIAL|POTENSIAL|AGE|ALDER|HEIGHT|H[ØO]YDE|POSITION|POSISJON|RAT|OVERALL|CM|KG|FIFA|EA|FC|YOUTH|ACADEMY|PLAYER|STATS|INFO|CLUB|NATION|NASJONALITET|REGION|SERBIA|NORWAY|NORGE|SWEDEN|SVERIGE|DENMARK|DANMARK|ENGLAND|FRANCE|SPAIN|BRAZIL|BRASIL|GERMANY|TYSKLAND|ITALY|ITALIA|CROATIA|POLAND|PORTUGAL|NETHERLANDS|BELGIUM|ARGENTINA|MEXICO|USA|ADIDAS|NIKE|PUMA)$/i.test(cleaned)) return false;
+    // Reject "Serbia Cm Kg" / nation+unit garbage glued by OCR
+    if (/\b(serbia|norway|norge|sweden|england|france|spain|brazil|germany|italy)\b/i.test(cleaned) && /\b(cm|kg|lbs)\b/i.test(cleaned)) return false;
+    if (/^(cm\/?\d*|\d+\s*cm|\d+\s*kg)/i.test(cleaned)) return false;
     if (OCR_HEX_STAT_LABELS.test(cleaned)) return false;
     if (POS_OCR_TOKENS.some(function (t) { return t.toUpperCase() === cleaned.toUpperCase(); })) return false;
     var words = cleaned.split(/\s+/).filter(Boolean);
@@ -4899,8 +4941,18 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     }
     if (out.rating == null) {
       for (var i = 0; i < Math.min(lines.length, 12); i++) {
-        var nm = lines[i].match(/^(?:OVR|RAT|OVERALL)?\s*(\d{2})\s*$/i);
-        if (!nm) nm = lines[i].match(/\b(\d{2})\b/);
+        var line = lines[i];
+        // Skip pot-range lines: "72-94", "72 94", "2 94" (OCR often drops the tens of min)
+        if (/\d{2}\s*[-–—\/]\s*\d{2}/.test(line)) continue;
+        if (/(?:^|\s)\d{1,2}\s+\d{2}(?:\s|$)/.test(line) && !/ovr|overall|rating/i.test(line)) continue;
+        // Skip height/weight lines (193 CM/84 KG) — 84 must not become OVR
+        if (/\b(cm|kg|lbs|høyde|hoyde|height|vekt|weight)\b/i.test(line)) continue;
+        if (/\d{2,3}\s*cm\s*\/?\s*\d{2}/i.test(line)) continue;
+        var nm = line.match(/^(?:OVR|RAT|OVERALL)?\s*(\d{2})\s*$/i);
+        if (!nm) {
+          // Prefer a lone 2-digit token; ignore digits glued to CM/KG
+          nm = line.match(/(?:^|\s)(\d{2})(?=\s|$)/);
+        }
         if (!nm) continue;
         var n = parseInt(nm[1], 10);
         if (n >= 45 && n <= 99 &&
@@ -5104,7 +5156,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     return out;
   }
 
-  var OCR_LABEL_SKIP = /^(OVR|POT|POTENTIAL|POTENSIAL|AGE|ALDER|HEIGHT|HØYDE|HOYDE|POSITION|POSISJON|RAT|OVERALL|CM|KG|FIFA|EA|FC|CAREER|KARRIERE|YOUTH|AKADEMIE|ACADEMY|PLAYER|STATS|INFO|CLUB|NATION|CONTRACT|WAGE|VALUE|PAC|SHO|PAS|DRI|DEF|PHY)$/i;
+  var OCR_LABEL_SKIP = /^(OVR|POT|POTENTIAL|POTENSIAL|AGE|ALDER|HEIGHT|HØYDE|HOYDE|POSITION|POSISJON|RAT|OVERALL|CM|KG|FIFA|EA|FC|CAREER|KARRIERE|YOUTH|AKADEMIE|ACADEMY|PLAYER|STATS|INFO|CLUB|NATION|NASJONALITET|REGION|CONTRACT|WAGE|VALUE|PAC|SHO|PAS|DRI|DEF|PHY|TMP|SKU|FOR|FYS|SERBIA|NORWAY|NORGE|ADIDAS|NIKE)$/i;
 
   function isLetterishWord(t) {
     var s = String(t || '').trim();
@@ -5118,7 +5170,9 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     // Keep "Z. MARKOVIĆ" → "Z. Marković" (preserve initial + diacritics)
     var t = String(s || '').trim();
     if (!t) return t;
-    if (/^[A-ZÆØÅÄÖÜĆČŠŽĐ.\-'\s]+$/.test(t) && ocrLettersOnly(t).length > 3) {
+    // "Z.MARKOVIĆ" / "Z.markovic" → insert space after initial
+    t = t.replace(/^([A-Za-zÆØÅæøåÄÖäöÜüßĆćČčŠšŽžĐđ])\.\s*([A-Za-zÆØÅæøåÄÖäöÜüßĆćČčŠšŽžĐđ])/, '$1. $2');
+    if (/^[A-Za-zÆØÅæøåÄÖäöÜüßĆćČčŠšŽžĐđ.\-'\s]+$/.test(t) && ocrLettersOnly(t).length > 3) {
       return t.toLowerCase().replace(/(^|[\s\-'])([a-zæøåäöüćčšžđ])/g, function (_, a, b) {
         return a + b.toUpperCase();
       }).replace(/^([a-zæøåäöüćčšžđ])\./, function (_, c) {
@@ -5246,8 +5300,10 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       var above = w.bbox.y1 <= nameBox.y0 + ySlack;
       if (!above) return;
       if (w.bbox.y0 < nameBox.y0 - nameH * 2.2 - ySlack) return;
+      // MS sits above OVR (left of name) on NO cards — allow left column as well as near name center
       var horizNear = Math.abs(w.cx - name.cx) <= nameW * 0.75 + xSlack;
-      if (!horizNear) return;
+      var leftColPos = w.cx <= nameBox.x0 + nameW * 0.15 && w.cx >= minX - xSlack;
+      if (!horizNear && !leftColPos) return;
       var nc = normalizePosCode(tok);
       if (!nc) return;
       if (!KARRIERE_POSITIONS.some(function (p) { return p.code === nc; })) return;
@@ -5297,17 +5353,44 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     });
     justBelowNums.sort(function (a, b) { return a.word.cx - b.word.cx; });
 
-    // —— Rating: left column number under name (NOT hex PAC/DEF) ——
+    // —— Rating: OVR left of name (NO FC UI) OR left column under name ——
+    // Norwegian card: large "63" sits LEFT of "Z. MARKOVIĆ" on roughly the same band.
     var ratingPick = null;
-    for (var ri = 0; ri < justBelowNums.length; ri++) {
-      var rn = justBelowNums[ri];
-      if (rn.b != null) continue; // range = potential
-      if (rn.a < 40 || rn.a > 99) continue;
-      var leftish = rn.word.cx <= name.cx + nameW * 0.25 &&
-        rn.word.bbox.x0 <= nameBox.x0 + nameW * 0.65;
-      if (!leftish) continue;
-      ratingPick = { val: rn.a, word: rn.word };
-      break;
+    var leftOfNameNums = [];
+    words.forEach(function (w) {
+      var nv = numVal(w);
+      if (!nv || nv.b != null) return;
+      if (nv.a < 40 || nv.a > 99) return;
+      // Same vertical band as name (taller OVR glyphs often extend below name top)
+      var sameBand = w.cy >= nameBox.y0 - nameH * 0.85 && w.cy <= nameBox.y1 + nameH * 0.55;
+      var leftOf = w.bbox.x1 <= nameBox.x0 + Math.max(24, xSlack * 0.6) && w.cx <= nameBox.x0 + 8;
+      if (sameBand && leftOf) leftOfNameNums.push(nv);
+    });
+    leftOfNameNums.sort(function (a, b) {
+      // Prefer larger glyph (OVR is the biggest number on the card)
+      return (b.word.h * b.word.w) - (a.word.h * a.word.w);
+    });
+    if (leftOfNameNums.length) {
+      ratingPick = { val: leftOfNameNums[0].a, word: leftOfNameNums[0].word };
+    }
+    if (!ratingPick) {
+      var belowLeft = [];
+      for (var ri = 0; ri < justBelowNums.length; ri++) {
+        var rn = justBelowNums[ri];
+        if (rn.b != null) continue; // range = potential
+        if (rn.a < 40 || rn.a > 99) continue;
+        // Left edge under name (OVR column). Reject digits sitting under the surname (pot 94).
+        var leftEdge = nameBox.x0 + Math.max(36, nameW * 0.1);
+        var underLeft = rn.word.cx <= leftEdge && rn.word.bbox.x0 <= nameBox.x0 + xSlack;
+        if (!underLeft) continue;
+        belowLeft.push(rn);
+      }
+      belowLeft.sort(function (a, b) {
+        return (b.word.h * b.word.w) - (a.word.h * a.word.w);
+      });
+      if (belowLeft.length) {
+        ratingPick = { val: belowLeft[0].a, word: belowLeft[0].word };
+      }
     }
     if (ratingPick) {
       out.rating = ratingPick.val;
@@ -5378,27 +5461,46 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       out.confidence += potPick.min !== potPick.max ? 2 : 1;
     }
 
-    // —— Age: 14–45 directly under OVR (same column) ——
-    if (ratingPick) {
-      var ageCands = [];
-      words.forEach(function (w) {
-        var nv = numVal(w);
-        if (!nv || nv.b != null) return;
-        if (nv.a < 14 || nv.a > 45) return;
-        if (nv.a === out.rating) return;
-        if (potPick && (nv.a === potPick.min || nv.a === potPick.max)) return;
+    // —— Age: prefer number under «Alder»/Age label (NO UI); fallback under OVR column ——
+    var ageLabelWords = words.filter(function (w) {
+      return /^(alder|age|år)$/i.test(w.text.replace(/[^A-Za-zÆØÅæøå]/g, ''));
+    });
+    var ageCands = [];
+    words.forEach(function (w) {
+      var nv = numVal(w);
+      if (!nv || nv.b != null) return;
+      if (nv.a < 14 || nv.a > 45) return;
+      if (nv.a === out.rating) return;
+      if (potPick && (nv.a === potPick.min || nv.a === potPick.max)) return;
+      var score = w.confidence;
+      var labeled = false;
+      for (var ai = 0; ai < ageLabelWords.length; ai++) {
+        var lab = ageLabelWords[ai];
+        var underLab = w.bbox.y0 >= lab.bbox.y0 - 4 &&
+          w.cy <= lab.bbox.y1 + Math.max(lab.h, w.h) * 3.5 + ySlack;
+        var nearLabX = Math.abs(w.cx - lab.cx) <= Math.max(lab.w, w.w) * 1.8 + xSlack * 1.5;
+        if (underLab && nearLabX) {
+          labeled = true;
+          score += 55 - Math.abs(w.cx - lab.cx) / 8;
+          break;
+        }
+      }
+      if (!labeled && ratingPick) {
         if (w.bbox.y0 < ratingPick.word.bbox.y1 - 2) return;
-        if (w.bbox.y0 > ratingPick.word.bbox.y1 + ratingPick.word.h * 2.8 + ySlack * 2) return;
+        if (w.bbox.y0 > ratingPick.word.bbox.y1 + ratingPick.word.h * 3.2 + ySlack * 2) return;
         var sameCol = Math.abs(w.cx - ratingPick.word.cx) <= Math.max(ratingPick.word.w, w.w) * 1.35 + xSlack;
         if (!sameCol) return;
-        ageCands.push({ val: nv.a, score: w.confidence - Math.abs(w.cx - ratingPick.word.cx), word: w });
-      });
-      ageCands.sort(function (a, b) { return b.score - a.score; });
-      if (ageCands.length) {
-        out.alder = ageCands[0].val;
-        out.fields.push('alder');
-        out.confidence++;
+        score += 12 - Math.abs(w.cx - ratingPick.word.cx) / 10;
+      } else if (!labeled) {
+        return;
       }
+      ageCands.push({ val: nv.a, score: score, word: w, labeled: labeled });
+    });
+    ageCands.sort(function (a, b) { return b.score - a.score; });
+    if (ageCands.length) {
+      out.alder = ageCands[0].val;
+      out.fields.push('alder');
+      out.confidence++;
     }
 
     // Height: prefer "193 CM" / "193CM"
@@ -5502,6 +5604,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         var sel = document.getElementById('a-hoved');
         ensurePosOption(sel, hoved);
         sel.value = hoved;
+        syncEkstraDisable(document.getElementById('a-ekstra'), hoved);
       }
     }
   }
@@ -5740,6 +5843,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         var hoydeRaw = document.getElementById('ae-hoyde').value;
         var hoyde = hoydeRaw === '' || hoydeRaw == null ? null : clampNum(hoydeRaw, 150, 210);
         var hoved = document.getElementById('ae-hoved').value;
+        var ekstra = readEkstraChecks(document.getElementById('ae-ekstra'), hoved);
         if (!navn || rating == null || potMin == null || potMax == null || alder == null || !hoved) {
           flashMsg('Ugyldige verdier', 'warn');
           return;
@@ -5748,7 +5852,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         if (hoydeRaw && hoyde == null) { flashMsg('Høyde må være 150–210 cm', 'warn'); return; }
         var normed = normalizeAcademyPlayer({
           id: p.id, navn: navn, rating: rating, potMin: potMin, potMax: potMax,
-          alder: alder, hoyde: hoyde, hoved: hoved
+          alder: alder, hoyde: hoyde, hoved: hoved, ekstra: ekstra
         });
         p.navn = normed.navn;
         p.rating = normed.rating;
@@ -5758,6 +5862,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         p.alder = normed.alder;
         p.hoyde = normed.hoyde;
         p.hoved = normed.hoved;
+        p.ekstra = normed.ekstra;
         saveState();
         closeAcademyEdit();
         renderAcademy();
@@ -5805,6 +5910,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       fillPosSelect(document.getElementById('ae-hoved'), false);
       fillEkstraChecks(document.getElementById('f-ekstra'), [], '');
       fillEkstraChecks(document.getElementById('e-ekstra'), [], '');
+      fillEkstraChecks(document.getElementById('a-ekstra'), [], '');
+      fillEkstraChecks(document.getElementById('ae-ekstra'), [], '');
       refreshSlotSelects();
     } catch (recoverErr) {
       console.error('Select recovery failed:', recoverErr);

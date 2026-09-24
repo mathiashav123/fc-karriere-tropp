@@ -8,3 +8,6 @@ Norsk EA FC karriere-tropp / akademi-planner for Mathias.
 - Budsjett-appen er separat og skal ikke endres herfra
 
 localStorage-nøkkel: `fc-karriere-tropp-v1`
+
+## OCR
+See [OCR-LAB.md](OCR-LAB.md). Manual entry is recommended for TV photos; soft OCR keeps colour preview.

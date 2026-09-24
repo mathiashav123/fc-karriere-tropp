@@ -1,0 +1,17 @@
+{
+  "crop": "screenshots/markovic.jpg (2400x1100+300+2100 from full TV photo)",
+  "winning_preprocess": "raw COLOR on info-card crop (soft grayscale hurt; white-mask reconnect helps MS intermittently)",
+  "achievable": {
+    "name": true,
+    "height193": true,
+    "alder_label": true,
+    "hex_labels_ignored": true
+  },
+  "gap": [
+    "rating≠63 (got null)",
+    "pot≠72-94 (got null-null)",
+    "age≠17 (got null)",
+    "pos≠MS (got )"
+  ],
+  "note": "Tesseract cannot reliably read OVR 63 / age 17 / full 72-94 / MS from this moiré TV photo even when tightly cropped. Manual entry recommended for those fields. Parser accepts Norwegian layout when OCR words are correct (see test-markovic-fasit.js)."
+}
