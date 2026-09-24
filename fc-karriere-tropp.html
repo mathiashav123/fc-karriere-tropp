@@ -150,6 +150,47 @@ label {
 .tips .tip-tag.info { background: rgba(255,255,255,.08); color: var(--muted); }
 .tips .tip-tag.speid { background: rgba(180,140,255,.2); color: #cbb0ff; }
 .verdict-tip.scout { border-left-color: #9a7ad4; background: rgba(154,122,212,0.12); }
+.speiderplan {
+  margin-top: 10px; padding: 12px 14px;
+  background: linear-gradient(160deg, rgba(154,122,212,.14), rgba(18,24,20,.6));
+  border: 1px solid rgba(180,140,255,.28);
+  border-radius: 12px; font-size: 13px; line-height: 1.45;
+}
+.speiderplan[hidden] { display: none !important; }
+.speiderplan h3 {
+  margin: 0 0 8px; font-size: 12px; font-weight: 700;
+  color: #cbb0ff; text-transform: uppercase; letter-spacing: .04em;
+}
+.speiderplan ol {
+  margin: 0 0 10px; padding: 0 0 0 1.2em;
+  color: var(--text);
+}
+.speiderplan ol li { padding: 3px 0; }
+.speiderplan .sp-pos {
+  font-weight: 700; color: #e8d9ff; letter-spacing: .02em;
+}
+.speiderplan .sp-arrow { color: var(--muted); margin: 0 4px; }
+.speiderplan .sp-land { font-weight: 600; color: #9bc0ea; }
+.speiderplan .sp-why {
+  display: block; font-size: 11px; color: var(--muted); margin-top: 1px;
+  font-weight: 400;
+}
+.speiderplan .sp-countries {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  margin: 0 0 6px; font-size: 12px;
+}
+.speiderplan .sp-countries-label {
+  color: var(--muted); font-weight: 600; margin-right: 2px;
+}
+.speiderplan .sp-chip {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  background: rgba(106,154,212,.18); color: #b7d4f0;
+  font-weight: 600; font-size: 11px;
+  border: 1px solid rgba(106,154,212,.28);
+}
+.speiderplan .sp-hint {
+  margin: 0; font-size: 11px; color: var(--muted);
+}
 /* Sticky bottom app nav */
 .app-nav {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
@@ -221,6 +262,22 @@ label {
 }
 .formasjon-toolbar select { width: auto; min-width: 140px; flex: 1 1 160px; }
 #view-formasjon .pitch-card { margin-bottom: 8px; }
+#view-formasjon .pitch-card.recommended {
+  border-color: rgba(180,140,255,.35);
+  background: linear-gradient(180deg, rgba(154,122,212,.08), transparent 48px);
+}
+#view-formasjon .pitch-card.recommended h2 {
+  color: #cbb0ff;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+}
+#view-formasjon .pitch-card.recommended .rec-actions { margin-left: auto; }
+.pitch.readonly .cell { cursor: default; }
+.pitch.readonly .cell[draggable] { -webkit-user-drag: none; }
+.pitch.readonly .clear-btn,
+.pitch.readonly .cell-rank-btns,
+.pitch.readonly .slot-swap { display: none !important; }
+.pitch.readonly .slot { opacity: .98; }
+.rec-hint { font-size: 11px; color: var(--muted); margin: 0 4px 8px; }
 #view-formasjon .pitch { min-height: 420px; }
 #view-tropp .tips { margin-top: 8px; }
 #view-tropp #tropp-card .player-list-scroll {
@@ -1131,8 +1188,17 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       <p class="hint" id="formation-hint"></p>
     </section>
 <section class="card pitch-card" style="padding:10px">
-    <h2 style="padding:4px 4px 8px">Bane · #1 · #2 · #3</h2>
+    <h2 style="padding:4px 4px 8px">Din oppstilling · #1 · #2 · #3</h2>
     <div class="pitch" id="pitch" aria-label="Formasjonsdiagram"></div>
+  </section>
+<section class="card pitch-card recommended" style="padding:10px">
+    <h2 style="padding:4px 4px 8px">Anbefalt oppstilling
+      <span class="rec-actions">
+        <button type="button" class="ghost" id="btn-apply-rec" title="Kopierer anbefalingen til din oppstilling">Bruk anbefaling</button>
+      </span>
+    </h2>
+    <p class="rec-hint">Basert på OVR, potensial og alder (yngre ved jevnt nivå). Endrer ikke din oppstilling før du trykker «Bruk anbefaling».</p>
+    <div class="pitch readonly" id="pitch-recommended" aria-label="Anbefalt oppstilling"></div>
   </section>
   </div>
 
@@ -2027,6 +2093,125 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     return { formation: formation, result: result, used: used };
   }
 
+  /**
+   * Recommendation ranking: weigh potensial more, soft-prefer younger when close.
+   * Used for «Anbefalt oppstilling» only — does not touch manual slots.
+   */
+  function comparePlayersRecommend(a, b) {
+    var scoreA = (a.potensial || 0) * 2 + (a.rating || 0);
+    var scoreB = (b.potensial || 0) * 2 + (b.rating || 0);
+    if (Math.abs(scoreA - scoreB) <= 5) {
+      var aa = a.alder != null ? a.alder : 99;
+      var ba = b.alder != null ? b.alder : 99;
+      if (aa !== ba) return aa - ba;
+    }
+    if (scoreB !== scoreA) return scoreB - scoreA;
+    if (b.rating !== a.rating) return b.rating - a.rating;
+    if (b.potensial !== a.potensial) return b.potensial - a.potensial;
+    var aa2 = a.alder != null ? a.alder : 99;
+    var ba2 = b.alder != null ? b.alder : 99;
+    if (aa2 !== ba2) return aa2 - ba2;
+    return (a.navn || '').localeCompare(b.navn || '', 'nb');
+  }
+
+  function pickBestRecommend(posCode, used) {
+    var candidates = state.players
+      .filter(function (p) { return !used.has(p.id) && qualifies(p, posCode); })
+      .sort(comparePlayersRecommend);
+    return candidates[0] || null;
+  }
+
+  /** Pure recommended XI: ignores manual placements. Same r1/r2/r3 layout. */
+  function buildRecommendedXI() {
+    var formation = getFormation();
+    var used = new Set();
+    var result = {};
+    var i, r, slot, entry, pick;
+    for (i = 0; i < formation.slots.length; i++) {
+      slot = formation.slots[i];
+      entry = { r1: null, r2: null, r3: null, pos: slot.pos, forceEmpty: {} };
+      for (r = 0; r < RANKS.length; r++) {
+        pick = pickBestRecommend(slot.pos, used);
+        if (pick) {
+          entry[RANKS[r]] = pick;
+          used.add(pick.id);
+        }
+      }
+      result[slot.id] = entry;
+    }
+    return { formation: formation, result: result, used: used, recommended: true };
+  }
+
+  function cellHTMLReadonly(slotId, rank, player) {
+    if (!player) {
+      var missCls = (rank === 'r3') ? 'miss-opt' : 'miss';
+      return '<div class="cell empty" data-role="' + rank + '">' +
+        '<div class="role">' + RANK_LABEL[rank] + '</div>' +
+        '<div class="' + missCls + '">' + RANK_MISS[rank] + '</div></div>';
+    }
+    var potChip = (player.potensial - player.rating >= 8)
+      ? ' <span class="chip-pot" title="Høyt potensial">↑</span>' : '';
+    return '<div class="cell" data-role="' + rank + '" data-pid="' + esc(player.id) + '">' +
+      '<div class="role">' + RANK_LABEL[rank] + '</div>' +
+      '<div class="pname">' + esc(player.navn) + potChip + '</div>' +
+      '<div class="ratings-line"><span class="ovr ' + ratingTier(player.rating) + '" title="Rating">' + player.rating + '</span>' +
+      '<span class="ratings-sep" aria-hidden="true">/</span>' +
+      '<span class="pot ' + ratingTier(player.potensial) + '" title="Potensial"><span class="pot-lbl">pot </span>' + player.potensial + '</span></div>' +
+      '<div class="meta"><span class="phys">' + esc(physText(player)) + '</span></div>' +
+      '</div>';
+  }
+
+  function slotHTMLReadonly(slotId, pos, e) {
+    var thin = (!e.r1 || !e.r2) ? ' thin' : '';
+    return '<div class="slot' + thin + '" data-slot="' + esc(slotId) + '" data-pos="' + esc(pos) + '">' +
+      '<div class="slot-head">' +
+      '<div class="slot-pos">' + esc(pos) + '</div>' +
+      '</div>' +
+      cellHTMLReadonly(slotId, 'r1', e.r1) +
+      cellHTMLReadonly(slotId, 'r2', e.r2) +
+      cellHTMLReadonly(slotId, 'r3', e.r3) +
+      '</div>';
+  }
+
+  function renderRecommendedPitch() {
+    var pitch = document.getElementById('pitch-recommended');
+    if (!pitch) return;
+    if (!state.players || !state.players.length) {
+      pitch.innerHTML = '<p class="rec-hint">Legg til spillere for å se anbefalt oppstilling.</p>';
+      return;
+    }
+    var xi = buildRecommendedXI();
+    var rows = rowSlotIds(xi.formation);
+    var html = ['<div class="pitch-rows">'];
+    rows.forEach(function (row) {
+      html.push('<div class="pitch-row">');
+      row.forEach(function (item) {
+        var e = xi.result[item.id] || { r1: null, r2: null, r3: null };
+        html.push(slotHTMLReadonly(item.id, item.pos, e));
+      });
+      html.push('</div>');
+    });
+    html.push('</div>');
+    pitch.innerHTML = html.join('');
+  }
+
+  function applyRecommendedXI() {
+    var xi = buildRecommendedXI();
+    var next = {};
+    xi.formation.slots.forEach(function (slot) {
+      var e = xi.result[slot.id] || {};
+      var cell = {};
+      RANKS.forEach(function (rank) {
+        if (e[rank]) cell[rank] = e[rank].id;
+      });
+      if (Object.keys(cell).length) next[slot.id] = cell;
+    });
+    state.manualSlots = next;
+    saveState();
+    render();
+    flashMsg('Anbefalt oppstilling er tatt i bruk');
+  }
+
   function playerUsage(xi) {
     var map = {};
     xi.formation.slots.forEach(function (slot) {
@@ -2209,6 +2394,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       var xi = buildXI();
       renderSummary(xi);
       renderPitch(xi);
+      renderRecommendedPitch();
       renderSquad(xi);
       renderAcademy();
       var hint = document.getElementById('formation-hint');
@@ -2251,84 +2437,253 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   /**
    * Positions to scout: used in formation, thin/weak in tropp, and no strong YA prospect.
    * Uses same formation remaps (SOM→SM etc. already reflected in used set).
+   * Speiderplan always aims for exactly 3 oppdrag when possible.
    */
-  function computeScoutNeeds() {
+
+  /** Soft YA nation lean by position (FC25/26 community heuristics). */
+  var SCOUT_POS_COUNTRIES = {
+    MS:  ['Frankrike', 'Tyskland', 'Nederland'],
+    SM:  ['Spania', 'Portugal', 'Italia'],
+    SOM: ['Colombia', 'Spania', 'Argentina'],
+    VV:  ['Nigeria', 'Brasil', 'Frankrike'],
+    HV:  ['Nigeria', 'Brasil', 'Frankrike'],
+    VM:  ['Nigeria', 'Brasil', 'Frankrike'],
+    HM:  ['Nigeria', 'Brasil', 'Frankrike'],
+    S:   ['Brasil', 'Argentina', 'England'],
+    SDM: ['Frankrike', 'Tyskland', 'Italia'],
+    VB:  ['Brasil', 'Spania', 'Nederland'],
+    HB:  ['Brasil', 'Spania', 'Nederland'],
+    VWB: ['Brasil', 'Spania', 'Nederland'],
+    HWB: ['Brasil', 'Spania', 'Nederland'],
+    K:   ['Tyskland', 'Spania', 'England']
+  };
+
+  var YA_STRONG_POOL = [
+    'Brasil', 'Argentina', 'Frankrike', 'Spania', 'Tyskland',
+    'England', 'Portugal', 'Nederland', 'Italia', 'Colombia', 'Nigeria'
+  ];
+
+  var YA_CONTINENT = {
+    Brasil: 'sa', Argentina: 'sa', Colombia: 'sa',
+    Nigeria: 'af',
+    Frankrike: 'eu', Spania: 'eu', Tyskland: 'eu', England: 'eu',
+    Portugal: 'eu', Nederland: 'eu', Italia: 'eu'
+  };
+
+  function scoutWeekSeed() {
+    var d = new Date();
+    var utc = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+    var dayNum = new Date(utc).getUTCDay() || 7;
+    var thursday = new Date(utc);
+    thursday.setUTCDate(new Date(utc).getUTCDate() + 4 - dayNum);
+    var yearStart = new Date(Date.UTC(thursday.getUTCFullYear(), 0, 1));
+    var week = Math.ceil((((thursday - yearStart) / 86400000) + 1) / 7);
+    return thursday.getUTCFullYear() * 53 + week;
+  }
+
+  function primaryScoutCountry(pos, usedCountries) {
+    var list = SCOUT_POS_COUNTRIES[pos] || YA_STRONG_POOL;
+    var used = usedCountries || {};
+    var i;
+    for (i = 0; i < list.length; i++) {
+      if (!used[list[i]]) return list[i];
+    }
+    return list[0];
+  }
+
+  /** Three country chips he can pick from this week — variety across continents. */
+  function pickChoiceCountries(avoidSet) {
+    var seed = scoutWeekSeed();
+    var pool = YA_STRONG_POOL.slice();
+    var rot = seed % pool.length;
+    pool = pool.slice(rot).concat(pool.slice(0, rot));
+    var picked = [];
+    var continents = {};
+    var avoid = avoidSet || {};
+    function tryPick(preferNewContinent, skipAvoid) {
+      var i, c, cont;
+      for (i = 0; i < pool.length; i++) {
+        c = pool[i];
+        if (picked.indexOf(c) >= 0) continue;
+        if (skipAvoid && avoid[c]) continue;
+        cont = YA_CONTINENT[c] || 'eu';
+        if (preferNewContinent && continents[cont] && Object.keys(continents).length < 3) continue;
+        picked.push(c);
+        continents[cont] = true;
+        return;
+      }
+    }
+    var guard = 0;
+    while (picked.length < 3 && guard < 12) {
+      tryPick(true, true);
+      if (picked.length >= 3) break;
+      tryPick(false, true);
+      if (picked.length >= 3) break;
+      tryPick(true, false);
+      if (picked.length >= 3) break;
+      tryPick(false, false);
+      guard++;
+    }
+    return picked.slice(0, 3);
+  }
+
+  function scoreScoutPosition(pos) {
+    var depth = signedDepthForPos(pos);
+    var bestOvr = 0, bestPot = 0;
+    depth.forEach(function (p) {
+      if ((p.rating || 0) > bestOvr) bestOvr = p.rating || 0;
+      if ((p.potensial || 0) > bestPot) bestPot = p.potensial || 0;
+    });
+    var thin = depth.length < 2;
+    var weak = depth.length === 0 ||
+      (bestOvr < 72 && bestPot < 80) ||
+      (bestPot < 76 && bestOvr < 75) ||
+      (depth.length === 1 && bestPot < 82 && bestOvr < 78);
+
+    var akademi = Array.isArray(state.akademi) ? state.akademi : [];
+    var used = formationUsedPlayerPositions();
+    var yaGood = [];
+    akademi.forEach(function (a) {
+      var positionsA = playerPositions(a);
+      if (!positionsA.length) positionsA = [normalizePosCode(a.hoved) || 'SM'];
+      var fits = false;
+      for (var i = 0; i < positionsA.length; i++) {
+        var eff = academyEffectivePos(positionsA[i], used);
+        if (eff.effective === pos) { fits = true; break; }
+      }
+      if (!fits && !qualifies(a, pos)) return;
+      var potHi = academyOptimisticPot(a);
+      if (potHi >= 78 || (potHi >= 75 && potHi >= bestPot + 2)) {
+        yaGood.push({ p: a, potHi: potHi });
+      }
+    });
+    yaGood.sort(function (a, b) { return b.potHi - a.potHi; });
+
+    var yaCovered = yaGood.length > 0;
+    var gap = (thin || weak) && !yaCovered;
+    var severity;
+    if (depth.length === 0 && !yaCovered) severity = 5;
+    else if (thin && !yaCovered) severity = 4;
+    else if (weak && !yaCovered) severity = 3;
+    else if (depth.length <= 1) severity = 2; /* depth insurance */
+    else if (bestPot < 82) severity = 1;
+    else severity = 0;
+
+    var why;
+    if (depth.length === 0) {
+      why = yaCovered ? 'ingen i tropp (YA dekker delvis)' : 'ingen i tropp eller akademi med bra potensial';
+    } else if (thin && !yaCovered) {
+      why = 'mangler dybde / ingen god nok i tropp eller akademi';
+    } else if (weak && !yaCovered) {
+      why = 'svak dekning (' + bestOvr + '→' + bestPot + '), ingen god YA';
+    } else if (depth.length <= 1) {
+      why = 'dybdeforsikring (bare ' + depth.length + ' i tropp)';
+    } else {
+      why = 'styrk dybde (' + bestOvr + '→' + bestPot + ')';
+    }
+
+    return {
+      pos: pos,
+      label: posDisplayCode(pos),
+      thin: thin,
+      weak: weak,
+      gap: gap,
+      yaCovered: yaCovered,
+      depth: depth.length,
+      bestOvr: bestOvr,
+      bestPot: bestPot,
+      why: why,
+      severity: severity,
+      text: 'Speid etter ' + posDisplayCode(pos) + ' — ' + why,
+      kind: 'speid'
+    };
+  }
+
+  function usedPositionsOrdered() {
     var used = formationUsedPlayerPositions();
     var positions = Object.keys(used).filter(function (p) {
       return !!p && p !== 'undefined';
     });
-    /* Order roughly by pitch importance */
     var order = ['K','VB','VWB','MS','HB','HWB','SDM','SM','SOM','VM','HM','VV','S','HV'];
     positions.sort(function (a, b) {
       var ia = order.indexOf(a); var ib = order.indexOf(b);
       if (ia < 0) ia = 99; if (ib < 0) ib = 99;
       return ia - ib || a.localeCompare(b);
     });
+    return positions;
+  }
 
-    var akademi = Array.isArray(state.akademi) ? state.akademi : [];
+  /** Legacy gap list (thin/weak, no YA) — used as base for Speiderplan. */
+  function computeScoutNeeds() {
     var needs = [];
+    usedPositionsOrdered().forEach(function (pos) {
+      var s = scoreScoutPosition(pos);
+      if (!s.gap) return;
+      needs.push(s);
+    });
+    needs.sort(function (a, b) { return b.severity - a.severity || a.pos.localeCompare(b.pos); });
+    return needs.slice(0, 5);
+  }
 
-    positions.forEach(function (pos) {
-      var depth = signedDepthForPos(pos);
-      var bestOvr = 0, bestPot = 0;
-      depth.forEach(function (p) {
-        if ((p.rating || 0) > bestOvr) bestOvr = p.rating || 0;
-        if ((p.potensial || 0) > bestPot) bestPot = p.potensial || 0;
-      });
-      var thin = depth.length < 2;
-      var weak = depth.length === 0 ||
-        (bestOvr < 72 && bestPot < 80) ||
-        (bestPot < 76 && bestOvr < 75) ||
-        (depth.length === 1 && bestPot < 82 && bestOvr < 78);
-
-      if (!thin && !weak) return;
-
-      /* Academy options for this effective/used role with bra potensial */
-      var yaGood = [];
-      akademi.forEach(function (a) {
-        var positionsA = playerPositions(a);
-        if (!positionsA.length) positionsA = [normalizePosCode(a.hoved) || 'SM'];
-        var fits = false;
-        for (var i = 0; i < positionsA.length; i++) {
-          var eff = academyEffectivePos(positionsA[i], used);
-          if (eff.effective === pos) { fits = true; break; }
-        }
-        if (!fits && !qualifies(a, pos)) return;
-        var potHi = academyOptimisticPot(a);
-        if (potHi >= 78 || (potHi >= 75 && potHi >= bestPot + 2)) {
-          yaGood.push({ p: a, potHi: potHi });
-        }
-      });
-      yaGood.sort(function (a, b) { return b.potHi - a.potHi; });
-
-      if (yaGood.length) return; /* academy covers the gap */
-
-      var label = posDisplayCode(pos);
-      var why;
-      if (depth.length === 0) {
-        why = 'ingen i tropp eller akademi med bra potensial';
-      } else if (thin) {
-        why = 'mangler dybde / ingen god nok i tropp eller akademi';
-      } else {
-        why = 'svak dekning (' + bestOvr + '→' + bestPot + '), ingen god YA';
-      }
-      needs.push({
-        pos: pos,
-        label: label,
-        thin: thin,
-        weak: weak,
-        depth: depth.length,
-        bestOvr: bestOvr,
-        bestPot: bestPot,
-        text: 'Speid etter ' + label + ' — ' + why,
-        kind: 'speid',
-        severity: depth.length === 0 ? 3 : (thin ? 2 : 1)
-      });
+  /**
+   * Speiderplan: always try for exactly 3 position missions + 3 country chips.
+   * Prefer real gaps; fill with next-weakest used roles / depth insurance.
+   */
+  function computeScoutPlan() {
+    var scored = usedPositionsOrdered().map(scoreScoutPosition);
+    scored.sort(function (a, b) {
+      return b.severity - a.severity || a.depth - b.depth || a.bestPot - b.bestPot || a.pos.localeCompare(b.pos);
     });
 
-    needs.sort(function (a, b) { return b.severity - a.severity || a.pos.localeCompare(b.pos); });
-    /* Cap spam — only real gaps */
-    return needs.slice(0, 5);
+    var missions = [];
+    var seen = {};
+    function take(filterFn, limit) {
+      var i, s;
+      for (i = 0; i < scored.length && missions.length < limit; i++) {
+        s = scored[i];
+        if (seen[s.pos]) continue;
+        if (filterFn && !filterFn(s)) continue;
+        seen[s.pos] = true;
+        missions.push(s);
+      }
+    }
+    take(function (s) { return s.gap; }, 3);
+    take(function (s) { return s.severity >= 2; }, 3); /* thin depth insurance */
+    take(function (s) { return s.severity >= 1; }, 3);
+    take(null, 3);
+
+    /* Absolute fallback if formation somehow empty: classic insurance roles */
+    var fallback = ['MS', 'S', 'SM', 'VB', 'VV', 'K'];
+    var fi = 0;
+    while (missions.length < 3 && fi < fallback.length) {
+      var fp = fallback[fi++];
+      if (seen[fp]) continue;
+      seen[fp] = true;
+      var fs = scoreScoutPosition(fp);
+      if (!fs.why || fs.severity === 0) {
+        fs.why = 'dybdeforsikring';
+        fs.severity = 1;
+      }
+      missions.push(fs);
+    }
+
+    var usedCountries = {};
+    missions = missions.slice(0, 3).map(function (m) {
+      var land = primaryScoutCountry(m.pos, usedCountries);
+      usedCountries[land] = true;
+      return {
+        pos: m.pos,
+        label: m.label,
+        country: land,
+        why: m.why,
+        severity: m.severity,
+        gap: m.gap,
+        depth: m.depth
+      };
+    });
+
+    var countries = pickChoiceCountries(usedCountries);
+    return { missions: missions, countries: countries };
   }
 
   function computeTips(xi) {
@@ -2508,20 +2863,34 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   }
 
 
+
   function renderScoutTips() {
-    var needs = computeScoutNeeds();
+    var plan = computeScoutPlan();
     function fill(elId) {
       var el = document.getElementById(elId);
       if (!el) return;
-      if (!needs.length) {
+      if (!plan.missions.length) {
         el.hidden = true;
         el.innerHTML = '';
+        el.className = 'tips scout-tips';
         return;
       }
       el.hidden = false;
-      el.innerHTML = '<h3>Speiding</h3><ul>' + needs.map(function (n) {
-        return '<li><span class="tip-tag speid">Speid</span>' + esc(n.text) + '</li>';
-      }).join('') + '</ul>';
+      el.className = 'speiderplan scout-tips';
+      var rows = plan.missions.map(function (m, idx) {
+        return '<li><span class="sp-pos">' + esc(m.label) + '</span>' +
+          '<span class="sp-arrow">→</span>send til <span class="sp-land">' + esc(m.country) + '</span>' +
+          '<span class="sp-why">' + esc(m.why) + '</span></li>';
+      }).join('');
+      var chips = (plan.countries || []).map(function (c) {
+        return '<span class="sp-chip">' + esc(c) + '</span>';
+      }).join('');
+      el.innerHTML =
+        '<h3>Speiderplan (3 speidere)</h3>' +
+        '<ol>' + rows + '</ol>' +
+        '<div class="sp-countries"><span class="sp-countries-label">Land du kan velge mellom:</span>' +
+        chips + '</div>' +
+        '<p class="sp-hint">Tips: speid én posisjon per speider.</p>';
     }
     fill('scout-tips');
     fill('scout-tips-akademi');
@@ -2590,7 +2959,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     return 1;
   }
 
-  /** Fit vs signed depth at a position (optimistic pot). Better rank / closer to #1 → higher. */
+  /** Fit vs signed depth at a position (optimistic pot). Better rank / closer to #1 → higher.
+   *  Weighs best potensial more (elite ceiling = strong pathway into tropp). */
   function academyPosFitScore(rank, potHi, depth) {
     var fit = 0;
     if (rank === 1) fit = 10;
@@ -2602,10 +2972,17 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       fit += 3;
     } else {
       var diff = potHi - best.potensial;
-      if (diff >= 0) fit += 3;
-      else if (diff >= -3) fit += 2;
-      else if (diff >= -5) fit += 1;
+      if (diff >= 3) fit += 5;
+      else if (diff >= 0) fit += 4;
+      else if (diff >= -2) fit += 3;
+      else if (diff >= -4) fit += 2;
+      else if (diff >= -6) fit += 1;
     }
+    /* Absolute ceiling bonus — elite YA matter even when depth looks fine */
+    if (potHi >= 90) fit += 4;
+    else if (potHi >= 86) fit += 3;
+    else if (potHi >= 83) fit += 2;
+    else if (potHi >= 80) fit += 1;
     return fit;
   }
 
@@ -3183,14 +3560,42 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         ' er vanlig utvikling, ikke risiko.';
     }
 
+    function isEliteCeiling() {
+      return potHi >= 85 || (rank === 1 && potHi >= 82);
+    }
+
+    function isBestPotAtRole() {
+      if (!best) return potHi >= 80;
+      return potHi >= (best.potensial || 0) - 1;
+    }
+
     function tipLoanAfterPromote() {
-      return 'Ta opp + lån ut for spilletid: sterk vs dybde, men OVR ' + ovr +
-        ' er for lav for faste minutter (dynamisk pot trenger jevnlig spill).';
+      if (isBestPotAtRole()) {
+        return 'Best potensial på ' + posDisplayCode(pos) +
+          ' — ta opp (16+); ikke XI ennå (OVR ' + ovr +
+          '). Cup-minutter + lån hvis ingen plass (hold potensialet i gang).';
+      }
+      return 'Høyt tak — ikke XI ennå; ta opp og spill cup / bytt inn sent, eller lån hvis ingen plass (dynamisk pot).';
     }
 
     function tipPromoteMinutes() {
+      if (isBestPotAtRole()) {
+        return 'Best potensial på ' + posDisplayCode(pos) +
+          ' — ta opp (16+), start i cupen til han er klar for liga.';
+      }
       return 'Ta opp nå (16+): sterk vs ' + posDisplayCode(pos) +
-        '-dybde. Gi cup/rotasjon — eller lån ut for fast spilletid.';
+        '-dybde. Gi cup-minutter / bytt inn sent — eller lån for fast spill.';
+    }
+
+    function tipCupBehindStarter() {
+      var name = best ? best.navn : 'starteren';
+      return 'Elite pot (' + potLabel + ') — troppen er full på ' + posDisplayCode(pos) +
+        '. Ta opp til cup-rolle bak ' + name + ', eller behold/lån med spill.';
+    }
+
+    function tipCupMinutesKeepPot() {
+      return 'Gi cup-minutter / bytt inn sent for å holde potensialet i gang' +
+        (best ? ' bak ' + best.navn : '') + '.';
     }
 
     function tipKeepDevelop() {
@@ -3212,13 +3617,19 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     var signReason = '';
     if (rank === 1 && (!best || potHi >= best.potensial)) {
       strongSign = true;
-      signReason = 'Ta opp — ' + phrase;
+      signReason = 'Ta opp — ' + phrase + (isBestPotAtRole() ? ' · best potensial' : '');
     } else if (rank === 1 && potHi >= (best ? best.potensial - 2 : 80)) {
       strongSign = true;
       signReason = 'Ta opp — ' + phrase + (best ? ' · nesten likt ' + fmtPlayerArrow(best) : '');
     } else if (rank === 2 && (age == null || age <= 18) && potHi >= (best ? best.potensial - 3 : 85)) {
       strongSign = true;
       signReason = 'Ta opp — ' + phrase + ' · høy takhøyde';
+    } else if (rank <= 2 && potHi >= 88) {
+      strongSign = true;
+      signReason = 'Ta opp — elite potensial (' + potLabel + ') · ' + phrase;
+    } else if (rank <= 3 && potHi >= 90 && (age == null || age <= 19)) {
+      strongSign = true;
+      signReason = 'Ta opp — elite ung potensial · ' + phrase;
     }
 
     if (strongSign) {
@@ -3335,22 +3746,36 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       if (canSign && rank <= 2 && potHi >= 82 && ovrTooLowForMinutes) {
         // Sterk nok til opprykk, men ikke klar for A-lag-minutter
         setTip('sign', tipLoanAfterPromote());
-        chip = 'Ta opp + lån';
+        chip = 'Ta opp + cup/lån';
         return pack({
           level: 'sign',
           chip: chip,
-          reason: 'Ta opp — ' + phrase + ' · OVR lav for minutter'
+          reason: 'Ta opp — ' + phrase + ' · OVR lav for liga-XI'
+        });
+      }
+
+      /* Packed role but elite pot: still tip cup pathway / loan with minutes */
+      if (canSign && depth.length >= 3 && isEliteCeiling() && isBestPotAtRole()) {
+        setTip('sign', tipCupBehindStarter());
+        chip = 'Cup-rolle / lån';
+        return pack({
+          level: 'sign',
+          chip: chip,
+          reason: 'Ta opp — best potensial · cup bak ' + (best ? best.navn : 'starter')
         });
       }
 
       if (span >= 10) {
         setTip('wait', tipWideSpan());
       } else if (gapToCeil >= 12 && potHi >= 78) {
-        setTip('wait', tipKeepDevelop() + ' ' + tipGapOk());
+        setTip('wait', tipKeepDevelop() + ' ' + tipGapOk() +
+          (canSign && isEliteCeiling() ? ' ' + tipCupMinutesKeepPot() : ''));
       } else if (canSign && rank === 1) {
         setTip('sign', tipPromoteMinutes());
       } else if (canSign && rank <= 2 && potHi >= 80) {
-        setTip('wait', 'Behold i akademiet litt til, eller ta opp når du kan gi cup/rotasjon/lån — ' + phrase + '.');
+        setTip('wait', 'Behold i akademiet litt til, eller ta opp til cup-minutter / bytt inn sent — ' + phrase + '.');
+      } else if (canSign && isEliteCeiling()) {
+        setTip('wait', tipCupMinutesKeepPot() + ' Eller lån med spill hvis troppen er full.');
       } else {
         setTip('wait', tipKeepDevelop());
       }
@@ -4102,18 +4527,31 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
         'Overskudd på ' + posLabel);
     }
 
-    // 5) Young with room — develop / minutes
+    // 5) Young with room — develop / cup minutes (weigh high pot)
     if ((age == null || age <= 23) && growth >= 6) {
+      var elitePot = (player.potensial || 0) >= 85;
+      var highPot = (player.potensial || 0) >= 82;
       if (isStarter) {
         return pack('start', 'Start / gi minutter', 'start',
-          'Start/gi minutter — ung med rom til pot ' + player.potensial + ' på ' + posLabel + remapNote + '.',
+          'Start/gi minutter — ung med rom til pot ' + player.potensial + ' på ' + posLabel + remapNote +
+          (elitePot ? '. Prioriter ham: blant beste potensial.' : '.'),
           'Utvikle som starter');
       }
       if (unused && depthN >= 3) {
-        return pack('loan', 'Lån ut', 'loan',
-          'Lån ut for utvikling — høy pot (' + player.potensial + '), lite minutter bak ' +
-          depthN + ' på ' + posLabel + remapNote + '.',
-          'Lån for spilletid');
+        return pack('loan', 'Lån / cup', 'loan',
+          (elitePot
+            ? ('Høyt tak (' + player.potensial + ') — ikke XI ennå; cup-minutter + lån hvis ingen plass på ' + posLabel)
+            : ('Lån ut for utvikling — høy pot (' + player.potensial + '), lite minutter bak ' +
+              depthN + ' på ' + posLabel)) + remapNote + '.',
+          'Lån / cup for spilletid');
+      }
+      if (isBackup || unused) {
+        return pack('develop', highPot ? 'Cup / utvikle' : 'Utvikle', 'develop',
+          (highPot
+            ? ('Gi cup-minutter / bytt inn sent for å holde potensialet i gang på ' + posLabel +
+              ' (' + growth + ' poeng til pot)')
+            : ('Utvikle / gi minutter — ' + growth + ' poeng til pot på ' + posLabel)) + remapNote + '.',
+          'Utvikle');
       }
       return pack('develop', 'Utvikle', 'develop',
         'Utvikle / gi minutter — ' + growth + ' poeng til pot på ' + posLabel + remapNote + '.',
@@ -4127,11 +4565,14 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
         'Starter');
     }
 
-    // 7) Solid backup with growth
+    // 7) Solid backup with growth — cup pathway when pot is strong
     if (isBackup && growth >= 5 && (age == null || age <= 25)) {
-      return pack('develop', 'Utvikle', 'develop',
-        'Utvikle som ' + posLabel + '-reserve — rom til pot ' + player.potensial + remapNote + '.',
-        'Reserve med pot');
+      var tip7 = (player.potensial || 0) >= 82
+        ? ('Gi cup-minutter / bytt inn sent som ' + posLabel +
+          '-reserve — hold pot ' + player.potensial + ' i gang' + remapNote + '.')
+        : ('Utvikle som ' + posLabel + '-reserve — rom til pot ' + player.potensial + remapNote + '.');
+      return pack('develop', (player.potensial || 0) >= 82 ? 'Cup / reserve' : 'Utvikle', 'develop',
+        tip7, 'Reserve med pot');
     }
 
     // 8) Aging stagnant surplus
@@ -4919,6 +5360,18 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     render();
     flashMsg('Tropp bygget automatisk (#1–#3)');
   });
+
+  var btnApplyRec = document.getElementById('btn-apply-rec');
+  if (btnApplyRec) {
+    btnApplyRec.addEventListener('click', function () {
+      if (!state.players.length) {
+        flashMsg('Ingen spillere å anbefale ennå', 'warn');
+        return;
+      }
+      if (!confirm('Erstatt din nåværende oppstilling med anbefalingen?')) return;
+      applyRecommendedXI();
+    });
+  }
 
   document.getElementById('sort').addEventListener('change', function (ev) {
     var parts = ev.target.value.split(':');
