@@ -3028,6 +3028,60 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     return filtered.slice(0, maxN || 3);
   }
 
+  /**
+   * How many formation slots need this player-facing role?
+   * MS covers VMS+HMS (2 in 4-x-x); SM covers SM/VSM/HSM slots that map to SM, etc.
+   */
+  function formationSlotDemand(pos) {
+    var formation = getFormation();
+    var n = 0;
+    var code = posDisplayCode(pos) || pos;
+    formation.slots.forEach(function (slot) {
+      var sp = slot.pos;
+      if (sp === pos || sp === code) { n++; return; }
+      /* Midtstoppere: VMS/HMS both need MS depth */
+      if (code === 'MS' && (sp === 'VMS' || sp === 'HMS' || sp === 'MS' || sp === 'CB')) { n++; return; }
+      if (code === 'SM' && (sp === 'SM' || sp === 'VSM' || sp === 'HSM' || sp === 'CM')) { n++; return; }
+      if (code === 'SDM' && (sp === 'SDM' || sp === 'CDM')) { n++; return; }
+      if (code === 'SOM' && (sp === 'SOM' || sp === 'AM' || sp === 'CAM')) { n++; return; }
+      if (code === 'VB' && (sp === 'VB' || sp === 'LB')) { n++; return; }
+      if (code === 'HB' && (sp === 'HB' || sp === 'RB')) { n++; return; }
+      if (code === 'VWB' && (sp === 'VWB' || sp === 'LWB')) { n++; return; }
+      if (code === 'HWB' && (sp === 'HWB' || sp === 'RWB')) { n++; return; }
+      if (code === 'VV' && (sp === 'VV' || sp === 'LW' || sp === 'LF')) { n++; return; }
+      if (code === 'HV' && (sp === 'HV' || sp === 'RW' || sp === 'RF')) { n++; return; }
+      if (code === 'S' && (sp === 'S' || sp === 'ST' || sp === 'CF')) { n++; return; }
+      if (code === 'K' && (sp === 'K' || sp === 'GK')) { n++; return; }
+      if (code === 'VM' && (sp === 'VM' || sp === 'LM' || sp === 'VSM')) { n++; return; }
+      if (code === 'HM' && (sp === 'HM' || sp === 'RM' || sp === 'HSM')) { n++; return; }
+    });
+    return Math.max(1, n);
+  }
+
+  /** Academy prospects that can cover pos after formation remaps (usable YA depth). */
+  function academyUsableForPos(pos) {
+    var akademi = Array.isArray(state.akademi) ? state.akademi : [];
+    var used = formationUsedPlayerPositions();
+    var out = [];
+    akademi.forEach(function (a) {
+      var positionsA = playerPositions(a);
+      if (!positionsA.length) positionsA = [normalizePosCode(a.hoved) || 'SM'];
+      var fits = false;
+      for (var i = 0; i < positionsA.length; i++) {
+        var eff = academyEffectivePos(positionsA[i], used);
+        if (eff.effective === pos || posDisplayCode(eff.effective) === posDisplayCode(pos)) {
+          fits = true; break;
+        }
+      }
+      if (!fits && !qualifies(a, pos)) return;
+      var potHi = academyOptimisticPot(a);
+      /* Count as usable cover if pot is at least development-relevant */
+      if (potHi >= 72) out.push({ p: a, potHi: potHi });
+    });
+    out.sort(function (a, b) { return b.potHi - a.potHi; });
+    return out;
+  }
+
   function scoreScoutPosition(pos) {
     var depth = signedDepthForPos(pos);
     var bestOvr = 0, bestPot = 0;
@@ -3035,62 +3089,69 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       if ((p.rating || 0) > bestOvr) bestOvr = p.rating || 0;
       if ((p.potensial || 0) > bestPot) bestPot = p.potensial || 0;
     });
-    var thin = depth.length < 2;
+    var slots = formationSlotDemand(pos);
+    /* Need #1+#2 per formation slot (e.g. MS with VMS+HMS → 4). */
+    var needMin = 2 * slots;
+    var yaList = academyUsableForPos(pos);
+    var yaGood = yaList.filter(function (y) { return y.potHi >= 78; });
+    var usable = depth.length + yaList.length; /* tropp + academy after remaps */
+    var shortfall = Math.max(0, needMin - usable);
+    var thinTropp = depth.length < 2;
+    var thinSlots = usable < needMin; /* < 2 usable per slot */
+    var thinAbsolute = usable < 2; /* hard floor: always hunt if < 2 total */
+    var mustHunt = thinAbsolute || thinSlots;
     var weak = depth.length === 0 ||
       (bestOvr < 72 && bestPot < 80) ||
       (bestPot < 76 && bestOvr < 75) ||
       (depth.length === 1 && bestPot < 82 && bestOvr < 78);
 
-    var akademi = Array.isArray(state.akademi) ? state.akademi : [];
-    var used = formationUsedPlayerPositions();
-    var yaGood = [];
-    akademi.forEach(function (a) {
-      var positionsA = playerPositions(a);
-      if (!positionsA.length) positionsA = [normalizePosCode(a.hoved) || 'SM'];
-      var fits = false;
-      for (var i = 0; i < positionsA.length; i++) {
-        var eff = academyEffectivePos(positionsA[i], used);
-        if (eff.effective === pos) { fits = true; break; }
-      }
-      if (!fits && !qualifies(a, pos)) return;
-      var potHi = academyOptimisticPot(a);
-      if (potHi >= 78 || (potHi >= 75 && potHi >= bestPot + 2)) {
-        yaGood.push({ p: a, potHi: potHi });
-      }
-    });
-    yaGood.sort(function (a, b) { return b.potHi - a.potHi; });
-
     var yaCovered = yaGood.length > 0;
-    /* Strong YA cover → do not recommend scouting this position */
-    var yaStrong = yaGood.some(function (y) { return y.potHi >= 82; }) ||
-      (yaGood.length >= 2 && yaGood[0].potHi >= 78);
+    /* YA only «covers» enough to skip when usable meets 2-per-slot need */
+    var yaStrong = !mustHunt && (
+      yaGood.some(function (y) { return y.potHi >= 82; }) ||
+      (yaGood.length >= 2 && yaGood[0].potHi >= 78)
+    );
 
-    var gap = (thin || weak) && !yaCovered;
+    var gap = mustHunt || ((thinTropp || weak) && !yaCovered);
     var severity;
-    if (yaStrong) {
-      severity = 0; /* already have good YA — skip */
-    } else if (depth.length === 0 && !yaCovered) {
-      severity = 5;
-    } else if (thin && !yaCovered) {
-      severity = 4;
+    if (mustHunt && usable === 0) {
+      severity = 6; /* empty tropp+YA for a used formation role */
+    } else if (mustHunt && thinAbsolute) {
+      severity = 5; /* < 2 usable total — must-hunt (esp. MS) */
+    } else if (mustHunt) {
+      severity = 4; /* < 2 per slot (e.g. 2–3 MS for 2 CB slots) */
+    } else if (yaStrong) {
+      severity = 0;
+    } else if (thinTropp && !yaCovered) {
+      severity = 3;
     } else if (weak && !yaCovered) {
       severity = 3;
     } else if (depth.length <= 1 && !yaCovered) {
       severity = 2;
     } else if (!yaCovered && bestPot < 82) {
       severity = 1;
-    } else if (yaCovered && !yaStrong && (thin || weak)) {
-      severity = 1; /* soft YA only — low priority */
+    } else if (yaCovered && (thinTropp || weak)) {
+      severity = 1;
     } else {
       severity = 0;
     }
 
     var why;
-    if (yaStrong) {
+    var label = posDisplayCode(pos);
+    if (mustHunt && usable === 0) {
+      why = 'mangler ' + label + ' — 0 i tropp/akademi (trenger ' + needMin + ' for ' + slots + ' plass' + (slots > 1 ? 'er' : '') + ')';
+    } else if (mustHunt && thinAbsolute) {
+      why = 'tynn ' + label + '-dybde (' + usable + ' brukbar' + (usable === 1 ? '' : 'e') +
+        ' i tropp+akademi, trenger minst 2' +
+        (slots > 1 ? ' — egentlig ' + needMin + ' for ' + slots + ' plasser' : '') + ')';
+    } else if (mustHunt) {
+      why = 'under dybde på ' + label + ' (' + usable + '/' + needMin +
+        ' — trenger 2 per plass, ' + slots + ' i formasjonen)';
+    } else if (yaStrong) {
       why = 'god YA-dekning (skip)';
     } else if (depth.length === 0) {
       why = yaCovered ? 'ingen i tropp (YA dekker delvis)' : 'ingen i tropp eller akademi med bra potensial';
-    } else if (thin && !yaCovered) {
+    } else if (thinTropp && !yaCovered) {
       why = 'mangler dybde / ingen god nok i tropp eller akademi';
     } else if (weak && !yaCovered) {
       why = 'svak dekning (' + bestOvr + '→' + bestPot + '), ingen god YA';
@@ -3102,10 +3163,15 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 
     return {
       pos: pos,
-      label: posDisplayCode(pos),
-      thin: thin,
+      label: label,
+      thin: thinTropp || mustHunt,
       weak: weak,
       gap: gap,
+      mustHunt: mustHunt,
+      slots: slots,
+      needMin: needMin,
+      usable: usable,
+      shortfall: shortfall,
       yaCovered: yaCovered,
       yaStrong: yaStrong,
       depth: depth.length,
@@ -3113,7 +3179,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       bestPot: bestPot,
       why: why,
       severity: severity,
-      text: 'Speid etter ' + posDisplayCode(pos) + ' — ' + why,
+      text: 'Speid etter ' + label + ' — ' + why,
       kind: 'speid'
     };
   }
@@ -3154,10 +3220,17 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     var usedForm = formationUsedPlayerPositions();
     var scored = usedPositionsOrdered().map(scoreScoutPosition);
     scored.sort(function (a, b) {
-      return b.severity - a.severity || a.depth - b.depth || a.bestPot - b.bestPot || a.pos.localeCompare(b.pos);
+      /* Must-hunt thin slots (esp. MS) before backs/wings opportunistic */
+      var ma = a.mustHunt ? 1 : 0, mb = b.mustHunt ? 1 : 0;
+      if (mb !== ma) return mb - ma;
+      if (b.shortfall !== a.shortfall) return b.shortfall - a.shortfall;
+      return b.severity - a.severity || a.usable - b.usable || a.bestPot - b.bestPot || a.pos.localeCompare(b.pos);
     });
 
-    var candidates = scored.filter(function (s) { return s.severity > 0 && !s.yaStrong; });
+    /* Prefer real needs; never skip mustHunt even if some YA exists */
+    var candidates = scored.filter(function (s) {
+      return s.mustHunt || (s.severity > 0 && !s.yaStrong);
+    });
     var seenPos = {};
     var picked = [];
 
@@ -3176,6 +3249,11 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       return true;
     }
 
+    /* 1) All must-hunt first (MS thin before VB/VV) */
+    candidates.filter(function (s) { return s.mustHunt; }).forEach(function (s) {
+      if (picked.length < 3) pushMission(s);
+    });
+    /* 2) Other real needs */
     candidates.forEach(function (s) { if (picked.length < 3) pushMission(s); });
 
     /* Mild opportunistic: used formation roles without strong YA */
@@ -3253,8 +3331,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         };
       }
       var maxPos;
-      if (style === 'spisset') maxPos = 1;
-      else if (style === 'trengs') maxPos = mission.severity >= 4 ? 1 : 2;
+      if (style === 'spisset' || (mission && mission.mustHunt && style !== 'speid')) maxPos = 1;
+      else if (style === 'trengs') maxPos = mission.severity >= 4 || mission.mustHunt ? 1 : 2;
       else maxPos = 3;
 
       var positions;
@@ -3306,8 +3384,9 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       };
     }
 
+    /* Spisset hits thin must-hunt first (1 pos); second may also be spisset if mustHunt */
     var style1 = 'spisset';
-    var style2 = (m2 && m2.severity >= 4) ? 'spisset' : 'trengs';
+    var style2 = (m2 && (m2.mustHunt || m2.severity >= 4)) ? 'spisset' : 'trengs';
     var style3 = 'speid';
 
     var scouts = [
