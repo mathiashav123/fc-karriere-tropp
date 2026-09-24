@@ -2348,11 +2348,16 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       tip = text;
     }
 
-    // Tips: stort potensial-gap = risiko (selv om taket er høyt)
+    // Tips: bred pot-range = usikkerhet om hvor pot lander (ikke at gap OVR→pot er «risiko»).
+    // Stort gap OVR→pot er normalt i akademiet — spilleren utvikler seg oppover mot potensialet.
     if (span >= 15) {
-      setTip('risk', 'Pot ' + fmtPotRange(prospect) + ': svinger mye — ikke regn med toppen før du ser utvikling.');
+      if (potHi >= 80) {
+        setTip('wait', 'Pot ' + fmtPotRange(prospect) + ': usikkert hvor potensialet lander — rom for vekst mot ' + potHi + '.');
+      } else {
+        setTip('risk', 'Pot ' + fmtPotRange(prospect) + ': usikkert hvor potensialet lander (gulv vs tak).');
+      }
     } else if (gapToCeil >= 18 && potHi >= 80) {
-      setTip('risk', 'Pot ' + potHi + ': stort gap fra OVR ' + ovr + ' — kan flate ut. Følg med 1–2 sesonger.');
+      setTip('sign', 'OVR ' + ovr + ' med pot ' + potHi + ': utvikler seg oppover mot potensialet — gapet er normalt.');
     }
 
     var clearlyWorseAtMax = rank >= 4 ||
@@ -2425,7 +2430,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 
     if (wouldDrop) {
       if (span >= 15 && !clearlyWorseAtMax) {
-        if (!tip) setTip('risk', 'Pot ' + fmtPotRange(prospect) + ': usikkert — ikke slipp hardt ennå, men heller ikke prioriter.');
+        if (!tip) setTip('risk', 'Pot ' + fmtPotRange(prospect) + ': usikkert hvor potensialet lander — ikke slipp hardt ennå, men heller ikke prioriter.');
         return pack({
           level: 'watch',
           chip: 'Følg med / usikkert',
@@ -2437,11 +2442,11 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     }
 
     if (span >= 15 && rank >= 3) {
-      if (!tip) setTip('risk', 'Pot ' + fmtPotRange(prospect) + ': bred range — følg utvikling før du bestemmer deg.');
+      if (!tip) setTip('risk', 'Pot ' + fmtPotRange(prospect) + ': usikkert hvor potensialet lander — følg med før du bestemmer deg.');
       return pack({
         level: 'watch',
         chip: 'Følg med / usikkert',
-        reason: 'Pot ' + fmtPotRange(prospect) + ': bred range — ' + phrase
+        reason: 'Pot ' + fmtPotRange(prospect) + ': usikkert landingspunkt — ' + phrase
       });
     }
 
