@@ -185,6 +185,28 @@ label {
 
 .verdict-chip.watch { background: rgba(154,171,158,.22); color: #c5d4c8; }
 .verdict-sub { display: block; width: 100%; font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.35; }
+
+/* Rating / potensial: grønnere når bra, dempet når lavt */
+.stat-elite { color: #5dff9a !important; }
+.stat-high  { color: #7ddea0 !important; }
+.stat-good  { color: #a8d47a !important; }
+.stat-mid   { color: #c9c07a !important; }
+.stat-ok    { color: #a8a090 !important; }
+.stat-low   { color: #8a8f8a !important; }
+.verdict-tip {
+  display: block; width: 100%; font-size: 12px; line-height: 1.4;
+  margin-top: 4px; padding: 6px 8px; border-radius: 8px;
+  background: rgba(255,255,255,0.04); border-left: 3px solid var(--accent);
+  color: var(--text);
+}
+.verdict-tip.risk { border-left-color: #d4a054; background: rgba(212,160,84,0.1); }
+.verdict-tip.drop { border-left-color: #d45454; background: rgba(212,84,84,0.1); }
+.verdict-tip.sign { border-left-color: #3d9a5f; background: rgba(61,154,95,0.12); }
+.verdict-tip.wait { border-left-color: #6a9ad4; background: rgba(106,154,212,0.12); }
+.btn-sign:disabled, .btn-sign[disabled] {
+  opacity: 0.45; cursor: not-allowed;
+}
+
 .add-mode-switch {
   display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
   margin: 0 0 12px; padding: 4px;
@@ -368,13 +390,13 @@ label {
   white-space: normal; overflow: visible;
 }
 .cell .ratings-line .ovr {
-  color: var(--accent); font-weight: 800; font-size: 12px;
+  color: #a8a090; font-weight: 800; font-size: 12px;
 }
 .cell .ratings-line .ratings-sep {
   color: var(--muted); font-weight: 500; opacity: .7;
 }
 .cell .ratings-line .pot {
-  color: #7ddea0; font-weight: 700; font-size: 11px;
+  color: #8a8f8a; font-weight: 700; font-size: 11px;
 }
 .cell .ratings-line .pot-lbl {
   font-weight: 600; font-size: 9px; letter-spacing: .02em;
@@ -489,11 +511,11 @@ label {
   line-height: 1.1; flex-shrink: 0;
 }
 .p-ratings .r {
-  font-size: 22px; font-weight: 800; color: var(--accent);
+  font-size: 22px; font-weight: 800; color: #a8a090;
   letter-spacing: -0.02em;
 }
 .p-ratings .p {
-  color: var(--muted); font-size: 12px; font-weight: 600; margin-top: 2px;
+  color: #8a8f8a; font-size: 12px; font-weight: 600; margin-top: 2px;
 }
 .p-sub .p-pos { color: var(--text); font-weight: 550; }
 .p-sub .p-phys { color: var(--muted); font-size: 11px; }
@@ -984,7 +1006,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     </section>
     <section class="card">
       <h2>Akademi <span id="akademi-count">(0)</span></h2>
-      <p class="hint" style="margin-top:0">Behold / kast / signer — sammenlignet med signert tropp på samme posisjon.</p>
+      <p class="hint" style="margin-top:0">Tips om beholde, slippe eller ta opp til A-laget (fra 16 år) — sammenlignet med troppen på samme posisjon.</p>
       <ul class="player-list" id="akademi-list"></ul>
       <div class="empty-state" id="akademi-empty">Ingen akademispillere. Legg til prospects over.</div>
     </section>
@@ -1172,20 +1194,18 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   var RANK_MISS = { r1: 'mangler #1', r2: 'mangler #2', r3: '#3 valgfri' };
   var RANK_NAME = { r1: 'Nr. 1', r2: 'Nr. 2', r3: 'Nr. 3' };
 
-  /* UI-only Norwegian career codes (dropdowns / checkboxes). */
+  /* Player attribute codes (hoved/ekstra). Side variants VMS/HMS/VSM/HSM
+     are formation slots only — chosen under «Plasser på posisjon». */
   var KARRIERE_POSITIONS = [
     { code: 'K', label: 'K · keeper' },
     { code: 'VB', label: 'VB · venstreback' },
     { code: 'VWB', label: 'VWB · venstre wingback' },
-    { code: 'VMS', label: 'VMS · venstre midtstopper' },
-    { code: 'HMS', label: 'HMS · høyre midtstopper' },
+    { code: 'MS', label: 'MS · midtstopper' },
     { code: 'HB', label: 'HB · høyreback' },
     { code: 'HWB', label: 'HWB · høyre wingback' },
     { code: 'SDM', label: 'SDM · sittende midtbane / 6-er' },
     { code: 'SM', label: 'SM · sentral midtbane / 8-er' },
     { code: 'AM', label: 'AM · angripende midtbane / 10-er' },
-    { code: 'VSM', label: 'VSM · venstre sidemidt' },
-    { code: 'HSM', label: 'HSM · høyre sidemidt' },
     { code: 'VV', label: 'VV · venstre ving' },
     { code: 'S', label: 'S · spiss' },
     { code: 'HV', label: 'HV · høyre ving' }
@@ -1193,10 +1213,12 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 
   var POS_BY_CODE = {};
   KARRIERE_POSITIONS.forEach(function (p) { POS_BY_CODE[p.code] = p; });
-  /* Hidden aliases for old saves / qualify — never shown in dropdowns.
-     CB stays as midtstopper (do NOT force VMS/HMS — ambiguous for left/right). */
+  /* Hidden aliases for old saves / OCR / slot labels — never in player dropdowns. */
   POS_BY_CODE['CB'] = { code: 'CB', label: 'MS · midtstopper' };
-  POS_BY_CODE['MS'] = { code: 'MS', label: 'MS · alias for SM' };
+  POS_BY_CODE['VMS'] = { code: 'VMS', label: 'VMS · venstre midtstopper (plassering)' };
+  POS_BY_CODE['HMS'] = { code: 'HMS', label: 'HMS · høyre midtstopper (plassering)' };
+  POS_BY_CODE['VSM'] = { code: 'VSM', label: 'VSM · venstre SM-plass (plassering)' };
+  POS_BY_CODE['HSM'] = { code: 'HSM', label: 'HSM · høyre SM-plass (plassering)' };
   POS_BY_CODE['CAM'] = { code: 'CAM', label: 'AM · angripende midtbane / 10-er' };
   POS_BY_CODE['GK'] = { code: 'GK', label: 'K · keeper' };
   POS_BY_CODE['LB'] = { code: 'LB', label: 'VB · venstreback' };
@@ -1205,8 +1227,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   POS_BY_CODE['RWB'] = { code: 'RWB', label: 'HWB · høyre wingback' };
   POS_BY_CODE['CDM'] = { code: 'CDM', label: 'SDM · sittende midtbane / 6-er' };
   POS_BY_CODE['CM'] = { code: 'CM', label: 'SM · sentral midtbane / 8-er' };
-  POS_BY_CODE['LM'] = { code: 'LM', label: 'VSM · venstre sidemidt' };
-  POS_BY_CODE['RM'] = { code: 'RM', label: 'HSM · høyre sidemidt' };
+  POS_BY_CODE['LM'] = { code: 'LM', label: 'SM · sentral midtbane' };
+  POS_BY_CODE['RM'] = { code: 'RM', label: 'SM · sentral midtbane' };
   POS_BY_CODE['LW'] = { code: 'LW', label: 'VV · venstre ving' };
   POS_BY_CODE['RW'] = { code: 'RW', label: 'HV · høyre ving' };
   POS_BY_CODE['ST'] = { code: 'ST', label: 'S · spiss' };
@@ -1214,32 +1236,34 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   POS_BY_CODE['LF'] = { code: 'LF', label: 'VV · venstre ving' };
   POS_BY_CODE['RF'] = { code: 'RF', label: 'HV · høyre ving' };
 
-  /* Unambiguous FIFA/old → Norwegian on load. CB intentionally omitted. */
+  /* Old / sided codes → player attribute codes on load. */
   var OLD_TO = {
     GK: 'K', LB: 'VB', RB: 'HB', LWB: 'VWB', RWB: 'HWB',
-    CDM: 'SDM', CM: 'SM', CAM: 'AM', LM: 'VSM', RM: 'HSM',
+    CDM: 'SDM', CM: 'SM', CAM: 'AM',
+    LM: 'SM', RM: 'SM', VSM: 'SM', HSM: 'SM',
     LW: 'VV', RW: 'HV', ST: 'S', CF: 'S', LF: 'VV', RF: 'HV',
-    MS: 'SM'
+    CB: 'MS', VMS: 'MS', HMS: 'MS'
   };
 
+  /* Formation slot → which player attribute codes qualify.
+     VMS/HMS/VSM/HSM are pitch places; MS/SM are what you set on the player. */
   var SLOT_ALIASES = {
     K:   ['K', 'GK'],
     VB:  ['VB', 'LB', 'LWB', 'VWB'],
     VWB: ['VWB', 'LWB', 'VB', 'LB'],
-    VMS: ['VMS', 'CB'],
-    HMS: ['HMS', 'CB'],
+    VMS: ['MS', 'VMS', 'HMS', 'CB'],
+    HMS: ['MS', 'HMS', 'VMS', 'CB'],
     HB:  ['HB', 'RB', 'RWB', 'HWB'],
     HWB: ['HWB', 'RWB', 'HB', 'RB'],
     SDM: ['SDM', 'CDM'],
-    SM:  ['SM', 'MS', 'CM', 'AM', 'CAM'],
-    MS:  ['SM', 'MS', 'CM', 'AM', 'CAM'],
-    AM:  ['AM', 'CAM', 'SM', 'MS', 'CM'],
-    CAM: ['AM', 'CAM', 'SM', 'MS', 'CM'],
-    VSM: ['VSM', 'LM', 'LW', 'VV'],
-    HSM: ['HSM', 'RM', 'RW', 'HV'],
-    VV:  ['VV', 'LW', 'LF', 'LM', 'VSM'],
-    HV:  ['HV', 'RW', 'RF', 'RM', 'HSM'],
-    S:   ['S', 'ST', 'CF', 'LF', 'RF']
+    SM:  ['SM', 'CM'],
+    AM:  ['AM', 'CAM', 'SM', 'CM'],
+    CAM: ['AM', 'CAM', 'SM', 'CM'],
+    VSM: ['SM', 'CM', 'VSM', 'HSM', 'LM', 'RM'],
+    HSM: ['SM', 'CM', 'HSM', 'VSM', 'RM', 'LM'],
+    VV:  ['VV', 'LW', 'LF'],
+    HV:  ['HV', 'RW', 'RF'],
+    S:   ['S', 'ST', 'CF']
   };
 
     var FORMATIONS = {
@@ -1785,11 +1809,19 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     });
   }
 
-  /** Short UI code (CB → MS); never shows English FIFA codes as primary. */
+  /** Short UI code for player badges; slot labels stay VMS/HMS etc. on the pitch. */
   function posDisplayCode(code) {
     if (!code) return '';
-    if (code === 'CB') return 'MS';
+    if (code === 'CB' || code === 'VMS' || code === 'HMS') return 'MS';
+    if (code === 'VSM' || code === 'HSM' || code === 'LM' || code === 'RM' || code === 'CM') return 'SM';
     if (code === 'CAM') return 'AM';
+    if (code === 'GK') return 'K';
+    if (code === 'LB') return 'VB';
+    if (code === 'RB') return 'HB';
+    if (code === 'CDM') return 'SDM';
+    if (code === 'LW' || code === 'LF') return 'VV';
+    if (code === 'RW' || code === 'RF') return 'HV';
+    if (code === 'ST' || code === 'CF') return 'S';
     return code;
   }
 
@@ -2222,6 +2254,21 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
    * Keep / release / sign verdict vs signed squad.
    * Uses optimistic potMax for primary; mentions pessimistic when range is wide.
    */
+
+  var ACADEMY_MIN_SIGN_AGE = 16;
+
+  /** Color tier for rating/potensial numbers (elite → low). */
+  function ratingTier(n) {
+    n = Number(n);
+    if (!(n >= 1)) return 'stat-low';
+    if (n >= 85) return 'stat-elite';
+    if (n >= 80) return 'stat-high';
+    if (n >= 75) return 'stat-good';
+    if (n >= 70) return 'stat-mid';
+    if (n >= 65) return 'stat-ok';
+    return 'stat-low';
+  }
+
   function academyVerdict(prospect) {
     var pos = prospect.hoved;
     var potHi = academyOptimisticPot(prospect);
@@ -2230,7 +2277,10 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     var info = projectedAcademyRank(prospect, potHi);
     var depth = info.depth;
     var rank = info.rank;
-    var age = prospect.alder != null ? prospect.alder : 17;
+    var age = prospect.alder != null ? prospect.alder : null;
+    var ageKnown = age != null;
+    var canSign = ageKnown && age >= ACADEMY_MIN_SIGN_AGE;
+    var underAge = ageKnown && age < ACADEMY_MIN_SIGN_AGE;
     var best = depth[0] || null;
     var second = depth[1] || null;
     var youngHigh = depth.filter(function (p) {
@@ -2249,73 +2299,131 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       }
     }
 
-    function withSub(v) {
+    var ovr = prospect.rating != null ? prospect.rating : 50;
+    var gapToCeil = potHi - ovr; // utviklingsgap
+    var tip = '';
+    var tipKind = '';
+
+    function pack(v) {
       if (sub) v.sub = sub;
+      if (tip) { v.tip = tip; v.tipKind = tipKind; }
+      v.canSign = !!canSign;
       return v;
     }
 
-    // Wide uncertain: avoid hard Kast unless clearly worse even at potMax
+    function setTip(kind, text) {
+      tipKind = kind;
+      tip = text;
+    }
+
+    // Tips: stort potensial-gap = risiko (selv om taket er høyt)
+    if (span >= 15) {
+      setTip('risk', 'Risiko: potensialet svinger mye (' + fmtPotRange(prospect) + '). Ikke regn med toppen før du ser utvikling.');
+    } else if (gapToCeil >= 18 && potHi >= 80) {
+      setTip('risk', 'Risiko: stort gap fra rating ' + ovr + ' til pot ' + potHi + '. Kan flate ut — følg med i 1–2 sesonger.');
+    }
+
     var clearlyWorseAtMax = rank >= 4 ||
       (rank >= 3 && second && potHi <= second.potensial - 5);
 
-    // Signer snart (optimistic potMax)
+    // Sterk kandidat til A-laget?
+    var strongSign = false;
+    var signReason = '';
     if (rank === 1 && (!best || potHi >= best.potensial)) {
-      return withSub({ level: 'sign', chip: 'Signer snart', reason: 'Signer — ' + phrase });
-    }
-    if (rank === 1 && potHi >= (best ? best.potensial - 2 : 80)) {
-      return withSub({
-        level: 'sign',
-        chip: 'Signer snart',
-        reason: 'Signer — ' + phrase + (best ? ' · nesten likt ' + fmtPlayerArrow(best) : '')
-      });
-    }
-    if (rank === 2 && age <= 18 && potHi >= (best ? best.potensial - 3 : 85)) {
-      return withSub({
-        level: 'sign',
-        chip: 'Signer snart',
-        reason: 'Signer — ' + phrase + ' · høy takhøyde'
-      });
+      strongSign = true;
+      signReason = 'Ta opp — ' + phrase;
+    } else if (rank === 1 && potHi >= (best ? best.potensial - 2 : 80)) {
+      strongSign = true;
+      signReason = 'Ta opp — ' + phrase + (best ? ' · nesten likt ' + fmtPlayerArrow(best) : '');
+    } else if (rank === 2 && (age == null || age <= 18) && potHi >= (best ? best.potensial - 3 : 85)) {
+      strongSign = true;
+      signReason = 'Ta opp — ' + phrase + ' · høy takhøyde';
     }
 
-    // Kast — but lean «Følg med» when span ≥ 15 unless clearly worse at potMax
+    if (strongSign) {
+      if (underAge) {
+        if (!tip) {
+          setTip('wait', 'Kan ikke tas opp før fylte 16. Behold i akademiet til da — potensialet ser bra ut.');
+        } else {
+          tip = 'Kan ikke tas opp før 16. ' + tip;
+          tipKind = 'wait';
+        }
+        return pack({
+          level: 'keep',
+          chip: 'Behold til 16',
+          reason: 'Behold — ' + phrase + ' · for ung til A-laget (' + age + ' år)'
+        });
+      }
+      if (!ageKnown) {
+        setTip('wait', 'Sett alder: spillere kan bare tas opp til A-laget fra 16 år.');
+        return pack({
+          level: 'keep',
+          chip: 'Sjekk alder',
+          reason: 'Ser sterk ut — ' + phrase + ' · mangler alder (min. 16 for opprykk)'
+        });
+      }
+      if (!tip) {
+        setTip('sign', 'Ta opp til A-laget med en gang — klar for troppen.');
+      } else if (tipKind === 'risk') {
+        tip = 'Kan tas opp nå, men: ' + tip.replace(/^Risiko:\s*/, '');
+      }
+      return pack({ level: 'sign', chip: 'Ta opp nå', reason: signReason });
+    }
+
+    // Kast / slipp
     var wouldDrop = false;
     var dropReason = '';
     if (rank >= 4) {
       wouldDrop = true;
-      dropReason = 'Kast — ' + phrase;
+      dropReason = 'Slipp — ' + phrase;
     } else if (rank >= 3 && youngHigh.length >= 2 && potHi <= youngHigh[1].potensial - 2) {
       wouldDrop = true;
-      dropReason = 'Kast — du har allerede ' + fmtPlayerArrow(youngHigh[0]) +
+      dropReason = 'Slipp — du har allerede ' + fmtPlayerArrow(youngHigh[0]) +
         ' og ' + fmtPlayerArrow(youngHigh[1]) + ' på ' + posDisplayCode(pos) + ' · ' + phrase;
     } else if (second && potHi <= second.potensial - 5 && rank >= 3) {
       wouldDrop = true;
-      dropReason = 'Kast — ' + phrase;
-    } else if (potHi < 74 && age >= 18) {
+      dropReason = 'Slipp — ' + phrase;
+    } else if (potHi < 74 && (age == null || age >= 18)) {
       wouldDrop = true;
-      dropReason = 'Kast — lavt potensial for alderen · ' + phrase;
+      dropReason = 'Slipp — for lavt potensial · ' + phrase;
+    } else if (potHi < 72) {
+      wouldDrop = true;
+      dropReason = 'Slipp — potensialet er for lavt · ' + phrase;
     }
 
     if (wouldDrop) {
       if (span >= 15 && !clearlyWorseAtMax) {
-        return withSub({
+        if (!tip) setTip('risk', 'Usikkert potensial — ikke slipp hardt ennå, men heller ikke prioriter.');
+        return pack({
           level: 'watch',
           chip: 'Følg med / usikkert',
           reason: 'Usikkert potensial (' + fmtPotRange(prospect) + ') — ' + phrase
         });
       }
-      return withSub({ level: 'drop', chip: 'Kast', reason: dropReason });
+      if (!tip) setTip('drop', 'Anbefaling: slipp fra akademiet — tar plass uten nok takhøyde.');
+      return pack({ level: 'drop', chip: 'Slipp', reason: dropReason });
     }
 
     if (span >= 15 && rank >= 3) {
-      return withSub({
+      if (!tip) setTip('risk', 'Bred range — følg utvikling før du bestemmer deg.');
+      return pack({
         level: 'watch',
         chip: 'Følg med / usikkert',
         reason: 'Bred range (' + fmtPotRange(prospect) + ') — ' + phrase
       });
     }
 
+    if (underAge && rank <= 2 && potHi >= 80) {
+      if (!tip) setTip('wait', 'Behold til 16, deretter vurder opprykk til A-laget.');
+      return pack({
+        level: 'keep',
+        chip: 'Behold til 16',
+        reason: 'Behold — ' + phrase + ' · opprykk først fra 16'
+      });
+    }
+
     if (rank <= 3) {
-      var near = best && (best.potensial - potHi) <= 5 && age <= 19;
+      var near = best && (best.potensial - potHi) <= 5 && (age == null || age <= 19);
       var chip = near || rank <= 2 ? 'Behold' : 'Behold / vurder';
       var extra = '';
       if (rank === 2 && best) {
@@ -2323,19 +2431,28 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       } else if (best && potHi >= best.potensial - 3) {
         extra = ' · pot nær beste ' + fmtPlayerArrow(best);
       }
-      return withSub({
+      if (!tip && canSign && rank === 1) {
+        setTip('sign', 'Kan tas opp til A-laget når du vil.');
+      } else if (!tip && underAge) {
+        setTip('wait', 'Under 16 — bare utvikling i akademiet foreløpig.');
+      }
+      return pack({
         level: 'keep',
         chip: chip,
         reason: 'Behold — ' + phrase + extra
       });
     }
 
-    return withSub({
+    if (!tip && potHi < 78) {
+      setTip('drop', 'Svakt potensial i forhold til troppen — vurder å slippe.');
+    }
+    return pack({
       level: 'keep',
       chip: 'Behold / vurder',
       reason: 'Behold — ' + phrase
     });
   }
+
 
   function setView(view) {
     if (view === 'akademi') currentView = 'akademi';
@@ -2397,9 +2514,18 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       var phys = (p.alder != null ? p.alder : '?') +
         (p.hoyde != null ? ' · ' + p.hoyde : '');
       var potLabel = fmtPotRange(p);
+      var potColorN = academyOptimisticPot(p);
       var subHtml = v.sub
         ? '<span class="verdict-sub">' + esc(v.sub) + '</span>'
         : '';
+      var tipHtml = v.tip
+        ? '<span class="verdict-tip ' + esc(v.tipKind || '') + '">' + esc(v.tip) + '</span>'
+        : '';
+      var signDisabled = v.canSign ? '' : ' disabled';
+      var signTitle = v.canSign
+        ? 'Ta opp til A-laget'
+        : ('Kan bare tas opp fra ' + ACADEMY_MIN_SIGN_AGE + ' år');
+      var signLabel = v.canSign ? 'Ta opp til A-laget' : 'Opprykk fra 16';
       return '<li class="akademi-row" data-aid="' + esc(p.id) + '">' +
         '<div class="p-info">' +
         '<div class="p-name">' + esc(p.navn) +
@@ -2408,12 +2534,13 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         '<div class="verdict">' +
         '<span class="verdict-chip ' + v.level + '">' + esc(v.chip) + '</span>' +
         '<span class="verdict-reason">' + esc(v.reason) + '</span>' +
-        subHtml +
+        subHtml + tipHtml +
         '</div></div>' +
-        '<div class="p-ratings"><div class="r">' + p.rating + '</div>' +
-        '<div class="p">pot ' + esc(potLabel) + '</div></div>' +
+        '<div class="p-ratings"><div class="r ' + ratingTier(p.rating) + '">' + p.rating + '</div>' +
+        '<div class="p ' + ratingTier(potColorN) + '">pot ' + esc(potLabel) + '</div></div>' +
         '<div class="akademi-actions">' +
-        '<button type="button" class="btn-sign" data-asign="' + esc(p.id) + '">Signer til tropp</button>' +
+        '<button type="button" class="btn-sign" data-asign="' + esc(p.id) + '"' + signDisabled +
+        ' title="' + esc(signTitle) + '">' + esc(signLabel) + '</button>' +
         '<button type="button" class="btn-edit-row" data-aedit="' + esc(p.id) + '">Rediger</button>' +
         '<button type="button" class="icon danger" data-adel="' + esc(p.id) + '" title="Slett" aria-label="Slett">🗑</button>' +
         '</div></li>';
@@ -2476,6 +2603,11 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     }
     if (idx < 0) return;
     var a = state.akademi[idx];
+    if (a.alder == null || a.alder < ACADEMY_MIN_SIGN_AGE) {
+      flashMsg('Kan bare tas opp til A-laget fra ' + ACADEMY_MIN_SIGN_AGE + ' år' +
+        (a.alder != null ? ' (nå ' + a.alder + ')' : ' — sett alder først'), 'error');
+      return;
+    }
     state.akademi.splice(idx, 1);
     var player = normalizePlayer({
       id: uid(),
@@ -2618,9 +2750,9 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       '" data-pid="' + esc(player.id) + '" tabindex="0">' +
       '<div class="role">' + RANK_LABEL[rank] + '</div>' +
       '<div class="pname">' + esc(player.navn) + potChip + '</div>' +
-      '<div class="ratings-line"><span class="ovr" title="Rating">' + player.rating + '</span>' +
+      '<div class="ratings-line"><span class="ovr ' + ratingTier(player.rating) + '" title="Rating">' + player.rating + '</span>' +
       '<span class="ratings-sep" aria-hidden="true">/</span>' +
-      '<span class="pot" title="Potensial"><span class="pot-lbl">pot </span>' + player.potensial + '</span></div>' +
+      '<span class="pot ' + ratingTier(player.potensial) + '" title="Potensial"><span class="pot-lbl">pot </span>' + player.potensial + '</span></div>' +
       '<div class="meta"><span class="phys">' + esc(physText(player)) + '</span></div>' +
       '<button type="button" class="clear-btn" data-clear="' + esc(slotId) + ':' + rank +
       '" title="Fjern" aria-label="Fjern">×</button>' +
@@ -2719,8 +2851,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         '<div class="p-info"><div class="p-name">' + esc(p.navn) + ' ' + potChip + ' ' + badge +
         '</div><div class="p-sub"><span class="p-pos">' + esc(posDisplayCode(p.hoved)) + ekstra +
         '</span> <span class="p-phys">' + esc(physText(p)) + '</span></div></div>' +
-        '<div class="p-ratings"><div class="r">' + p.rating + '</div>' +
-        '<div class="p">pot ' + p.potensial + '</div></div>' +
+        '<div class="p-ratings"><div class="r ' + ratingTier(p.rating) + '">' + p.rating + '</div>' +
+        '<div class="p ' + ratingTier(p.potensial) + '">pot ' + p.potensial + '</div></div>' +
         '<button type="button" class="btn-edit-row" data-edit-btn="' + esc(p.id) +
         '" title="Rediger">Rediger</button>' +
         '<button type="button" class="icon danger" data-del="' + esc(p.id) +
@@ -4394,7 +4526,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   }
 
   var POS_OCR_TOKENS = [
-    'K', 'VB', 'VMS', 'HMS', 'HB', 'SDM', 'SM', 'AM', 'VSM', 'HSM', 'VV', 'S', 'HV', 'VWB', 'HWB',
+    'K', 'VB', 'MS', 'VMS', 'HMS', 'HB', 'SDM', 'SM', 'AM', 'VSM', 'HSM', 'VV', 'S', 'HV', 'VWB', 'HWB',
     'GK', 'CB', 'LB', 'RB', 'LWB', 'RWB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST', 'CF', 'LF', 'RF', 'MS'
   ];
 
