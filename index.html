@@ -158,38 +158,44 @@ label {
 }
 .speiderplan[hidden] { display: none !important; }
 .speiderplan h3 {
-  margin: 0 0 8px; font-size: 12px; font-weight: 700;
+  margin: 0 0 10px; font-size: 12px; font-weight: 700;
   color: #cbb0ff; text-transform: uppercase; letter-spacing: .04em;
 }
-.speiderplan ol {
-  margin: 0 0 10px; padding: 0 0 0 1.2em;
-  color: var(--text);
+.speiderplan .sp-scout {
+  padding: 8px 0;
+  border-top: 1px solid rgba(180,140,255,.14);
 }
-.speiderplan ol li { padding: 3px 0; }
+.speiderplan .sp-scout:first-of-type { border-top: none; padding-top: 0; }
+.speiderplan .sp-scout-head {
+  font-weight: 600; color: var(--text); margin-bottom: 3px;
+}
+.speiderplan .sp-scout-role {
+  color: #cbb0ff; font-weight: 700;
+}
 .speiderplan .sp-pos {
   font-weight: 700; color: #e8d9ff; letter-spacing: .02em;
 }
-.speiderplan .sp-arrow { color: var(--muted); margin: 0 4px; }
-.speiderplan .sp-land { font-weight: 600; color: #9bc0ea; }
 .speiderplan .sp-why {
-  display: block; font-size: 11px; color: var(--muted); margin-top: 1px;
+  display: block; font-size: 11px; color: var(--muted); margin: 2px 0 4px;
   font-weight: 400;
 }
 .speiderplan .sp-countries {
-  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
-  margin: 0 0 6px; font-size: 12px;
+  display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline;
+  margin: 0 0 3px; font-size: 12px; color: #9bc0ea; font-weight: 600;
 }
 .speiderplan .sp-countries-label {
   color: var(--muted); font-weight: 600; margin-right: 2px;
 }
-.speiderplan .sp-chip {
-  display: inline-block; padding: 2px 8px; border-radius: 999px;
-  background: rgba(106,154,212,.18); color: #b7d4f0;
-  font-weight: 600; font-size: 11px;
-  border: 1px solid rgba(106,154,212,.28);
+.speiderplan .sp-sikte {
+  font-size: 11px; color: var(--text); margin: 0 0 2px;
+}
+.speiderplan .sp-sikte strong { color: #d4c4f0; font-weight: 600; }
+.speiderplan .sp-merk {
+  margin: 8px 0 0; font-size: 11px; color: var(--muted);
+  border-top: 1px dashed rgba(180,140,255,.2); padding-top: 6px;
 }
 .speiderplan .sp-hint {
-  margin: 0; font-size: 11px; color: var(--muted);
+  margin: 6px 0 0; font-size: 11px; color: var(--muted);
 }
 /* Sticky bottom app nav */
 .app-nav {
@@ -959,6 +965,14 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   .pitch { min-height: 560px; }
 }
 
+
+.foot-select { min-width: 4.5rem; }
+.badge-fot { display:inline-block; margin-left:4px; padding:1px 5px; border-radius:4px;
+  font-size:10px; font-weight:700; background:rgba(106,154,212,.18); color:#b7d4f0;
+  border:1px solid rgba(106,154,212,.28); letter-spacing:.02em; }
+.badge-fot.v { background:rgba(120,180,120,.18); color:#b7e0b7; border-color:rgba(120,180,120,.3); }
+.badge-fot.h { background:rgba(180,140,255,.18); color:#d4c4f0; border-color:rgba(180,140,255,.3); }
+.badge-fot.b { background:rgba(212,180,106,.18); color:#e8d4a0; border-color:rgba(212,180,106,.3); }
 </style>
 </head>
 <body>
@@ -1017,6 +1031,16 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         <label for="f-hoyde">Høyde (cm)</label>
         <input id="f-hoyde" name="hoyde" type="number" required min="150" max="210" inputmode="numeric" placeholder="185">
       </div>
+      <div class="field">
+        <label for="f-fot">Fot</label>
+        <select id="f-fot" class="foot-select" name="fot" aria-label="Foretrukket fot">
+            <option value="">—</option>
+            <option value="V">V · venstre</option>
+            <option value="H">H · høyre</option>
+            <option value="B">B · begge</option>
+        </select>
+      </div>
+
       <div class="field field-hoved">
         <label for="f-hoved">Hovedposisjon</label>
         <select id="f-hoved" name="hoved" required>
@@ -1094,6 +1118,16 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
           <label for="a-hoyde">Høyde (cm)</label>
           <input id="a-hoyde" type="number" min="150" max="210" inputmode="numeric" placeholder="valgfritt">
         </div>
+        <div class="field">
+          <label for="a-fot">Fot</label>
+          <select id="a-fot" class="foot-select" name="fot" aria-label="Foretrukket fot">
+                <option value="">—</option>
+                <option value="V">V · venstre</option>
+                <option value="H">H · høyre</option>
+                <option value="B">B · begge</option>
+          </select>
+        </div>
+
         <div class="field field-hoved">
           <label for="a-hoved">Hovedposisjon</label>
           <select id="a-hoved" required>
@@ -1316,6 +1350,16 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
           <label for="e-hoyde">Høyde (cm)</label>
           <input id="e-hoyde" type="number" required min="150" max="210" inputmode="numeric">
         </div>
+        <div class="field">
+          <label for="e-fot">Fot</label>
+          <select id="e-fot" class="foot-select" name="fot" aria-label="Foretrukket fot">
+                <option value="">—</option>
+                <option value="V">V · venstre</option>
+                <option value="H">H · høyre</option>
+                <option value="B">B · begge</option>
+          </select>
+        </div>
+
         <div class="field span2">
           <label for="e-hoved">Hovedposisjon</label>
           <select id="e-hoved" required>
@@ -1380,6 +1424,16 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
           <label for="ae-hoyde">Høyde (cm)</label>
           <input id="ae-hoyde" type="number" min="150" max="210" inputmode="numeric" placeholder="valgfritt">
         </div>
+        <div class="field">
+          <label for="ae-fot">Fot</label>
+          <select id="ae-fot" class="foot-select" name="fot" aria-label="Foretrukket fot">
+                <option value="">—</option>
+                <option value="V">V · venstre</option>
+                <option value="H">H · høyre</option>
+                <option value="B">B · begge</option>
+          </select>
+        </div>
+
         <div class="field span2">
           <label for="ae-hoved">Hovedposisjon</label>
           <select id="ae-hoved" required>
@@ -1741,6 +1795,147 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     return out;
   }
 
+
+  /** Preferred foot: V (left) | H (right) | B (both). Empty/unknown = null (ignore). */
+  function normalizeFot(v) {
+    if (v == null || v === '') return null;
+    var s = String(v).trim().toUpperCase();
+    if (s === 'V' || s === 'L' || s === 'LEFT' || s === 'VENSTRE' || s === 'LF') return 'V';
+    if (s === 'H' || s === 'R' || s === 'RIGHT' || s === 'HØYRE' || s === 'HOYRE' || s === 'RF') return 'H';
+    if (s === 'B' || s === 'BOTH' || s === 'BEGGE' || s === 'TWO' || s === '2' || s === 'EITHER') return 'B';
+    return null;
+  }
+
+  function fotLabel(fot) {
+    if (fot === 'V') return 'V';
+    if (fot === 'H') return 'H';
+    if (fot === 'B') return 'B';
+    return '';
+  }
+
+  /**
+   * Soft preferred-foot fit for a formation/player pos.
+   * Inverted wings: VV prefers H, HV prefers V (cut inside).
+   * Fullbacks/wingbacks: VB/VWB prefer V, HB/HWB prefer H.
+   * Returns { score: -1..+1, note: string|null }. Missing fot → neutral 0.
+   * Never a hard gate — caller must keep need/OVR/pot/hoved dominant.
+   */
+  function footFitForPos(fot, posCode) {
+    var fotN = normalizeFot(fot);
+    if (!fotN) return { score: 0, note: null, weight: 'none', retrain: null };
+    var pos = normalizePosCode(posCode) || String(posCode || '').toUpperCase();
+    if (pos === 'LB' || pos === 'LWB') pos = pos.indexOf('W') >= 0 ? 'VWB' : 'VB';
+    if (pos === 'RB' || pos === 'RWB') pos = pos.indexOf('W') >= 0 ? 'HWB' : 'HB';
+    if (pos === 'LW' || pos === 'LF') pos = 'VV';
+    if (pos === 'RW' || pos === 'RF') pos = 'HV';
+    if (pos === 'LM') pos = 'VM';
+    if (pos === 'RM') pos = 'HM';
+    if (pos === 'CB' || pos === 'VMS' || pos === 'HMS') pos = 'MS';
+    if (pos === 'CDM') pos = 'SDM';
+    if (pos === 'CM') pos = 'SM';
+    if (pos === 'CAM' || pos === 'AM') pos = 'SOM';
+    if (pos === 'ST' || pos === 'CF') pos = 'S';
+    if (pos === 'GK') pos = 'K';
+
+    /* Zero foot factor */
+    if (pos === 'S' || pos === 'K' || pos === 'SDM') {
+      return { score: 0, note: null, weight: 'none', retrain: null };
+    }
+
+    var prefer = null; /* ideal foot for this role */
+    var weight = 'none'; /* strong | light | none */
+    var kind = null; /* inverted | natural | light */
+    var retrainTo = null;
+
+    if (pos === 'VV' || pos === 'VM') {
+      prefer = 'H'; weight = (pos === 'VV') ? 'strong' : 'strong'; kind = 'inverted';
+      if (fotN === 'V') retrainTo = 'HV';
+    } else if (pos === 'HV' || pos === 'HM') {
+      prefer = 'V'; weight = (pos === 'HV') ? 'strong' : 'strong'; kind = 'inverted';
+      if (fotN === 'H') retrainTo = 'VV';
+    } else if (pos === 'VB' || pos === 'VWB') {
+      prefer = 'V'; weight = 'strong'; kind = 'natural';
+      if (fotN === 'H') retrainTo = (pos === 'VWB') ? 'HWB' : 'HB';
+    } else if (pos === 'HB' || pos === 'HWB') {
+      prefer = 'H'; weight = 'strong'; kind = 'natural';
+      if (fotN === 'V') retrainTo = (pos === 'HWB') ? 'VWB' : 'VB';
+    } else if (pos === 'SM' || pos === 'SOM' || pos === 'MS') {
+      /* weak/light note only — no real side preference */
+      weight = 'light';
+      kind = 'light';
+      prefer = null;
+    }
+
+    if (weight === 'light') {
+      /* Tiny optional note; no scoring swing for SM/MS/SOM */
+      var lightNote = null;
+      if (fotN === 'B') lightNote = 'begge føtter — lite utslag på ' + pos;
+      return { score: 0, note: lightNote, weight: 'light', retrain: null };
+    }
+
+    if (!prefer) return { score: 0, note: null, weight: 'none', retrain: null };
+
+    var boost = 1.2;   /* strong match */
+    var penalty = -0.9; /* strong mismatch — meaningful in XI/best-pos */
+    if (fotN === 'B') {
+      return {
+        score: 0.55,
+        note: 'begge føtter passer ' + pos,
+        weight: weight,
+        retrain: null
+      };
+    }
+    if (fotN === prefer) {
+      var noteOk;
+      if (kind === 'inverted') {
+        noteOk = (fotN === 'V' ? 'venstre' : 'høyre') + ' fot — bra for å kutte inn som ' + pos;
+      } else {
+        noteOk = pos + ' passer foten';
+      }
+      return { score: boost, note: noteOk, weight: weight, retrain: null };
+    }
+    /* Mismatch */
+    var noteBad;
+    if (kind === 'inverted') {
+      noteBad = (fotN === 'H' ? 'høyre' : 'venstre') + ' fot på ' + pos +
+        ' — bedre å kutte inn fra motsatt kant';
+    } else {
+      noteBad = 'Fot matcher ikke ' + pos + ' (naturlig fot er ' + prefer + ')';
+    }
+    var retrain = null;
+    if (retrainTo) {
+      if (kind === 'inverted') {
+        retrain = 'Tren til ' + retrainTo + ' (' +
+          (fotN === 'V' ? 'venstre' : 'høyre') + ' fot — kutte inn)';
+      } else {
+        retrain = 'Tren til ' + retrainTo + ' (naturlig fot)';
+      }
+    }
+    return { score: penalty, note: noteBad, weight: weight, retrain: retrain };
+  }
+
+  /** Soft score delta for recommended XI / best-pos (wings+backs meaningful). */
+  function footScoreDelta(fot, posCode) {
+    var f = footFitForPos(fot, posCode);
+    if (!f || f.weight === 'none' || f.weight === 'light') return 0;
+    return f.score; /* ~ -0.9 .. +1.2 */
+  }
+
+  function footRetrainTip(player) {
+    if (!player || !player.fot || !player.hoved) return null;
+    var f = footFitForPos(player.fot, player.hoved);
+    return (f && f.retrain) ? f.retrain : null;
+  }
+
+  function footBadgeHtml(fot) {
+    var f = normalizeFot(fot);
+    if (!f) return '';
+    var cls = f === 'V' ? 'v' : (f === 'H' ? 'h' : 'b');
+    var title = f === 'V' ? 'Venstre fot' : (f === 'H' ? 'Høyre fot' : 'Begge føtter');
+    return ' <span class="badge-fot ' + cls + '" title="' + title + '">' + f + '</span>';
+  }
+
+
   function normalizePlayer(p) {
     var alder = p.alder == null || p.alder === '' ? null : clampNum(p.alder, 14, 45);
     var hoyde = (p.hoyde != null ? p.hoyde : p['høyde']);
@@ -1756,7 +1951,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       hoved: hoved,
       ekstra: ekstra,
       alder: alder,
-      hoyde: hoyde
+      hoyde: hoyde,
+      fot: normalizeFot(p.fot)
     };
   }
 
@@ -1794,7 +1990,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       hoved: hoved,
       ekstra: ekstra,
       alder: alder,
-      hoyde: hoyde
+      hoyde: hoyde,
+      fot: normalizeFot(p.fot)
     };
   }
 
@@ -2044,7 +2241,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   function physText(player) {
     var a = (player.alder != null) ? String(player.alder) : '?';
     var h = (player.hoyde != null) ? String(player.hoyde) : '?';
-    return a + ' · ' + h;
+    var f = normalizeFot(player.fot);
+    return a + ' · ' + h + (f ? (' · ' + f) : '');
   }
 
   /**
@@ -2117,7 +2315,23 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   function pickBestRecommend(posCode, used) {
     var candidates = state.players
       .filter(function (p) { return !used.has(p.id) && qualifies(p, posCode); })
-      .sort(comparePlayersRecommend);
+      .sort(function (a, b) {
+        /* Base: pot*2 + OVR + tiny age — then meaningful foot for wings/backs. */
+        var scoreA = (a.potensial || 0) * 2 + (a.rating || 0);
+        var scoreB = (b.potensial || 0) * 2 + (b.rating || 0);
+        /* Foot delta scaled so ±1.2 ≈ ±3.5 on pot/OVR scale — strong but not above need/OVR. */
+        scoreA += footScoreDelta(a.fot, posCode) * 3;
+        scoreB += footScoreDelta(b.fot, posCode) * 3;
+        if (Math.abs(scoreA - scoreB) <= 4) {
+          var aa = a.alder != null ? a.alder : 99;
+          var ba = b.alder != null ? b.alder : 99;
+          if (aa !== ba) return aa - ba;
+        }
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        if (b.rating !== a.rating) return b.rating - a.rating;
+        if (b.potensial !== a.potensial) return b.potensial - a.potensial;
+        return (a.navn || '').localeCompare(b.navn || '', 'nb');
+      });
     return candidates[0] || null;
   }
 
@@ -2458,6 +2672,24 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     K:   ['Tyskland', 'Spania', 'England']
   };
 
+  /** Related roles for multi-position «speid og se» instructions. */
+  var SCOUT_RELATED = {
+    MS:  ['MS', 'SDM', 'SM'],
+    SDM: ['SDM', 'SM', 'MS'],
+    SM:  ['SM', 'SDM', 'SOM'],
+    SOM: ['SOM', 'SM', 'S'],
+    S:   ['S', 'SOM', 'VV'],
+    VV:  ['VV', 'VM', 'S'],
+    HV:  ['HV', 'HM', 'S'],
+    VM:  ['VM', 'VV', 'SM'],
+    HM:  ['HM', 'HV', 'SM'],
+    VB:  ['VB', 'VWB', 'VM'],
+    HB:  ['HB', 'HWB', 'HM'],
+    VWB: ['VWB', 'VB', 'VV'],
+    HWB: ['HWB', 'HB', 'HV'],
+    K:   ['K']
+  };
+
   var YA_STRONG_POOL = [
     'Brasil', 'Argentina', 'Frankrike', 'Spania', 'Tyskland',
     'England', 'Portugal', 'Nederland', 'Italia', 'Colombia', 'Nigeria'
@@ -2481,29 +2713,60 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     return thursday.getUTCFullYear() * 53 + week;
   }
 
-  function primaryScoutCountry(pos, usedCountries) {
-    var list = SCOUT_POS_COUNTRIES[pos] || YA_STRONG_POOL;
-    var used = usedCountries || {};
-    var i;
-    for (i = 0; i < list.length; i++) {
-      if (!used[list[i]]) return list[i];
-    }
-    return list[0];
+  function squadAvgOvr() {
+    var players = Array.isArray(state.players) ? state.players : [];
+    if (!players.length) return 70;
+    var sum = 0, n = 0;
+    players.forEach(function (p) {
+      if (p && typeof p.rating === 'number' && p.rating > 0) {
+        sum += p.rating;
+        n++;
+      }
+    });
+    return n ? Math.round(sum / n) : 70;
   }
 
-  /** Three country chips he can pick from this week — variety across continents. */
-  function pickChoiceCountries(avoidSet) {
+  /** Soft OVR floor + pot aim, scaled a bit by tropp level. */
+  function scoutTargets() {
+    var avg = squadAvgOvr();
+    var floor = 60;
+    if (avg < 64) floor = 56;
+    else if (avg < 68) floor = 58;
+    else if (avg < 74) floor = 60;
+    else if (avg < 80) floor = 62;
+    else floor = 64;
+    return {
+      avg: avg,
+      ovrFloor: floor,
+      potAim: 88,
+      line: '~' + floor + ' OVR+, pot 88+ (eller «Potential to be Special»)'
+    };
+  }
+
+  /**
+   * 3 land for one scout: position-relevant first, then continent variety.
+   * Rotates weekly; avoids countries already taken by other scouts when possible.
+   */
+  function pickScoutCountries(pos, avoidSet) {
     var seed = scoutWeekSeed();
-    var pool = YA_STRONG_POOL.slice();
+    var prefer = (SCOUT_POS_COUNTRIES[pos] || YA_STRONG_POOL).slice();
+    var pool = prefer.concat(YA_STRONG_POOL.filter(function (c) {
+      return prefer.indexOf(c) < 0;
+    }));
     var rot = seed % pool.length;
     pool = pool.slice(rot).concat(pool.slice(0, rot));
+    /* Bias prefer-list to the front after rotation */
+    pool = prefer.concat(pool.filter(function (c) { return prefer.indexOf(c) < 0; }));
+
     var picked = [];
     var continents = {};
     var avoid = avoidSet || {};
-    function tryPick(preferNewContinent, skipAvoid) {
-      var i, c, cont;
-      for (i = 0; i < pool.length; i++) {
-        c = pool[i];
+
+    function tryPick(preferNewContinent, skipAvoid, preferPos) {
+      var i, c, cont, source;
+      source = preferPos ? prefer.concat(pool) : pool;
+      for (i = 0; i < source.length; i++) {
+        c = source[i];
         if (picked.indexOf(c) >= 0) continue;
         if (skipAvoid && avoid[c]) continue;
         cont = YA_CONTINENT[c] || 'eu';
@@ -2514,17 +2777,28 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       }
     }
     var guard = 0;
-    while (picked.length < 3 && guard < 12) {
-      tryPick(true, true);
+    while (picked.length < 3 && guard < 16) {
+      tryPick(true, true, true);
       if (picked.length >= 3) break;
-      tryPick(false, true);
+      tryPick(false, true, true);
       if (picked.length >= 3) break;
-      tryPick(true, false);
+      tryPick(true, false, true);
       if (picked.length >= 3) break;
-      tryPick(false, false);
+      tryPick(false, false, false);
       guard++;
     }
     return picked.slice(0, 3);
+  }
+
+  function relatedPositionsFor(pos, maxN, usedFormation) {
+    var rel = (SCOUT_RELATED[pos] || [pos]).slice();
+    var used = usedFormation || formationUsedPlayerPositions();
+    /* Prefer related roles that are actually used in the formation */
+    var filtered = rel.filter(function (p) {
+      return p === pos || used[p];
+    });
+    if (filtered.length < 2) filtered = rel.slice();
+    return filtered.slice(0, maxN || 3);
   }
 
   function scoreScoutPosition(pos) {
@@ -2560,17 +2834,34 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     yaGood.sort(function (a, b) { return b.potHi - a.potHi; });
 
     var yaCovered = yaGood.length > 0;
+    /* Strong YA cover → do not recommend scouting this position */
+    var yaStrong = yaGood.some(function (y) { return y.potHi >= 82; }) ||
+      (yaGood.length >= 2 && yaGood[0].potHi >= 78);
+
     var gap = (thin || weak) && !yaCovered;
     var severity;
-    if (depth.length === 0 && !yaCovered) severity = 5;
-    else if (thin && !yaCovered) severity = 4;
-    else if (weak && !yaCovered) severity = 3;
-    else if (depth.length <= 1) severity = 2; /* depth insurance */
-    else if (bestPot < 82) severity = 1;
-    else severity = 0;
+    if (yaStrong) {
+      severity = 0; /* already have good YA — skip */
+    } else if (depth.length === 0 && !yaCovered) {
+      severity = 5;
+    } else if (thin && !yaCovered) {
+      severity = 4;
+    } else if (weak && !yaCovered) {
+      severity = 3;
+    } else if (depth.length <= 1 && !yaCovered) {
+      severity = 2;
+    } else if (!yaCovered && bestPot < 82) {
+      severity = 1;
+    } else if (yaCovered && !yaStrong && (thin || weak)) {
+      severity = 1; /* soft YA only — low priority */
+    } else {
+      severity = 0;
+    }
 
     var why;
-    if (depth.length === 0) {
+    if (yaStrong) {
+      why = 'god YA-dekning (skip)';
+    } else if (depth.length === 0) {
       why = yaCovered ? 'ingen i tropp (YA dekker delvis)' : 'ingen i tropp eller akademi med bra potensial';
     } else if (thin && !yaCovered) {
       why = 'mangler dybde / ingen god nok i tropp eller akademi';
@@ -2589,6 +2880,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       weak: weak,
       gap: gap,
       yaCovered: yaCovered,
+      yaStrong: yaStrong,
       depth: depth.length,
       bestOvr: bestOvr,
       bestPot: bestPot,
@@ -2626,64 +2918,224 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   }
 
   /**
-   * Speiderplan: always try for exactly 3 position missions + 3 country chips.
-   * Prefer real gaps; fill with next-weakest used roles / depth insurance.
+   * Speiderplan: 3 scouts with urgency-based position focus + 3 land each.
+   * Evaluates akademi+tropp first — skips positions with strong YA cover.
+   * Scout 1 = spisset (1 pos), Scout 2 = trengs (1–2), Scout 3 = speid og se (2–3).
    */
   function computeScoutPlan() {
+    var usedForm = formationUsedPlayerPositions();
     var scored = usedPositionsOrdered().map(scoreScoutPosition);
     scored.sort(function (a, b) {
       return b.severity - a.severity || a.depth - b.depth || a.bestPot - b.bestPot || a.pos.localeCompare(b.pos);
     });
 
-    var missions = [];
-    var seen = {};
-    function take(filterFn, limit) {
+    /* Candidates: anything with real need; never yaStrong */
+    var candidates = scored.filter(function (s) { return s.severity > 0 && !s.yaStrong; });
+    if (!candidates.length) {
+      /* Absolute fallback: classic insurance roles without strong YA */
+      ['MS', 'S', 'SM', 'VB', 'VV', 'K'].forEach(function (fp) {
+        var fs = scoreScoutPosition(fp);
+        if (fs.yaStrong) return;
+        if (!candidates.some(function (c) { return c.pos === fp; })) {
+          fs.why = fs.severity > 0 ? fs.why : 'dybdeforsikring / speid og se';
+          if (fs.severity < 1) fs.severity = 1;
+          candidates.push(fs);
+        }
+      });
+      candidates.sort(function (a, b) {
+        return b.severity - a.severity || a.pos.localeCompare(b.pos);
+      });
+    }
+
+    var picked = [];
+    var seenPos = {};
+    function takeNext() {
       var i, s;
-      for (i = 0; i < scored.length && missions.length < limit; i++) {
-        s = scored[i];
-        if (seen[s.pos]) continue;
-        if (filterFn && !filterFn(s)) continue;
-        seen[s.pos] = true;
-        missions.push(s);
+      for (i = 0; i < candidates.length; i++) {
+        s = candidates[i];
+        if (seenPos[s.pos]) continue;
+        seenPos[s.pos] = true;
+        picked.push(s);
+        return s;
       }
-    }
-    take(function (s) { return s.gap; }, 3);
-    take(function (s) { return s.severity >= 2; }, 3); /* thin depth insurance */
-    take(function (s) { return s.severity >= 1; }, 3);
-    take(null, 3);
-
-    /* Absolute fallback if formation somehow empty: classic insurance roles */
-    var fallback = ['MS', 'S', 'SM', 'VB', 'VV', 'K'];
-    var fi = 0;
-    while (missions.length < 3 && fi < fallback.length) {
-      var fp = fallback[fi++];
-      if (seen[fp]) continue;
-      seen[fp] = true;
-      var fs = scoreScoutPosition(fp);
-      if (!fs.why || fs.severity === 0) {
-        fs.why = 'dybdeforsikring';
-        fs.severity = 1;
-      }
-      missions.push(fs);
+      return null;
     }
 
+    var m1 = takeNext();
+    var m2 = takeNext();
+    var m3 = takeNext();
+
+    /* If still short, allow mild opportunistic from scored (even severity 0 if not yaStrong) */
+    if ((!m1 || !m2 || !m3)) {
+      scored.forEach(function (s) {
+        if (picked.length >= 3) return;
+        if (s.yaStrong || seenPos[s.pos]) return;
+        seenPos[s.pos] = true;
+        if (s.severity < 1) {
+          s = Object.assign({}, s, { why: 'speid og se / dybde', severity: 1 });
+        }
+        picked.push(s);
+      });
+      m1 = picked[0] || m1;
+      m2 = picked[1] || m2;
+      m3 = picked[2] || m3;
+    }
+
+    var targets = scoutTargets();
     var usedCountries = {};
-    missions = missions.slice(0, 3).map(function (m) {
-      var land = primaryScoutCountry(m.pos, usedCountries);
-      usedCountries[land] = true;
-      return {
-        pos: m.pos,
-        label: m.label,
-        country: land,
-        why: m.why,
-        severity: m.severity,
-        gap: m.gap,
-        depth: m.depth
-      };
-    });
 
-    var countries = pickChoiceCountries(usedCountries);
-    return { missions: missions, countries: countries };
+    function buildScout(idx, mission, style) {
+      if (!mission) return null;
+      var maxPos;
+      if (style === 'spisset') maxPos = 1;
+      else if (style === 'trengs') maxPos = mission.severity >= 4 ? 1 : 2;
+      else maxPos = 3;
+
+      var positions;
+      if (maxPos === 1) {
+        positions = [mission.pos];
+      } else {
+        positions = relatedPositionsFor(mission.pos, maxPos, usedForm);
+        /* Drop related roles that already have strong YA (keep primary) */
+        positions = positions.filter(function (p, i) {
+          if (i === 0) return true;
+          var sc = scoreScoutPosition(p);
+          return !sc.yaStrong;
+        });
+        if (!positions.length) positions = [mission.pos];
+      }
+
+      var countries = pickScoutCountries(mission.pos, usedCountries);
+      countries.forEach(function (c) { usedCountries[c] = true; });
+
+      var roleLabel = style === 'spisset' ? 'spisset'
+        : style === 'trengs' ? 'trengs'
+        : 'speid og se';
+
+      return {
+        index: idx,
+        style: style,
+        roleLabel: roleLabel,
+        positions: positions,
+        labels: positions.map(posDisplayCode),
+        countries: countries,
+        why: mission.why,
+        severity: mission.severity,
+        gap: mission.gap,
+        targets: targets
+      };
+    }
+
+    /* Assign styles: critical → spisset, next → trengs, last → speid og se */
+    var style1 = (m1 && m1.severity >= 3) ? 'spisset' : 'spisset';
+    var style2 = (m2 && m2.severity >= 4) ? 'spisset' : 'trengs';
+    var style3 = 'speid';
+
+    var scouts = [
+      buildScout(1, m1, style1),
+      buildScout(2, m2, style2),
+      buildScout(3, m3, style3)
+    ].filter(Boolean);
+
+    /* Ensure scout 3 always has 2–3 related when possible (speid og se). */
+    if (scouts.length >= 3) {
+      var s3 = scouts[2];
+      if (s3.positions.length < 2) {
+        var expanded = relatedPositionsFor(s3.positions[0], 3, usedForm).filter(function (p, i) {
+          if (i === 0) return true;
+          return !scoreScoutPosition(p).yaStrong;
+        });
+        if (expanded.length >= 2) {
+          s3.positions = expanded.slice(0, 3);
+        } else {
+          /* K (etc.) has no cluster — swap to next expandable opportunistic role */
+          var usedScoutPos = {};
+          scouts.forEach(function (sc) {
+            (sc.positions || []).forEach(function (p) { usedScoutPos[p] = true; });
+          });
+          var alt = null;
+          scored.forEach(function (s) {
+            if (alt) return;
+            if (s.yaStrong || usedScoutPos[s.pos]) return;
+            var rel = relatedPositionsFor(s.pos, 3, usedForm).filter(function (p, i) {
+              if (i === 0) return true;
+              return !scoreScoutPosition(p).yaStrong;
+            });
+            if (rel.length >= 2) alt = { mission: s, positions: rel.slice(0, 3) };
+          });
+          if (!alt) {
+            ['SM', 'S', 'VV', 'HV', 'VB', 'MS'].forEach(function (fp) {
+              if (alt || usedScoutPos[fp]) return;
+              if (scoreScoutPosition(fp).yaStrong) return;
+              var rel = relatedPositionsFor(fp, 3, usedForm);
+              if (rel.length >= 2) alt = {
+                mission: Object.assign({}, scoreScoutPosition(fp), { why: 'speid og se / dybde' }),
+                positions: rel.slice(0, 3)
+              };
+            });
+          }
+          if (alt) {
+            s3.positions = alt.positions;
+            s3.why = alt.mission.why || s3.why;
+            s3.severity = alt.mission.severity || s3.severity;
+            /* refresh countries for new primary */
+            var avoid = {};
+            scouts[0].countries.forEach(function (c) { avoid[c] = true; });
+            scouts[1].countries.forEach(function (c) { avoid[c] = true; });
+            s3.countries = pickScoutCountries(s3.positions[0], avoid);
+          }
+        }
+        s3.labels = s3.positions.map(posDisplayCode);
+        s3.style = 'speid';
+        s3.roleLabel = 'speid og se';
+      }
+    }
+
+    return { scouts: scouts, targets: targets, missions: scouts };
+  }
+
+  function renderScoutTips() {
+    var plan = computeScoutPlan();
+    var targets = plan.targets || scoutTargets();
+    function fill(elId) {
+      var el = document.getElementById(elId);
+      if (!el) return;
+      if (!plan.scouts || !plan.scouts.length) {
+        el.hidden = true;
+        el.innerHTML = '';
+        el.className = 'tips scout-tips';
+        return;
+      }
+      el.hidden = false;
+      el.className = 'speiderplan scout-tips';
+      var hasMulti = false;
+      var cards = plan.scouts.map(function (s) {
+        if (s.positions.length > 1) hasMulti = true;
+        var posStr = s.labels.join(' · ');
+        var landStr = (s.countries || []).join(' · ');
+        return '<div class="sp-scout">' +
+          '<div class="sp-scout-head"><span class="sp-scout-role">Speider ' + s.index +
+          ' (' + esc(s.roleLabel) + '):</span> <span class="sp-pos">' + esc(posStr) + '</span></div>' +
+          '<div class="sp-countries"><span class="sp-countries-label">Land:</span> ' +
+          esc(landStr) + '</div>' +
+          '<div class="sp-sikte"><strong>Sikt etter:</strong> ' + esc(targets.line) + '</div>' +
+          '<span class="sp-why">' + esc(s.why) + '</span>' +
+          '</div>';
+      }).join('');
+      var merk = hasMulti
+        ? '<p class="sp-merk">Merk: flere posisjoner = færre av hver — greit når du bare speider bredt.</p>'
+        : '';
+      var avgNote = targets.avg
+        ? '<p class="sp-hint">Tropp-snitt ~' + targets.avg + ' OVR — gulv tilpasset nivået.</p>'
+        : '';
+      el.innerHTML =
+        '<h3>Speiderplan (3 speidere)</h3>' +
+        cards +
+        merk +
+        avgNote;
+    }
+    fill('scout-tips');
+    fill('scout-tips-akademi');
   }
 
   function computeTips(xi) {
@@ -2859,42 +3311,25 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     }
 
     // Cap readable list (scout gaps rendered separately via renderScoutTips)
+
+    /* Preferred-foot retrain tips (wings/backs) — recommend convert, don't force wrong side */
+    state.players.forEach(function (p) {
+      if (tips.length >= 6) return;
+      var rt = footRetrainTip(p);
+      if (!rt) return;
+      if (tips.some(function (t) { return t.text.indexOf(p.navn) >= 0; })) return;
+      tips.push({
+        kind: 'info',
+        text: p.navn + ' (' + (p.hoved || '?') + ', fot ' + (p.fot || '?') + ') — ' + rt
+      });
+    });
+
     return tips.slice(0, 6);
   }
 
 
 
-  function renderScoutTips() {
-    var plan = computeScoutPlan();
-    function fill(elId) {
-      var el = document.getElementById(elId);
-      if (!el) return;
-      if (!plan.missions.length) {
-        el.hidden = true;
-        el.innerHTML = '';
-        el.className = 'tips scout-tips';
-        return;
-      }
-      el.hidden = false;
-      el.className = 'speiderplan scout-tips';
-      var rows = plan.missions.map(function (m, idx) {
-        return '<li><span class="sp-pos">' + esc(m.label) + '</span>' +
-          '<span class="sp-arrow">→</span>send til <span class="sp-land">' + esc(m.country) + '</span>' +
-          '<span class="sp-why">' + esc(m.why) + '</span></li>';
-      }).join('');
-      var chips = (plan.countries || []).map(function (c) {
-        return '<span class="sp-chip">' + esc(c) + '</span>';
-      }).join('');
-      el.innerHTML =
-        '<h3>Speiderplan (3 speidere)</h3>' +
-        '<ol>' + rows + '</ol>' +
-        '<div class="sp-countries"><span class="sp-countries-label">Land du kan velge mellom:</span>' +
-        chips + '</div>' +
-        '<p class="sp-hint">Tips: speid én posisjon per speider.</p>';
-    }
-    fill('scout-tips');
-    fill('scout-tips-akademi');
-  }
+
 
   function renderTips(xi) {
     renderScoutTips();
@@ -3140,7 +3575,10 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       var info = projectedAcademyRank(prospect, potHi, pos);
       var need = academyPosNeedScore(info.depth.length);
       var fit = academyPosFitScore(info.rank, potHi, info.depth);
-      var score = need * fit;
+      var foot = footFitForPos(prospect.fot, pos);
+      /* Strong foot swing for wings/backs; zero for S/K/SDM; light ignored for SM/MS/SOM */
+      var footBoost = (foot.weight === 'strong') ? (foot.score * 2.5) : 0;
+      var score = need * fit + footBoost;
       var isHoved = !!hoved && rawPos === hoved && !eff.remap;
       var hFit = cm != null ? academyHeightFitForPos(pos, cm) : null;
       var entry = {
@@ -3156,7 +3594,10 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         isHoved: isHoved,
         hFit: hFit,
         hTier: hFit ? hFit.tier : null,
-        heightNote: ''
+        heightNote: '',
+        footNote: foot.note || '',
+        footRetrain: foot.retrain || '',
+        footWeight: foot.weight || 'none'
       };
       scored.push(entry);
       if (!best || academyPreferTarget(entry, best)) best = entry;
@@ -3245,6 +3686,11 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     }
     if (target.heightNote) {
       lead += ' — ' + target.heightNote;
+    }
+    if (target.footRetrain) {
+      lead += ' — ' + target.footRetrain;
+    } else if (target.footNote && target.footWeight === 'strong') {
+      lead += ' — ' + target.footNote;
     }
     return lead;
   }
@@ -3987,6 +4433,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
       potensial: a.potensial,
       alder: a.alder,
       hoyde: a.hoyde,
+      fot: a.fot,
       hoved: a.hoved,
       ekstra: Array.isArray(a.ekstra) ? a.ekstra : []
     });
@@ -4012,6 +4459,8 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     document.getElementById('ae-pot-max').value = p.potMax != null ? p.potMax : p.potensial;
     document.getElementById('ae-alder').value = p.alder != null ? p.alder : '';
     document.getElementById('ae-hoyde').value = p.hoyde != null ? p.hoyde : '';
+    var aeFot = document.getElementById('ae-fot');
+    if (aeFot) aeFot.value = p.fot || '';
     document.getElementById('ae-hoved').value = p.hoved;
     fillEkstraChecks(document.getElementById('ae-ekstra'), p.ekstra || [], p.hoved);
     if (modal) modal.classList.remove('hidden');
@@ -4047,7 +4496,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     if (alder == null) { showErr('Alder må være 14–23'); return; }
     if (hoydeRaw && hoyde == null) { showErr('Høyde må være 150–210 cm'); return; }
     if (!hoved) { showErr('Velg hovedposisjon'); return; }
-    addAcademyPlayer({ navn: navn, rating: rating, potMin: potMin, potMax: potMax, alder: alder, hoyde: hoyde, hoved: hoved, ekstra: ekstra });
+    addAcademyPlayer({ navn: navn, rating: rating, potMin: potMin, potMax: potMax, alder: alder, hoyde: hoyde, fot: normalizeFot(document.getElementById('a-fot') && document.getElementById('a-fot').value), hoved: hoved, ekstra: ekstra });
     var form = document.getElementById('akademi-form');
     if (form) form.reset();
     fillPosSelect(document.getElementById('a-hoved'), false);
@@ -4910,6 +5359,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
       var potEl = document.getElementById('f-pot');
       var alderEl = document.getElementById('f-alder');
       var hoydeEl = document.getElementById('f-hoyde');
+      var fotEl = document.getElementById('f-fot');
       var hovedEl = document.getElementById('f-hoved');
       var ekstraEl = document.getElementById('f-ekstra');
       var slotEl = document.getElementById('f-slot');
@@ -4920,6 +5370,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
       var potensial = clampNum(potEl ? potEl.value : '', 1, 99);
       var alder = clampNum(alderEl ? alderEl.value : '', 15, 45);
       var hoyde = clampNum(hoydeEl ? hoydeEl.value : '', 150, 210);
+      var fot = normalizeFot(fotEl ? fotEl.value : '');
       var hoved = hovedEl ? hovedEl.value : '';
       var ekstra = ekstraEl ? readEkstraChecks(ekstraEl, hoved) : [];
       var slotId = slotEl ? slotEl.value : '';
@@ -4968,6 +5419,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
         potensial: potensial,
         alder: alder,
         hoyde: hoyde,
+        fot: fot,
         hoved: hoved,
         ekstra: ekstra,
         slotId: slotId,
@@ -5304,6 +5756,8 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     document.getElementById('e-pot').value = p.potensial;
     document.getElementById('e-alder').value = p.alder != null ? p.alder : '';
     document.getElementById('e-hoyde').value = p.hoyde != null ? p.hoyde : '';
+    var eFot = document.getElementById('e-fot');
+    if (eFot) eFot.value = p.fot || '';
     var eHoved = document.getElementById('e-hoved');
     ensurePosOption(eHoved, p.hoved);
     eHoved.value = p.hoved;
@@ -5405,6 +5859,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     var potensial = clampNum(document.getElementById('e-pot').value, 1, 99);
     var alder = clampNum(document.getElementById('e-alder').value, 15, 45);
     var hoyde = clampNum(document.getElementById('e-hoyde').value, 150, 210);
+    var fot = normalizeFot(document.getElementById('e-fot') && document.getElementById('e-fot').value);
     var hoved = document.getElementById('e-hoved').value;
     var ekstra = readEkstraChecks(document.getElementById('e-ekstra'), hoved);
     var slotId = document.getElementById('e-slot').value;
@@ -5434,6 +5889,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     p.potensial = potensial;
     p.alder = alder;
     p.hoyde = hoyde;
+    p.fot = fot;
     p.hoved = normalizePosCode(hoved) || hoved;
     p.ekstra = ekstra.filter(function (c) { return c !== p.hoved; });
 
@@ -7336,6 +7792,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     if (parsed.potensial != null) document.getElementById('f-pot').value = parsed.potensial;
     if (parsed.alder != null) document.getElementById('f-alder').value = parsed.alder;
     if (parsed.hoyde != null) document.getElementById('f-hoyde').value = parsed.hoyde;
+    if (parsed.fot) { var ff = document.getElementById('f-fot'); if (ff) ff.value = parsed.fot; }
     if (parsed.hoved) {
       var hoved = normalizePosCode(parsed.hoved);
       if (KARRIERE_POSITIONS.some(function (p) { return p.code === hoved; })) {
@@ -7356,6 +7813,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     if (pMax != null) document.getElementById('a-pot-max').value = pMax;
     if (parsed.alder != null) document.getElementById('a-alder').value = parsed.alder;
     if (parsed.hoyde != null) document.getElementById('a-hoyde').value = parsed.hoyde;
+    if (parsed.fot) { var af = document.getElementById('a-fot'); if (af) af.value = parsed.fot; }
     if (parsed.hoved) {
       var hoved = normalizePosCode(parsed.hoved);
       if (KARRIERE_POSITIONS.some(function (p) { return p.code === hoved; })) {
@@ -7379,6 +7837,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
       potMax: primary.potMax != null ? primary.potMax : secondary.potMax,
       alder: primary.alder != null ? primary.alder : secondary.alder,
       hoyde: primary.hoyde != null ? primary.hoyde : secondary.hoyde,
+      fot: primary.fot != null ? primary.fot : secondary.fot,
       hoved: primary.hoved || secondary.hoved || '',
       confidence: 0,
       fields: []
@@ -7608,9 +8067,10 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
         }
         if (potMin > potMax) { flashMsg('Potensial fra kan ikke være høyere enn til', 'warn'); return; }
         if (hoydeRaw && hoyde == null) { flashMsg('Høyde må være 150–210 cm', 'warn'); return; }
+        var fot = normalizeFot(document.getElementById('ae-fot') && document.getElementById('ae-fot').value);
         var normed = normalizeAcademyPlayer({
           id: p.id, navn: navn, rating: rating, potMin: potMin, potMax: potMax,
-          alder: alder, hoyde: hoyde, hoved: hoved, ekstra: ekstra
+          alder: alder, hoyde: hoyde, fot: fot, hoved: hoved, ekstra: ekstra
         });
         p.navn = normed.navn;
         p.rating = normed.rating;
@@ -7619,6 +8079,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
         p.potensial = normed.potensial;
         p.alder = normed.alder;
         p.hoyde = normed.hoyde;
+        p.fot = normed.fot;
         p.hoved = normed.hoved;
         p.ekstra = normed.ekstra;
         saveState();
