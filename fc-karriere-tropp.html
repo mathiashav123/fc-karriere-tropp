@@ -298,7 +298,48 @@ label {
 .pitch.readonly .cell-rank-btns,
 .pitch.readonly .slot-swap { display: none !important; }
 .pitch.readonly .slot { opacity: .98; }
-.rec-hint { font-size: 11px; color: var(--muted); margin: 0 4px 8px; }
+.rec-hint { font-size: 11px; color: var(--muted); margin: 0 4px 8px; line-height: 1.35; }
+#view-formasjon .pitch-card.recommended #btn-apply-rec {
+  font-weight: 700; letter-spacing: .01em;
+  border-color: rgba(180,140,255,.45);
+  color: #e0d4ff;
+  background: rgba(154,122,212,.18);
+}
+#view-formasjon .pitch-card.recommended #btn-apply-rec:active {
+  background: rgba(154,122,212,.32);
+}
+.pitch.readonly .cell .pot.pot-range {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.badge-acad.junior-label { letter-spacing: .02em; }
+@media (max-width: 640px) {
+  #view-formasjon .pitch-card.recommended h2 {
+    flex-direction: column; align-items: flex-start; gap: 8px;
+  }
+  #view-formasjon .pitch-card.recommended .rec-actions {
+    margin-left: 0; width: 100%;
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .rec-junior-toggle { flex: 1 1 auto; width: 100%; }
+  .rec-junior-toggle button {
+    flex: 1; min-height: 38px; padding: 8px 10px; font-size: 12px;
+  }
+  #view-formasjon .pitch-card.recommended #btn-apply-rec {
+    flex: 1 1 100%; min-height: 42px; font-size: 13px; width: 100%;
+  }
+  .rec-hint { font-size: 11px; margin: 0 2px 10px; }
+  /* Keep YA promote + Tren til visible on anbefalt (phys still hidden) */
+  .pitch.readonly .cell .meta {
+    display: block; margin-top: 2px;
+  }
+  .pitch.readonly .cell .meta .phys { display: none; }
+  .pitch.readonly .cell .promote-hint,
+  .pitch.readonly .cell .tren-hint {
+    font-size: 9px; margin-top: 2px;
+  }
+  .pitch.readonly .cell.from-academy { min-height: 64px; padding-bottom: 4px; }
+}
 #view-formasjon .pitch { min-height: 420px; }
 #view-tropp .tips { margin-top: 8px; }
 #view-tropp #tropp-card .player-list-scroll {
@@ -1403,7 +1444,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
         <button type="button" class="ghost" id="btn-apply-rec" title="Kopierer det du ser nå til din oppstilling (Med junior inkl. YA)">Bruk anbefaling</button>
       </span>
     </h2>
-    <p class="rec-hint" id="rec-hint">Basert på OVR og brukbart potensial (aldersjustert). Standardvisning er uten junior (kun A-lag). «Med junior» viser opprykkstips («Bør tas opp», maks 1 YA per plass). «Bruk anbefaling» følger valget: Uten junior = kun tropp; Med junior = inkl. YA.</p>
+    <p class="rec-hint" id="rec-hint">OVR + brukbart potensial (aldersjustert). <strong>Uten junior</strong> = A-lag nå. <strong>Med junior</strong> = opprykksforslag (maks 1 junior per plass). <strong>Bruk anbefaling</strong> kopierer det du ser.</p>
     <div class="pitch readonly" id="pitch-recommended" aria-label="Anbefalt oppstilling"></div>
   </section>
   </div>
@@ -3470,8 +3511,8 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     var hint = document.getElementById('rec-hint');
     if (hint) {
       hint.textContent = recommendIncludeJuniors
-        ? 'Med junior: akademi vises når de slår tropp-dybde («Bør tas opp», maks 1 YA per plass). «Bruk anbefaling» tar med YA (merket junior på pitch).'
-        : 'Uten junior: kun A-lag — hvem som starter nå. «Bruk anbefaling» plasserer bare tropp (ingen YA).';
+        ? 'Med junior: akademi når de slår tropp-dybde («Bør tas opp», maks 1 junior per plass). «Bruk anbefaling» tar med juniorer (merket på pitch).'
+        : 'Uten junior: kun A-lag — hvem som starter nå. «Bruk anbefaling» plasserer bare tropp (ingen junior).';
     }
   }
 
@@ -3528,7 +3569,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     var potChip = (potCeil - (player.rating || 0) >= 8)
       ? ' <span class="chip-pot" title="Høyt potensial">↑</span>' : '';
     var acadBadge = fromAcad
-      ? ' <span class="badge-acad" title="Junior / akademi">YA</span>' : '';
+      ? ' <span class="badge-acad junior-label" title="Junior / akademi — ikke i A-laget ennå">Junior</span>' : '';
     var trenHtml = '';
     var retrainTo = footRetrainTarget(player);
     if (retrainTo && slotPos && !playerHasPos(player, retrainTo)) {
@@ -3543,9 +3584,9 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     var promoteHtml = '';
     if (fromAcad) {
       if (player._academyCanSign) {
-        promoteHtml = '<span class="promote-hint">Bør tas opp · Ta opp til A-laget</span>';
+        promoteHtml = '<span class="promote-hint">Bør tas opp</span>';
       } else {
-        promoteHtml = '<span class="promote-hint soon">Ta opp fra ' +
+        promoteHtml = '<span class="promote-hint soon">Fra ' +
           ACADEMY_MIN_SIGN_AGE + ' år' +
           (player.alder != null ? ' (nå ' + player.alder + ')' : '') + '</span>';
       }
@@ -3558,9 +3599,10 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     var potText = potHasRange ? fmtPotRange(player) : String(player.potensial != null ? player.potensial : '');
     var potTierN = potHasRange ? potHi : player.potensial;
     var potTitle = potHasRange
-      ? ('Akademi potensial ' + potText + ' (mulighet)')
+      ? ('Akademi potensial ' + potText + ' (mulig tak)')
       : (fromAcad ? 'Akademi potensial' : 'Potensial');
-    var potLbl = 'pot ';
+    var potLbl = potHasRange ? 'pot ' : 'pot ';
+    var potCls = 'pot ' + ratingTier(potTierN) + (potHasRange ? ' pot-range' : '');
     var dataPid = fromAcad
       ? (' data-academy-id="' + esc(player._academyId || '') + '"')
       : (' data-pid="' + esc(player.id) + '"');
@@ -3569,7 +3611,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       '<div class="pname">' + esc(player.navn) + potChip + acadBadge + '</div>' +
       '<div class="ratings-line"><span class="ovr ' + ratingTier(player.rating) + '" title="Rating">' + player.rating + '</span>' +
       '<span class="ratings-sep" aria-hidden="true">/</span>' +
-      '<span class="pot ' + ratingTier(potTierN) + '" title="' + esc(potTitle) + '"><span class="pot-lbl">' + potLbl + '</span>' + esc(potText) + '</span></div>' +
+      '<span class="' + potCls + '" title="' + esc(potTitle) + '"><span class="pot-lbl">' + potLbl + '</span>' + esc(potText) + '</span></div>' +
       '<div class="meta"><span class="phys">' + esc(physText(player)) + '</span>' + trenHtml + promoteHtml + '</div>' +
       '</div>';
   }
@@ -4707,7 +4749,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       var merk = hasMulti
         ? '<p class="sp-merk">Merk: flere posisjoner = færre av hver — greit når du bare speider bredt.</p>'
         : '';
-      var avgNote = '<p class="sp-hint">OVR/pot per speider er regnet fra dybde i tropp+akademi for rollen (løft beste pot, oppgrader #2-OVR) — ikke fast 58/88.</p>';
+      var avgNote = '<p class="sp-hint">OVR/pot per speider fra tropp+akademi-dybde (samme bar som anbefalt). Land er rolle-tilpasset — K: høye keeper-nasjoner (ikke Brasil). Ikke fast 58/88.</p>';
       el.innerHTML =
         '<h3>Speiderplan (3 speidere)</h3>' +
         cards +
@@ -6323,7 +6365,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     var potChip = ((player.potensial || 0) - (player.rating || 0) >= 8)
       ? ' <span class="chip-pot" title="Høyt potensial">↑</span>' : '';
     var acadBadge = fromAcad
-      ? ' <span class="badge-acad" title="Junior / akademi">YA</span>' : '';
+      ? ' <span class="badge-acad junior-label" title="Junior / akademi — ikke i A-laget ennå">Junior</span>' : '';
     var promoteHtml = '';
     if (fromAcad) {
       if (player._academyCanSign) {
