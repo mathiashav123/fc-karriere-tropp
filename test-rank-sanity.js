@@ -69,7 +69,7 @@ var RANKS = ['r1','r2','r3'];
 [
   'normalizeFot','normalizePosCode','playerPositions','qualifies','qualifiesForRecommend','qualifiesForSlot',
   'plainSmCode','footPosForSlot','footFitForPos','footScoreDelta','footRoleClass','footRetrainTarget','playerHasPos',
-  'footOppositePos','isClearSellOutForXI','pickBest','usablePotential','growthFactor','xiAbilityScore','xiFootWeight',
+  'footOppositePos','isClearSellOutForXI','pickBest','usablePotential','rawPotential','growthFactor','xiAbilityScore','xiFootWeight',
   'playerBestFootFitInFormation','recommendSlotScore','compareRecommendPair','academyAsRecommendCandidate',
   'assignRecommendExclusive','fillRecommendLeftover','insertAcademyIntoRecommend','forcePlaceRemainingTropp',
   'recommendPosFamily','spreadProbePos','countFormationSlotsForFamily','highPotPoolForPos','findPlayerPlacement',
@@ -113,10 +113,24 @@ function assert(cond, msg) {
   else console.log('OK:', msg);
 }
 
+assert(Ba.alder === 20 && Ba.potensial === 90 && Ba.rating === 72,
+  'Backup Ba is 72/90 age 20 (got ' + Ba.rating + '/' + Ba.potensial + ' a' + Ba.alder + ')');
+assert(Step.alder === 18 && Step.potensial === 87 && Step.rating === 69,
+  'Backup Stepanovic is 69/87 age 18 (got ' + Step.rating + '/' + Step.potensial + ' a' + Step.alder + ')');
+assert(Math.abs(Ba.alder - Step.alder) <= 2,
+  'Age gap Ba vs Stepanovic is ≤2 (got ' + Math.abs(Ba.alder - Step.alder) + ')');
+assert(Ba.potensial - Step.potensial >= 2,
+  'Pot gap Ba vs Stepanovic ≥2 (got ' + (Ba.potensial - Step.potensial) + ')');
 assert(FC.compareRecommendPair(Ba, Step, 'HV', 'r1', FC.getFormation(), 'hv') < 0,
-  'Ba (higher pot+OVR) ranks above Stepanovic on HV');
+  'Ba (higher pot+OVR) ranks above Stepanovic on HV — age≤2 must not flip');
 assert(FC.compareRecommendPair(Veiga, Ba, 'VV', 'r1', FC.getFormation(), 'vv') < 0,
   'Veiga above Ba on VV when pot close (foot before OVR floor)');
+
+/* Synthetic: potGap≥2 ignores 2y younger opponent even if soft retrain favors younger */
+var youngHi = { id: 't1', navn: 'HiPot', rating: 70, potensial: 90, alder: 20, hoved: 'HV', ekstra: [], fot: 'V' };
+var youngLo = { id: 't2', navn: 'LoPot', rating: 68, potensial: 87, alder: 18, hoved: 'VV', ekstra: ['HV'], fot: 'V' };
+assert(FC.compareRecommendPair(youngHi, youngLo, 'HV', 'r1', FC.getFormation(), 'hv') < 0,
+  'Synthetic: 90-pot age20 > 87-pot age18 on HV (age gap ≤2 ignored when potGap≥2)');
 
 const xi = FC.buildXI();
 const hvId = FC.getFormation().slots.find(s => s.pos === 'HV').id;

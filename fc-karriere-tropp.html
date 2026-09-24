@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#121814">
 <title>FC Karriere-tropp</title>
+<meta name="app-build" content="20260924-rank-rawpot">
+<!-- build: 20260924-rank-rawpot — young band raw pot before age/soft -->
 <style>
 :root {
   --bg: #121814;
@@ -1766,16 +1768,24 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
 
   /** Within-group list: usable pot (age-aware) → OVR → younger → name. Recomputed each render. */
   function comparePlayersWithinHoved(a, b) {
+    var gfA = growthFactor(a.alder);
+    var gfB = growthFactor(b.alder);
+    var potA = rawPotential(a);
+    var potB = rawPotential(b);
+    if (gfA >= 0.9 && gfB >= 0.9 && Math.abs(potB - potA) >= 2) return potB - potA;
     var useA = usablePotential(a);
     var useB = usablePotential(b);
     if (Math.abs(useB - useA) >= 2) return useB - useA;
     var ar = a.rating != null ? a.rating : 0;
     var br = b.rating != null ? b.rating : 0;
     if (br !== ar) return br - ar;
-    var aa = a.alder != null ? a.alder : 99;
-    var ba = b.alder != null ? b.alder : 99;
-    if (aa !== ba) return aa - ba;
+    if (Math.abs(potB - potA) <= 1 && Math.abs(br - ar) <= 1) {
+      var aa = a.alder != null ? a.alder : 99;
+      var ba = b.alder != null ? b.alder : 99;
+      if (aa !== ba) return aa - ba;
+    }
     if (useB !== useA) return useB - useA;
+    if (potB !== potA) return potB - potA;
     return (a.navn || '').localeCompare(b.navn || '', 'nb');
   }
 
@@ -3017,6 +3027,14 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     return ovr + (pot - ovr) * gf;
   }
 
+  /** Badge pot capped at ≥ OVR — used for young-band pot-first (age must not dilute). */
+  function rawPotential(player) {
+    var ovr = player.rating || 0;
+    var pot = player.potensial != null ? player.potensial : ovr;
+    if (pot < ovr) pot = ovr;
+    return pot;
+  }
+
   /**
    * Anbefalt oppstilling ability score (growth-aware pot).
    * r1: OVR + weighted usable growth — pot strongest soft factor after OVR floor.
@@ -3127,31 +3145,41 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
 
   /**
    * Pairwise compare for same slot / depth (#1/#2/#3).
-   * Mathias rules (growth-aware pot) — young band (~16–25) is pot-first:
-   * 1) Clear usable pot (≥ ~2): pot is king for developable players — beats OVR floor,
-   *    foot/retrain soft scores, and 1–3y age. Higher pot + higher OVR (72/90 vs 69/87)
-   *    always ranks above; never let OVR override a clearly higher young pot.
-   * 2) Pot nearly tied (<2): inverted/natural foot soft gap may decide wing/back placement
-   *    (stops parking a higher-OVR wrong-foot wing on the opposite side before their real slot).
-   * 3) Huge OVR floor on r1 only when pot is already close: gap ≥ 10 → higher OVR
-   *    (55 must not start over 70 when pots are similar). Gap ~8 is borderline.
-   * 4) Close usable pot (within ~2–3) + clearly higher OVR (≥ ~4–5): higher OVR ranks
-   *    above — even if YA is ~1y younger. 63/94 age17 must not beat 68/95 age18.
-   * 5) Prefer higher OVR / ability before age when pot is still close.
-   * 6) Age only final tie-break when OVR also nearly equal.
+   * Mathias rules — young / fully developable band (gf ≈ 1, ages ~16–25):
+   * 1) RAW pot first when clear (≥2): a 3-pot gap (90 vs 87) ALWAYS beats a peer
+   *    1–2 years younger. Do not let age sneak in via usablePotential soft ties.
+   *    Higher pot + higher OVR (72/90 vs 69/87) ranks above — no name hardcoding.
+   * 2) 1–2y age gap is essentially zero when pot OR OVR differs; age only last
+   *    tie-break when pot AND OVR are essentially equal (within ~1).
+   * 3) Pot nearly tied (<2): inverted/natural foot soft may decide wing/back
+   *    (Veiga 62/91 keeps VV over Ba 72/90 when pot close).
+   * 4) Huge OVR floor on r1 only when pot already close: gap ≥ 10 → higher OVR.
+   * 5) Close pot + clearly higher OVR (≥ ~4): higher OVR (Jovanovic > Markovic YA).
+   * 6) Older / mixed gf: usable (age-scaled) pot still applies.
    * 7) 72/94 @32 → usable ≈ OVR (near-OVR ranking only).
    */
   function compareRecommendPair(a, b, posCode, rank, formation, slotId) {
     var ovrA = a.rating || 0;
     var ovrB = b.rating || 0;
+    var potA = rawPotential(a);
+    var potB = rawPotential(b);
+    var potGap = potA - potB;
     var useA = usablePotential(a);
     var useB = usablePotential(b);
     var ovrGap = ovrA - ovrB;
     var useGap = useA - useB;
+    var gfA = growthFactor(a.alder);
+    var gfB = growthFactor(b.alder);
+    /* Fully / mostly developable (~16–25): prefer raw pot so age never dilutes the gap. */
+    var youngBand = gfA >= 0.9 && gfB >= 0.9;
 
-    /* Clear usable-pot advantage (≥ ~2): pot ranks first among growable (16–25 full gf).
-       Must run BEFORE OVR floor — otherwise 72 OVR steals VV from 62/91 and demotes the
-       real HV pot king. Beats foot/retrain soft and small age gaps on the same wing. */
+    /* Young band: clear RAW pot (≥2) is king — beats retrain/foot soft, OVR floor,
+       and 1–2y age. 90-pot must never lose to 87-pot via soft score ties. */
+    if (youngBand && Math.abs(potGap) >= 2) {
+      return potGap > 0 ? -1 : 1;
+    }
+
+    /* Mixed / older: clear usable-pot advantage (≥ ~2) still ranks first. */
     if (Math.abs(useGap) >= 2) {
       return useGap > 0 ? -1 : 1;
     }
@@ -3175,7 +3203,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
 
     /* Close pot + clearly higher OVR → start with the better OVR now.
        Jovanovic 68/95 > Markovic YA 63/94 despite 1y younger academy. */
-    if (Math.abs(useGap) <= 3 && Math.abs(ovrGap) >= 4) {
+    if (Math.abs(potGap) <= 3 && Math.abs(useGap) <= 3 && Math.abs(ovrGap) >= 4) {
       if (ovrGap !== 0) return ovrGap > 0 ? -1 : 1;
     }
 
@@ -3186,15 +3214,17 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     if (abilB !== abilA) return abilB - abilA;
     if (scoreB !== scoreA) return scoreB - scoreA;
     if (useB !== useA) return useB - useA;
+    if (potB !== potA) return potB - potA;
 
-    var aa = a.alder != null ? a.alder : 99;
-    var ba = b.alder != null ? b.alder : 99;
-    if (aa !== ba) return aa - ba;
+    /* Age only when pot AND OVR essentially equal (within 1). A 1–2y gap must
+       never decide while pot or OVR still differs (already handled above). */
+    if (Math.abs(potGap) <= 1 && Math.abs(ovrGap) <= 1) {
+      var aa = a.alder != null ? a.alder : 99;
+      var ba = b.alder != null ? b.alder : 99;
+      if (aa !== ba) return aa - ba;
+    }
 
     if (ovrB !== ovrA) return ovrB - ovrA;
-    var potA = a.potensial != null ? a.potensial : ovrA;
-    var potB = b.potensial != null ? b.potensial : ovrB;
-    if (potB !== potA) return potB - potA;
     return (a.navn || '').localeCompare(b.navn || '', 'nb');
   }
 
