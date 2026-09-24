@@ -276,7 +276,22 @@ label {
   color: #cbb0ff;
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
 }
-#view-formasjon .pitch-card.recommended .rec-actions { margin-left: auto; }
+#view-formasjon .pitch-card.recommended .rec-actions {
+  margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+}
+.rec-junior-toggle {
+  display: inline-flex; border: 1px solid rgba(180,140,255,.35); border-radius: 8px;
+  overflow: hidden; background: rgba(0,0,0,.2);
+}
+.rec-junior-toggle button {
+  appearance: none; border: 0; margin: 0; padding: 4px 10px; font: inherit;
+  font-size: 11px; font-weight: 700; letter-spacing: .02em; cursor: pointer;
+  background: transparent; color: var(--muted);
+}
+.rec-junior-toggle button + button { border-left: 1px solid rgba(180,140,255,.25); }
+.rec-junior-toggle button.active {
+  background: rgba(154,122,212,.35); color: #e8dcff;
+}
 .pitch.readonly .cell { cursor: default; }
 .pitch.readonly .cell[draggable] { -webkit-user-drag: none; }
 .pitch.readonly .clear-btn,
@@ -1381,10 +1396,14 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
 <section class="card pitch-card recommended" style="padding:10px">
     <h2 style="padding:4px 4px 8px">Anbefalt oppstilling
       <span class="rec-actions">
-        <button type="button" class="ghost" id="btn-apply-rec" title="Kopierer anbefalingen til din oppstilling">Bruk anbefaling</button>
+        <span class="rec-junior-toggle" role="group" aria-label="Vis juniorer i anbefaling">
+          <button type="button" id="btn-rec-no-junior" class="active" aria-pressed="true" title="Kun A-lag — hvem som starter nå">Uten junior</button>
+          <button type="button" id="btn-rec-with-junior" aria-pressed="false" title="Vis akademijuniors som bør tas opp (maks 1 YA per plass)">Med junior</button>
+        </span>
+        <button type="button" class="ghost" id="btn-apply-rec" title="Kopierer det du ser nå til din oppstilling (Med junior inkl. YA)">Bruk anbefaling</button>
       </span>
     </h2>
-    <p class="rec-hint">Basert på OVR og brukbart potensial (aldersjustert). Sterke akademijuniors inngår når de slår tropp-dybde (merke «Bør tas opp»). Blant 16–24 er pot konge (fot plasserer side, men slår ikke høyere pot på samme kant); alder/vekst betyr mer fra ~26–27. Endrer ikke din oppstilling før du trykker «Bruk anbefaling» (kun A-lagsspillere plasseres).</p>
+    <p class="rec-hint" id="rec-hint">Basert på OVR og brukbart potensial (aldersjustert). Standardvisning er uten junior (kun A-lag). «Med junior» viser opprykkstips («Bør tas opp», maks 1 YA per plass). «Bruk anbefaling» følger valget: Uten junior = kun tropp; Med junior = inkl. YA.</p>
     <div class="pitch readonly" id="pitch-recommended" aria-label="Anbefalt oppstilling"></div>
   </section>
   </div>
@@ -1658,6 +1677,8 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   /* Akademi ekstra posisjoner: samme UI/shape som tropp; kopieres ved Ta opp. */
   var STORAGE_KEY = 'fc-karriere-tropp-v1';
   var VIEW_KEY = 'fc-karriere-tropp-view-v1';
+  /* UI-only: anbefalt pitch junior overlay — does not touch squad STORAGE_KEY. */
+  var REC_JUNIOR_KEY = 'fc-karriere-tropp-rec-junior-v1';
   var ACADEMY_MIN_SIGN_AGE = 16;
   var BACKUP_FILENAME = 'fc-tropp-backup.json';
   var EMPTY_SENTINEL = ''; // explicit vacant cell (no auto-fill until Auto-bygg)
@@ -2809,9 +2830,33 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   }
 
   /**
+   * Resolve manualSlots id → tropp player or academy overlay candidate.
+   * Academy refs use prefix «acad:<academyId>» (same as recommend pool ids).
+   */
+  function resolveManualPlayer(ref) {
+    if (ref == null || ref === '' || ref === EMPTY_SENTINEL) return null;
+    var id = String(ref);
+    if (id.indexOf('acad:') === 0) {
+      var aid = id.slice(5);
+      var a = (state.akademi || []).find(function (x) { return x.id === aid; });
+      return a ? academyAsRecommendCandidate(a) : null;
+    }
+    return (state.players || []).find(function (x) { return x.id === id; }) || null;
+  }
+
+  function manualRefForPlayer(player) {
+    if (!player) return null;
+    if (player._fromAcademy) {
+      return 'acad:' + (player._academyId || String(player.id || '').replace(/^acad:/, ''));
+    }
+    return player.id;
+  }
+
+  /**
    * Auto XI: for each formation slot in order,
    * fill #1 then #2 then #3 with highest remaining qualified unused.
    * manualSlots overrides stick; '' = forced vacant (no auto).
+   * May hold acad:<id> from «Bruk anbefaling» (Med junior) — shown as YA.
    */
   function buildXI() {
     var formation = getFormation();
@@ -2829,8 +2874,9 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
         forceEmpty = Object.prototype.hasOwnProperty.call(manual, rank) && manual[rank] === EMPTY_SENTINEL;
         entry.forceEmpty[rank] = forceEmpty;
         if (manual[rank]) {
-          p = state.players.find(function (x) { return x.id === manual[rank]; });
-          if (p && qualifiesForSlot(p, slot.pos) && !used.has(p.id)) {
+          p = resolveManualPlayer(manual[rank]);
+          if (p && !used.has(p.id) &&
+              (p._fromAcademy ? qualifiesForRecommend(p, slot.pos) : qualifiesForSlot(p, slot.pos))) {
             entry[rank] = p;
             used.add(p.id);
           }
@@ -3359,14 +3405,44 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     });
   }
 
+  /** Default: uten junior (who starts now). Med junior = promote overlays only. */
+  var recommendIncludeJuniors = false;
+  try {
+    recommendIncludeJuniors = localStorage.getItem(REC_JUNIOR_KEY) === '1';
+  } catch (eRecJ) {}
+
+  function setRecommendIncludeJuniors(on) {
+    recommendIncludeJuniors = !!on;
+    try { localStorage.setItem(REC_JUNIOR_KEY, recommendIncludeJuniors ? '1' : '0'); } catch (eSet) {}
+    var noBtn = document.getElementById('btn-rec-no-junior');
+    var yesBtn = document.getElementById('btn-rec-with-junior');
+    if (noBtn) {
+      noBtn.classList.toggle('active', !recommendIncludeJuniors);
+      noBtn.setAttribute('aria-pressed', recommendIncludeJuniors ? 'false' : 'true');
+    }
+    if (yesBtn) {
+      yesBtn.classList.toggle('active', recommendIncludeJuniors);
+      yesBtn.setAttribute('aria-pressed', recommendIncludeJuniors ? 'true' : 'false');
+    }
+    var hint = document.getElementById('rec-hint');
+    if (hint) {
+      hint.textContent = recommendIncludeJuniors
+        ? 'Med junior: akademi vises når de slår tropp-dybde («Bør tas opp», maks 1 YA per plass). «Bruk anbefaling» tar med YA (merket junior på pitch).'
+        : 'Uten junior: kun A-lag — hvem som starter nå. «Bruk anbefaling» plasserer bare tropp (ingen YA).';
+    }
+  }
+
   /**
    * Pure recommended XI: ignores manual placements.
    * 1) Tropp first — clear tip-Selg / strong surplus-Lån last (only if slot empty)
    * 2) Leftover tropp → empty ranks (sell-outs after keep/develop/start)
-   * 3) Academy overlay when they beat tropp («Bør tas opp»), shift depth
+   * 3) Optional academy overlay when they beat tropp («Bør tas opp»), shift depth
    * 4) Refill leftovers / force-place keep/develop/start (Van Loon); sell may stay unplaced
+   * opts.includeAcademy: true = med junior view; false/omit for uten junior / apply.
    */
-  function buildRecommendedXI() {
+  function buildRecommendedXI(opts) {
+    opts = opts || {};
+    var includeAcademy = opts.includeAcademy === true;
     var formation = getFormation();
     var tropp = (state.players || []).slice();
     var used = new Set();
@@ -3378,10 +3454,12 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     }
     assignRecommendExclusive(result, tropp, formation, used);
     fillRecommendLeftover(result, tropp, formation, used);
-    insertAcademyIntoRecommend(result, formation, used);
-    /* Rebuild used after academy shifts that free ids */
-    used = recommendUsedSet(result, formation);
-    fillRecommendLeftover(result, tropp, formation, used);
+    if (includeAcademy) {
+      insertAcademyIntoRecommend(result, formation, used);
+      /* Rebuild used after academy shifts that free ids */
+      used = recommendUsedSet(result, formation);
+      fillRecommendLeftover(result, tropp, formation, used);
+    }
     forcePlaceRemainingTropp(result, tropp, formation, used);
     used = recommendUsedSet(result, formation);
     var unplaced = tropp.filter(function (p) { return !used.has(p.id); });
@@ -3390,6 +3468,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       result: result,
       used: used,
       recommended: true,
+      includeAcademy: includeAcademy,
       unplaced: unplaced
     };
   }
@@ -3467,13 +3546,14 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   function renderRecommendedPitch() {
     var pitch = document.getElementById('pitch-recommended');
     if (!pitch) return;
+    setRecommendIncludeJuniors(recommendIncludeJuniors);
     var hasTropp = state.players && state.players.length;
     var hasAcad = state.akademi && state.akademi.length;
     if (!hasTropp && !hasAcad) {
       pitch.innerHTML = '<p class="rec-hint">Legg til spillere for å se anbefalt oppstilling.</p>';
       return;
     }
-    var xi = buildRecommendedXI();
+    var xi = buildRecommendedXI({ includeAcademy: recommendIncludeJuniors });
     var rows = rowSlotIds(xi.formation);
     var html = ['<div class="pitch-rows">'];
     rows.forEach(function (row) {
@@ -3504,30 +3584,46 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     });
   }
 
+  /**
+   * Apply what the current toggle shows:
+   * - Uten junior → tropp ids only
+   * - Med junior → tropp + acad:<id> overlays (YA stays marked on Din oppstilling)
+   */
   function applyRecommendedXI() {
-    var xi = buildRecommendedXI();
+    var withJunior = !!recommendIncludeJuniors;
+    var xi = buildRecommendedXI({ includeAcademy: withJunior });
     var next = {};
-    var skippedAcad = 0;
+    var placedTropp = 0;
+    var placedYa = 0;
     xi.formation.slots.forEach(function (slot) {
       var e = xi.result[slot.id] || {};
       var cell = {};
       RANKS.forEach(function (rank) {
         var pl = e[rank];
         if (!pl) return;
-        if (pl._fromAcademy) { skippedAcad++; return; }
+        if (pl._fromAcademy) {
+          if (!withJunior) return;
+          var aid = pl._academyId || String(pl.id || '').replace(/^acad:/, '');
+          if (!aid || !(state.akademi || []).some(function (a) { return a.id === aid; })) return;
+          cell[rank] = 'acad:' + aid;
+          placedYa++;
+          return;
+        }
         if (!(state.players || []).some(function (x) { return x.id === pl.id; })) return;
         cell[rank] = pl.id;
+        placedTropp++;
       });
       if (Object.keys(cell).length) next[slot.id] = cell;
     });
     state.manualSlots = next;
     saveState();
     render();
-    if (skippedAcad) {
-      flashMsg('Anbefaling brukt (A-lag). ' + skippedAcad +
-        ' akademiplass(er) hoppet over — ta dem opp først.', 'warn');
+    if (!placedTropp && !placedYa) {
+      flashMsg('Ingen spillere å plassere', 'warn');
+    } else if (withJunior && placedYa) {
+      flashMsg('Anbefaling brukt (A-lag + ' + placedYa + ' YA merket junior)', 'success');
     } else {
-      flashMsg('Anbefalt oppstilling er tatt i bruk');
+      flashMsg('Anbefalt A-lagsoppstilling er tatt i bruk', 'success');
     }
   }
 
@@ -6157,8 +6253,19 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
         '<div class="role">' + RANK_LABEL[rank] + '</div>' +
         '<div class="' + missCls + '">' + RANK_MISS[rank] + '</div></div>';
     }
-    var potChip = (player.potensial - player.rating >= 8)
+    var fromAcad = !!player._fromAcademy;
+    var potChip = ((player.potensial || 0) - (player.rating || 0) >= 8)
       ? ' <span class="chip-pot" title="Høyt potensial">↑</span>' : '';
+    var acadBadge = fromAcad
+      ? ' <span class="badge-acad" title="Junior / akademi">YA</span>' : '';
+    var promoteHtml = '';
+    if (fromAcad) {
+      if (player._academyCanSign) {
+        promoteHtml = '<span class="promote-hint">Bør tas opp</span>';
+      } else {
+        promoteHtml = '<span class="promote-hint soon">Fra ' + ACADEMY_MIN_SIGN_AGE + ' år</span>';
+      }
+    }
     var rankIdx = RANKS.indexOf(rank);
     var canUp = rankIdx > 0;
     var canDown = rankIdx < RANKS.length - 1;
@@ -6166,14 +6273,24 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
       (canUp ? '' : ' disabled') + ' title="Flytt opp" aria-label="Flytt opp">↑</button>';
     var downBtn = '<button type="button" class="rank-down" data-swap="' + esc(slotId) + ':' + rank + ':down"' +
       (canDown ? '' : ' disabled') + ' title="Flytt ned" aria-label="Flytt ned">↓</button>';
-    return '<div class="cell" draggable="true" data-slot="' + esc(slotId) + '" data-role="' + rank +
-      '" data-pid="' + esc(player.id) + '" tabindex="0">' +
+    var potLo = player.potMin != null ? player.potMin : player.potensial;
+    var potHi = player.potMax != null ? player.potMax : player.potensial;
+    var potHasRange = fromAcad && potLo != null && potHi != null && potLo !== potHi;
+    var potText = potHasRange ? fmtPotRange(player) : String(player.potensial != null ? player.potensial : '');
+    var potTierN = potHasRange ? potHi : player.potensial;
+    var dataAttr = fromAcad
+      ? (' data-academy-id="' + esc(player._academyId || '') + '" data-pid="' + esc(player.id) + '"')
+      : (' data-pid="' + esc(player.id) + '"');
+    var cellCls = 'cell' + (fromAcad ? ' from-academy' : '');
+    return '<div class="' + cellCls + '" draggable="true" data-slot="' + esc(slotId) + '" data-role="' + rank + '"' +
+      dataAttr + ' tabindex="0">' +
       '<div class="role">' + RANK_LABEL[rank] + '</div>' +
-      '<div class="pname">' + esc(player.navn) + potChip + '</div>' +
+      '<div class="pname">' + esc(player.navn) + potChip + acadBadge + '</div>' +
       '<div class="ratings-line"><span class="ovr ' + ratingTier(player.rating) + '" title="Rating">' + player.rating + '</span>' +
       '<span class="ratings-sep" aria-hidden="true">/</span>' +
-      '<span class="pot ' + ratingTier(player.potensial) + '" title="Potensial"><span class="pot-lbl">pot </span>' + player.potensial + '</span></div>' +
-      '<div class="meta"><span class="phys">' + esc(physText(player)) + '</span></div>' +
+      '<span class="pot ' + ratingTier(potTierN) + '" title="' + (fromAcad ? 'Akademi potensial' : 'Potensial') +
+      '"><span class="pot-lbl">pot </span>' + esc(potText) + '</span></div>' +
+      '<div class="meta"><span class="phys">' + esc(physText(player)) + '</span>' + promoteHtml + '</div>' +
       '<button type="button" class="clear-btn" data-clear="' + esc(slotId) + ':' + rank +
       '" title="Fjern" aria-label="Fjern">×</button>' +
       '<div class="cell-rank-btns">' + upBtn + downBtn + '</div></div>';
@@ -6210,6 +6327,14 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     html.push('</div>');
     pitch.innerHTML = html.join('');
     bindPitchDnD(pitch);
+    pitch.querySelectorAll('.cell.from-academy[data-academy-id]').forEach(function (cell) {
+      cell.title = (cell.title ? cell.title + ' · ' : '') + 'Trykk for å ta opp til A-laget';
+      cell.addEventListener('click', function (ev) {
+        if (ev.target.closest('.clear-btn, .rank-up, .rank-down')) return;
+        var aid = cell.getAttribute('data-academy-id');
+        if (aid) signAcademyPlayer(aid);
+      });
+    });
   }
 
   function sortedPlayers() {
@@ -7720,6 +7845,23 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     flashMsg('Tropp bygget automatisk (#1–#3)');
   });
 
+  var btnRecNoJunior = document.getElementById('btn-rec-no-junior');
+  var btnRecWithJunior = document.getElementById('btn-rec-with-junior');
+  if (btnRecNoJunior) {
+    btnRecNoJunior.addEventListener('click', function () {
+      if (!recommendIncludeJuniors) return;
+      setRecommendIncludeJuniors(false);
+      renderRecommendedPitch();
+    });
+  }
+  if (btnRecWithJunior) {
+    btnRecWithJunior.addEventListener('click', function () {
+      if (recommendIncludeJuniors) return;
+      setRecommendIncludeJuniors(true);
+      renderRecommendedPitch();
+    });
+  }
+
   var btnApplyRec = document.getElementById('btn-apply-rec');
   if (btnApplyRec) {
     btnApplyRec.addEventListener('click', function () {
@@ -7728,10 +7870,13 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
         return;
       }
       if (!state.players.length) {
-        flashMsg('Anbefalingen har bare akademi — ta opp juniors først før du plasserer XI', 'warn');
+        flashMsg('Ingen A-lagsspillere — ta opp juniors først før du plasserer XI', 'warn');
         return;
       }
-      if (!confirm('Erstatt din nåværende oppstilling med anbefalingen? (Akademi merket «Bør tas opp» plasseres ikke før opprykk.)')) return;
+      var msg = recommendIncludeJuniors
+        ? 'Erstatt din oppstilling med anbefalingen (inkl. YA merket junior)?'
+        : 'Erstatt din oppstilling med anbefalt A-lag (uten junior)?';
+      if (!confirm(msg)) return;
       applyRecommendedXI();
     });
   }
