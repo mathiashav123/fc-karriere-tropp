@@ -845,7 +845,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       <button type="button" class="add-mode-btn" id="mode-tropp-image" data-target="tropp" data-mode="image" aria-selected="false">📷 Fra bilde</button>
     </div>
     <div class="ocr-panel" id="ocr-panel-tropp" hidden>
-      <p class="ocr-hint">Ta <strong>skjermbilde</strong> av spillerkortet med OVR/POT synlig, og beskær tett rundt kortet. Telefonbilde av TV feiler ofte — spill-skjermbilde er best. Bildet forbehandles (kontrast) før lesing. Sjekk feltene før du legger til.</p>
+      <p class="ocr-hint">Best med <strong>spillerinfo-kort</strong>: posisjon over navnet, potensial rett under navnet, OVR til venstre under navnet, alder under OVR. Beskær tett rundt den blokken. In-game skjermbilde fungerer best (ikke foto av TV). Sjekk feltene før du legger til.</p>
       <button type="button" class="btn-from-image" id="btn-img-tropp">📷 Ta bilde / Velg fra galleri</button>
       <input type="file" id="img-tropp" class="ocr-file" accept="image/*" aria-hidden="true" tabindex="-1">
       <div id="ocr-preview-tropp" class="ocr-preview hidden"></div>
@@ -974,7 +974,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         <button type="button" class="add-mode-btn" id="mode-akademi-image" data-target="akademi" data-mode="image" aria-selected="false">📷 Fra bilde</button>
       </div>
       <div class="ocr-panel" id="ocr-panel-akademi" hidden>
-        <p class="ocr-hint">Ta <strong>skjermbilde</strong> av akademi-/spillerkort med OVR og potensial-område (f.eks. 62–96) synlig. Beskær tett. Telefonbilde av TV er vanskelig — foretrekk in-game screenshot. Sjekk feltene før du legger til.</p>
+        <p class="ocr-hint">Best med akademi-/spillerkort: posisjon over navnet, potensial-område (f.eks. 62–96) rett under navnet, OVR til venstre, alder under OVR. Beskær tett. In-game skjermbilde er best. Sjekk feltene før du legger til.</p>
         <button type="button" class="btn-from-image" id="btn-img-akademi">📷 Ta bilde / Velg fra galleri</button>
         <input type="file" id="img-akademi" class="ocr-file" accept="image/*" aria-hidden="true" tabindex="-1">
         <div id="ocr-preview-akademi" class="ocr-preview hidden"></div>
@@ -4952,6 +4952,374 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     return out;
   }
 
+
+  /**
+   * Spatial EA FC card parse from Tesseract word boxes.
+   * Expected layout (approx):
+   *         POS
+   *        NAME
+   *  RATING     POTENTIAL
+   *  AGE
+   * Sample (mental check):
+   *   ST @ (120,40)-(150,60), Haaland @ (80,70)-(200,100),
+   *   91 @ (60,110)-(90,140), 94 @ (140,110)-(170,140), 23 @ (60,150)-(90,175)
+   *   → hoved=S, navn=Haaland, rating=91, pot=94, alder=23
+   */
+  function emptyOcrParse() {
+    return {
+      navn: '', rating: null, potensial: null, potMin: null, potMax: null,
+      alder: null, hoyde: null, hoved: '', confidence: 0, fields: []
+    };
+  }
+
+  function normalizeOcrWords(rawWords) {
+    var out = [];
+    if (!rawWords || !rawWords.length) return out;
+    for (var i = 0; i < rawWords.length; i++) {
+      var w = rawWords[i];
+      if (!w) continue;
+      var t = String(w.text || '').trim();
+      if (!t) continue;
+      var conf = typeof w.confidence === 'number' ? w.confidence : 50;
+      if (conf < 25 && t.length <= 2) continue;
+      var b = w.bbox || w.boundingBox || {};
+      var x0 = +b.x0, y0 = +b.y0, x1 = +b.x1, y1 = +b.y1;
+      if (!(isFinite(x0) && isFinite(y0) && isFinite(x1) && isFinite(y1))) continue;
+      if (x1 <= x0 || y1 <= y0) continue;
+      out.push({
+        text: t,
+        confidence: conf,
+        bbox: { x0: x0, y0: y0, x1: x1, y1: y1 },
+        cx: (x0 + x1) / 2,
+        cy: (y0 + y1) / 2,
+        w: x1 - x0,
+        h: y1 - y0
+      });
+    }
+    return out;
+  }
+
+  function dedupeOcrWords(words) {
+    var seen = {};
+    var out = [];
+    for (var i = 0; i < words.length; i++) {
+      var w = words[i];
+      var key = w.text.toUpperCase() + '|' + Math.round(w.bbox.x0 / 4) + '|' + Math.round(w.bbox.y0 / 4);
+      if (seen[key]) {
+        if (w.confidence > seen[key].confidence) {
+          out[seen[key].idx] = w;
+          seen[key] = { confidence: w.confidence, idx: seen[key].idx };
+        }
+        continue;
+      }
+      seen[key] = { confidence: w.confidence, idx: out.length };
+      out.push(w);
+    }
+    return out;
+  }
+
+  var OCR_LABEL_SKIP = /^(OVR|POT|POTENTIAL|POTENSIAL|AGE|ALDER|HEIGHT|HØYDE|HOYDE|POSITION|POSISJON|RAT|OVERALL|CM|KG|FIFA|EA|FC|CAREER|KARRIERE|YOUTH|AKADEMIE|ACADEMY|PLAYER|STATS|INFO|CLUB|NATION|CONTRACT|WAGE|VALUE)$/i;
+
+  function isLetterishWord(t) {
+    var letters = t.replace(/[^A-Za-zÆØÅæøåÄÖäöÜüß]/g, '');
+    return letters.length >= 2 && letters.length / Math.max(t.length, 1) >= 0.55;
+  }
+
+  function titleCaseName(s) {
+    if (/^[A-ZÆØÅÄÖÜ\-'\s]+$/.test(s) && s.length > 3) {
+      return s.toLowerCase().replace(/(^|[\s\-'])([a-zæøåäöü])/g, function (_, a, b) {
+        return a + b.toUpperCase();
+      });
+    }
+    return s;
+  }
+
+  function parseEaFcOcrLayout(rawWords) {
+    var words = dedupeOcrWords(normalizeOcrWords(rawWords));
+    var out = emptyOcrParse();
+    if (words.length < 2) return out;
+
+    var minY = Infinity, maxY = -Infinity, minX = Infinity, maxX = -Infinity;
+    words.forEach(function (w) {
+      minY = Math.min(minY, w.bbox.y0);
+      maxY = Math.max(maxY, w.bbox.y1);
+      minX = Math.min(minX, w.bbox.x0);
+      maxX = Math.max(maxX, w.bbox.x1);
+    });
+    var cardH = Math.max(1, maxY - minY);
+    var cardW = Math.max(1, maxX - minX);
+    var ySlack = Math.max(8, cardH * 0.04);
+    var xSlack = Math.max(10, cardW * 0.06);
+
+    // —— Name: best letter cluster in upper-middle (prefer longer, top third) ——
+    var letterWords = words.filter(function (w) {
+      if (!isLetterishWord(w.text)) return false;
+      if (OCR_LABEL_SKIP.test(w.text)) return false;
+      if (POS_OCR_TOKENS.some(function (t) { return t.toUpperCase() === w.text.toUpperCase(); })) return false;
+      // Prefer upper 55% of card
+      return w.cy <= minY + cardH * 0.55;
+    });
+    letterWords.sort(function (a, b) { return a.bbox.y0 - b.bbox.y0 || a.bbox.x0 - b.bbox.x0; });
+
+    var clusters = [];
+    var used = {};
+    for (var i = 0; i < letterWords.length; i++) {
+      if (used[i]) continue;
+      var seed = letterWords[i];
+      var group = [seed];
+      used[i] = true;
+      for (var j = i + 1; j < letterWords.length; j++) {
+        if (used[j]) continue;
+        var o = letterWords[j];
+        var sameLine = Math.abs(o.cy - seed.cy) <= Math.max(seed.h, o.h) * 0.7 + 4;
+        var nearX = o.bbox.x0 <= group[group.length - 1].bbox.x1 + Math.max(xSlack * 1.5, seed.w * 0.8);
+        if (sameLine && nearX) {
+          group.push(o);
+          used[j] = true;
+          seed = o;
+        }
+      }
+      var text = group.map(function (g) { return g.text; }).join(' ').replace(/\s+/g, ' ').trim();
+      text = text.replace(/[^A-Za-zÆØÅæøåÄÖäöÜüß\-'\s\.]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (text.length < 3 || text.length > 42) continue;
+      if (OCR_LABEL_SKIP.test(text)) continue;
+      var bx0 = Math.min.apply(null, group.map(function (g) { return g.bbox.x0; }));
+      var by0 = Math.min.apply(null, group.map(function (g) { return g.bbox.y0; }));
+      var bx1 = Math.max.apply(null, group.map(function (g) { return g.bbox.x1; }));
+      var by1 = Math.max.apply(null, group.map(function (g) { return g.bbox.y1; }));
+      var letters = text.replace(/[^A-Za-zÆØÅæøå]/g, '');
+      var topBonus = by0 <= minY + cardH * 0.38 ? 25 : (by0 <= minY + cardH * 0.5 ? 10 : 0);
+      var score = letters.length * 2 + group.length * 5 + topBonus + (bx1 - bx0) / 20;
+      clusters.push({
+        text: titleCaseName(text),
+        bbox: { x0: bx0, y0: by0, x1: bx1, y1: by1 },
+        cx: (bx0 + bx1) / 2,
+        cy: (by0 + by1) / 2,
+        score: score
+      });
+    }
+    clusters.sort(function (a, b) { return b.score - a.score; });
+    var name = clusters[0] || null;
+    if (name) {
+      out.navn = name.text;
+      out.fields.push('navn');
+      out.confidence++;
+    } else {
+      return out; // without name, spatial relatives are unreliable
+    }
+
+    var nameBox = name.bbox;
+    var nameH = Math.max(1, nameBox.y1 - nameBox.y0);
+    var nameW = Math.max(1, nameBox.x1 - nameBox.x0);
+
+    // —— Position: short token above name, near name center ——
+    var posCands = [];
+    words.forEach(function (w) {
+      var tok = w.text.replace(/[^A-Za-zÆØÅæøå]/g, '').toUpperCase();
+      if (!tok || tok.length > 4) return;
+      var above = w.bbox.y1 <= nameBox.y0 + ySlack;
+      if (!above) return;
+      // not too far above (within ~1.8 name heights)
+      if (w.bbox.y0 < nameBox.y0 - nameH * 2.2 - ySlack) return;
+      var horizNear = Math.abs(w.cx - name.cx) <= nameW * 0.7 + xSlack;
+      if (!horizNear) return;
+      var nc = normalizePosCode(tok);
+      if (!nc) return;
+      if (!KARRIERE_POSITIONS.some(function (p) { return p.code === nc; })) return;
+      // Prefer tokens that match known OCR list
+      var known = POS_OCR_TOKENS.some(function (t) { return t.toUpperCase() === tok; });
+      var score = (known ? 20 : 5) + w.confidence / 10 - Math.abs(w.cx - name.cx) / 10;
+      posCands.push({ code: nc, score: score, word: w });
+    });
+    posCands.sort(function (a, b) { return b.score - a.score; });
+    if (posCands.length) {
+      out.hoved = posCands[0].code; // already generic via normalizePosCode (CB→MS, never VMS)
+      out.fields.push('pos');
+      out.confidence++;
+    }
+
+    // Collect numbers near name band
+    function numVal(w) {
+      var m = String(w.text).match(/^(\d{1,3})(?:\s*[-–—\/]\s*(\d{2}))?$/);
+      if (!m) {
+        // also "62-96" glued
+        m = String(w.text).match(/^(\d{2})\s*[-–—\/]\s*(\d{2})$/);
+      }
+      if (!m) return null;
+      return { a: parseInt(m[1], 10), b: m[2] != null ? parseInt(m[2], 10) : null, word: w };
+    }
+
+    var belowBand = words.filter(function (w) {
+      return w.bbox.y0 >= nameBox.y1 - ySlack * 0.5 &&
+        w.bbox.y0 <= nameBox.y1 + nameH * 3.5 + ySlack * 2;
+    });
+
+    // Numbers on the row just under the name (OVR left, POT center/right)
+    var justBelowNums = [];
+    belowBand.forEach(function (w) {
+      var nv = numVal(w);
+      if (!nv) return;
+      if (w.bbox.y0 > nameBox.y1 + nameH * 1.7 + ySlack) return;
+      justBelowNums.push(nv);
+    });
+    justBelowNums.sort(function (a, b) { return a.word.cx - b.word.cx; });
+
+    // —— Rating first: leftmost 45–99 under name (left half / left of center) ——
+    var ratingPick = null;
+    for (var ri = 0; ri < justBelowNums.length; ri++) {
+      var rn = justBelowNums[ri];
+      if (rn.b != null) continue; // range tokens are potential, not OVR
+      if (rn.a < 45 || rn.a > 99) continue;
+      var leftish = rn.word.cx <= name.cx + nameW * 0.2 &&
+        rn.word.bbox.x0 <= nameBox.x0 + nameW * 0.6;
+      if (!leftish) continue;
+      ratingPick = { val: rn.a, word: rn.word };
+      break; // leftmost
+    }
+    if (ratingPick) {
+      out.rating = ratingPick.val;
+      out.fields.push('ovr');
+      out.confidence++;
+    }
+
+    // —— Potential: under name, preferably right of rating; single or range ——
+    var potCands = [];
+    justBelowNums.forEach(function (nv) {
+      if (ratingPick && nv.word === ratingPick.word) return;
+      if (ratingPick && nv.a === ratingPick.val && nv.b == null) return;
+      if (ratingPick && nv.word.cx < ratingPick.word.cx - 2) return; // pot is not left of OVR
+      if (nv.b != null) {
+        var lo = Math.min(nv.a, nv.b), hi = Math.max(nv.a, nv.b);
+        if (lo < 40 || hi > 99 || lo >= hi) return;
+        potCands.push({
+          min: lo, max: hi,
+          score: 50 + (hi - lo) + nv.word.confidence / 5,
+          word: nv.word
+        });
+      } else if (nv.a >= 40 && nv.a <= 99) {
+        var centerBonus = -Math.abs(nv.word.cx - name.cx) / 12;
+        var rightBonus = (ratingPick && nv.word.cx > ratingPick.word.cx) ? 12 : 0;
+        potCands.push({
+          min: nv.a, max: nv.a,
+          score: 18 + nv.word.confidence / 5 + centerBonus + rightBonus,
+          word: nv.word
+        });
+      }
+    });
+    // Academy range as two nearby digits (exclude rating word)
+    var digitPool = justBelowNums.filter(function (n) {
+      if (n.b != null) return false;
+      if (n.a < 40 || n.a > 99) return false;
+      if (ratingPick && n.word === ratingPick.word) return false;
+      if (ratingPick && n.a === ratingPick.val) return false;
+      if (ratingPick && n.word.cx < ratingPick.word.cx - 2) return false;
+      return true;
+    });
+    for (var pi = 0; pi < digitPool.length; pi++) {
+      for (var pj = pi + 1; pj < digitPool.length; pj++) {
+        var A = digitPool[pi], B = digitPool[pj];
+        var dy = Math.abs(A.word.cy - B.word.cy);
+        var dx = Math.abs(A.word.cx - B.word.cx);
+        if (dy > Math.max(A.word.h, B.word.h) * 0.9 + 6) continue;
+        if (dx > nameW * 1.4 + xSlack * 2) continue;
+        var lo2 = Math.min(A.a, B.a), hi2 = Math.max(A.a, B.a);
+        var span = hi2 - lo2;
+        if (span < 5 || span > 55) continue;
+        potCands.push({
+          min: lo2, max: hi2,
+          score: 45 + span + (A.word.confidence + B.word.confidence) / 10,
+          word: A.word.cx < B.word.cx ? A.word : B.word
+        });
+      }
+    }
+    potCands.sort(function (a, b) { return b.score - a.score; });
+    var potPick = potCands[0] || null;
+    if (potPick) {
+      out.potMin = potPick.min;
+      out.potMax = potPick.max;
+      out.potensial = Math.round((potPick.min + potPick.max) / 2);
+      out.fields.push('pot');
+      out.confidence += potPick.min !== potPick.max ? 2 : 1;
+    }
+
+    // —— Age: 14–45 below the rating (similar x) ——
+    if (ratingPick) {
+      var ageCands = [];
+      words.forEach(function (w) {
+        var nv = numVal(w);
+        if (!nv || nv.b != null) return;
+        if (nv.a < 14 || nv.a > 45) return;
+        if (nv.a === out.rating) return;
+        if (potPick && (nv.a === potPick.min || nv.a === potPick.max)) return;
+        if (w.bbox.y0 < ratingPick.word.bbox.y1 - 2) return;
+        if (w.bbox.y0 > ratingPick.word.bbox.y1 + ratingPick.word.h * 2.5 + ySlack * 2) return;
+        var sameCol = Math.abs(w.cx - ratingPick.word.cx) <= Math.max(ratingPick.word.w, w.w) * 1.2 + xSlack;
+        if (!sameCol) return;
+        ageCands.push({ val: nv.a, score: w.confidence - Math.abs(w.cx - ratingPick.word.cx), word: w });
+      });
+      ageCands.sort(function (a, b) { return b.score - a.score; });
+      if (ageCands.length) {
+        out.alder = ageCands[0].val;
+        out.fields.push('alder');
+        out.confidence++;
+      }
+    }
+
+    // Height optional from words — prefer "NNN cm"; bare 3-digit only if labeled nearby
+    words.forEach(function (w) {
+      if (out.hoyde != null) return;
+      var hm = String(w.text).match(/^(1[5-9]\d|20\d|210)\s*cm$/i);
+      if (hm) {
+        out.hoyde = parseInt(hm[1], 10);
+        out.fields.push('hoyde');
+        out.confidence++;
+        return;
+      }
+      hm = String(w.text).match(/^(1[5-9]\d|20\d|210)$/);
+      if (!hm) return;
+      // require a nearby "cm" token
+      var hasCm = words.some(function (o) {
+        return /^cm$/i.test(o.text) &&
+          Math.abs(o.cy - w.cy) < Math.max(w.h, o.h) * 1.2 + 6 &&
+          o.bbox.x0 >= w.bbox.x0 - 4;
+      });
+      if (!hasCm) return;
+      var hy = parseInt(hm[1], 10);
+      if (hy >= 150 && hy <= 210) {
+        out.hoyde = hy;
+        out.fields.push('hoyde');
+        out.confidence++;
+      }
+    });
+    return out;
+  }
+
+  /** Prefer layout fields when present; fill gaps from text parse. Height from either. */
+  function mergeLayoutWithTextParse(layout, textParsed) {
+    layout = layout || emptyOcrParse();
+    textParsed = textParsed || emptyOcrParse();
+    var out = emptyOcrParse();
+    out.navn = layout.navn || textParsed.navn || '';
+    out.rating = layout.rating != null ? layout.rating : textParsed.rating;
+    out.potensial = layout.potensial != null ? layout.potensial : textParsed.potensial;
+    out.potMin = layout.potMin != null ? layout.potMin : textParsed.potMin;
+    out.potMax = layout.potMax != null ? layout.potMax : textParsed.potMax;
+    out.alder = layout.alder != null ? layout.alder : textParsed.alder;
+    out.hoyde = layout.hoyde != null ? layout.hoyde : textParsed.hoyde;
+    out.hoved = layout.hoved || textParsed.hoved || '';
+    if (out.navn) { out.confidence++; out.fields.push('navn'); }
+    if (out.rating != null) { out.confidence++; out.fields.push('ovr'); }
+    if (out.potensial != null || out.potMin != null) {
+      out.confidence += (out.potMin != null && out.potMax != null && out.potMin !== out.potMax) ? 2 : 1;
+      out.fields.push('pot');
+    }
+    if (out.alder != null) { out.confidence++; out.fields.push('alder'); }
+    if (out.hoyde != null) { out.confidence++; out.fields.push('hoyde'); }
+    if (out.hoved) { out.confidence++; out.fields.push('pos'); }
+    out.fromLayout = !!(layout.confidence);
+    return out;
+  }
+
   function describeOcrParse(parsed) {
     var bits = [];
     if (parsed.navn) bits.push(parsed.navn);
@@ -5091,6 +5459,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       }).then(function (r1) {
         var text1 = (r1 && r1.data && r1.data.text) || '';
         var conf1 = r1 && r1.data && typeof r1.data.confidence === 'number' ? r1.data.confidence : 0;
+        var words1 = (r1 && r1.data && r1.data.words) || [];
         var parsed1 = parseEaFcOcrText(text1);
         updateOcrSpin(target, 'Andre pass (sparse UI)…');
         setOcrStatus(target, 'Andre pass for UI-tekst…', null);
@@ -5104,21 +5473,28 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         }).then(function (r2) {
           var text2 = (r2 && r2.data && r2.data.text) || '';
           var conf2 = r2 && r2.data && typeof r2.data.confidence === 'number' ? r2.data.confidence : 0;
+          var words2 = (r2 && r2.data && r2.data.words) || [];
           var parsed2 = parseEaFcOcrText(text2);
-          var merged = mergeOcrParses(parsed1, parsed2);
+          var mergedText = mergeOcrParses(parsed1, parsed2);
           // Also merge raw texts for one more parse (catches split labels)
           var combined = parseEaFcOcrText(text1 + '\n' + text2);
-          merged = mergeOcrParses(merged, combined);
+          mergedText = mergeOcrParses(mergedText, combined);
+          // Layout parse from word bounding boxes (prefer over text when present)
+          var layout = parseEaFcOcrLayout(words1.concat(words2));
+          var merged = mergeLayoutWithTextParse(layout, mergedText);
           return {
             parsed: merged,
             conf: Math.max(conf1, conf2),
             text: (text1 + '\n' + text2).trim(),
             pass1Hits: parsed1.confidence,
-            pass2Hits: parsed2.confidence
+            pass2Hits: parsed2.confidence,
+            layoutHits: layout.confidence || 0
           };
         }, function () {
-          // Second pass failed — use first
-          return { parsed: parsed1, conf: conf1, text: text1, pass1Hits: parsed1.confidence, pass2Hits: 0 };
+          // Second pass failed — use first + layout from pass1 words
+          var layout1 = parseEaFcOcrLayout(words1);
+          var merged1 = mergeLayoutWithTextParse(layout1, parsed1);
+          return { parsed: merged1, conf: conf1, text: text1, pass1Hits: parsed1.confidence, pass2Hits: 0, layoutHits: layout1.confidence || 0 };
         });
       });
     }).then(function (result) {
