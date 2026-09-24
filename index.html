@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#121814">
 <title>FC Karriere-tropp</title>
-<meta name="app-build" content="20260924-rank-rawpot">
-<!-- build: 20260924-rank-rawpot — young band raw pot before age/soft -->
+<meta name="app-build" content="20260924-ba-hv-softfix">
+<!-- build: 20260924-ba-hv-softfix — rank-major per-slot; soft never beats clear pot across slots -->
 <style>
 :root {
   --bg: #121814;
@@ -1438,6 +1438,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   </section>
 <section class="card pitch-card recommended" style="padding:10px">
     <h2 style="padding:4px 4px 8px">Anbefalt oppstilling
+      <span class="rec-build" title="App build" style="font-size:11px;font-weight:500;opacity:.55;margin-left:6px">build 20260924-ba-hv-softfix</span>
       <span class="rec-actions">
         <span class="rec-junior-toggle" role="group" aria-label="Vis juniorer i anbefaling">
           <button type="button" id="btn-rec-no-junior" class="active" aria-pressed="true" title="Kun A-lag — hvem som starter nå">Uten junior</button>
@@ -2982,16 +2983,64 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       result[slot.id] = entry;
     }
 
-    /* Rank-major: every slot gets #1 before any #2 — pot kings land on best side first. */
+    /* Rank-major + conflict resolve: each rank fills every empty slot with its
+       compareRecommendPair best; multi-slot players go to highest slot-score seat
+       (foot/retrain) so Stepanovic parks HV not VV/S — without soft beating clear pot. */
     for (r = 0; r < RANKS.length; r++) {
       var rk = RANKS[r];
-      for (i = 0; i < formation.slots.length; i++) {
-        slot = formation.slots[i];
-        entry = result[slot.id];
-        if (!entry[rk] && !entry.forceEmpty[rk]) {
+      var guard = 0;
+      while (guard++ < 64) {
+        var bestBySlot = {};
+        for (i = 0; i < formation.slots.length; i++) {
+          slot = formation.slots[i];
+          entry = result[slot.id];
+          if (entry[rk] || entry.forceEmpty[rk]) continue;
           pick = pickBest(slot.pos, used, rk);
-          if (pick) { entry[rk] = pick; used.add(pick.id); }
+          if (pick) bestBySlot[slot.id] = { player: pick, slot: slot };
         }
+        var keys = Object.keys(bestBySlot);
+        if (!keys.length) break;
+        var claims = {};
+        keys.forEach(function (k) {
+          var id = bestBySlot[k].player.id;
+          if (!claims[id]) claims[id] = [];
+          claims[id].push(k);
+        });
+        var assigned = false;
+        keys.forEach(function (k) {
+          var bp = bestBySlot[k];
+          if (!bp || used.has(bp.player.id)) return;
+          if (claims[bp.player.id].length !== 1) return;
+          if (result[k][rk]) return;
+          result[k][rk] = bp.player;
+          used.add(bp.player.id);
+          assigned = true;
+        });
+        if (assigned) continue;
+        var contested = null;
+        keys.forEach(function (k) {
+          var pl = bestBySlot[k].player;
+          if (used.has(pl.id) || claims[pl.id].length < 2) return;
+          if (!contested ||
+              usablePotential(pl) > usablePotential(contested) ||
+              (usablePotential(pl) === usablePotential(contested) &&
+                (pl.rating || 0) > (contested.rating || 0))) {
+            contested = pl;
+          }
+        });
+        if (!contested) break;
+        var slotIds = claims[contested.id];
+        var bestSid = null;
+        var bestScore = -Infinity;
+        var si, sc;
+        for (si = 0; si < slotIds.length; si++) {
+          var sid = slotIds[si];
+          sc = recommendSlotScore(contested, bestBySlot[sid].slot.pos, rk, formation, sid);
+          if (sc > bestScore) { bestScore = sc; bestSid = sid; }
+        }
+        if (!bestSid || result[bestSid][rk]) break;
+        result[bestSid][rk] = contested;
+        used.add(contested.id);
       }
     }
 
@@ -3298,65 +3347,88 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
 
   /**
    * Exclusive greedy assign for one pool (typically tropp).
-   * Per rank: global best (ability + foot) so inverted wings are not stolen wrong-side first.
+   * Rank-major, per-slot picks via compareRecommendPair (sell-outs last).
+   * No global soft-first pair sort — clear pot (≥2) always wins within a slot
+   * (Ba 90 > Stepanovic 87 on HV). When one player is best for several empty
+   * slots at the same rank, soft/foot slot-score only decides WHICH seat they
+   * take (retrain HV vs wrong-foot VV/S), then other slots re-pick.
    */
   function assignRecommendExclusive(result, pool, formation, used) {
-    var i, r, slot, entry, rank, pairs, pi, pair;
+    var r, rank, guard, i, slot, entry, cands, preferred, bestBySlot, sid, claims;
+    var pid, slotIds, assigned, contested, bestSid, bestScore, sc, pick, p;
     for (r = 0; r < RANKS.length; r++) {
       rank = RANKS[r];
-      pairs = [];
-      for (i = 0; i < formation.slots.length; i++) {
-        slot = formation.slots[i];
-        pool.forEach(function (p) {
-          if (used.has(p.id) || !qualifiesForRecommend(p, slot.pos)) return;
-          pairs.push({
-            slotId: slot.id,
-            pos: slot.pos,
-            player: p,
-            score: recommendSlotScore(p, slot.pos, rank, formation, slot.id)
+      guard = 0;
+      while (guard++ < 64) {
+        bestBySlot = {};
+        for (i = 0; i < formation.slots.length; i++) {
+          slot = formation.slots[i];
+          entry = result[slot.id];
+          if (!entry || entry[rank]) continue;
+          cands = pool.filter(function (pl) {
+            return !used.has(pl.id) && qualifiesForRecommend(pl, slot.pos);
           });
+          if (!cands.length) continue;
+          preferred = cands.filter(function (pl) { return !isClearSellOutForXI(pl); });
+          cands = preferred.length ? preferred : cands;
+          cands.sort(function (a, b) {
+            return compareRecommendPair(a, b, slot.pos, rank, formation, slot.id);
+          });
+          if (cands[0]) bestBySlot[slot.id] = { player: cands[0], slot: slot };
+        }
+        var keys = Object.keys(bestBySlot);
+        if (!keys.length) break;
+
+        claims = {};
+        keys.forEach(function (k) {
+          pid = bestBySlot[k].player.id;
+          if (!claims[pid]) claims[pid] = [];
+          claims[pid].push(k);
         });
-      }
-      pairs.sort(function (x, y) {
-        /* Clear sell/loan-out last — fill keep/develop/start first. */
-        var sx = isClearSellOutForXI(x.player) ? 1 : 0;
-        var sy = isClearSellOutForXI(y.player) ? 1 : 0;
-        if (sx !== sy) return sx - sy;
-        if (x.slotId === y.slotId) {
-          return compareRecommendPair(
-            x.player, y.player, x.pos, rank, formation, x.slotId
-          );
+
+        assigned = false;
+        /* Uncontested: player is uniquely best for exactly one empty slot. */
+        keys.forEach(function (k) {
+          pick = bestBySlot[k];
+          if (!pick || used.has(pick.player.id)) return;
+          if (claims[pick.player.id].length !== 1) return;
+          if (result[k][rank]) return;
+          result[k][rank] = pick.player;
+          used.add(pick.player.id);
+          assigned = true;
+        });
+        if (assigned) continue;
+
+        /* All remaining claims are contested — place highest-pot contested
+           player on the seat with best slot score (foot/retrain), once. */
+        contested = null;
+        keys.forEach(function (k) {
+          p = bestBySlot[k].player;
+          if (used.has(p.id)) return;
+          if (claims[p.id].length < 2) return;
+          if (!contested ||
+              usablePotential(p) > usablePotential(contested) ||
+              (usablePotential(p) === usablePotential(contested) &&
+                (p.rating || 0) > (contested.rating || 0))) {
+            contested = p;
+          }
+        });
+        if (!contested) break;
+        slotIds = claims[contested.id];
+        bestSid = null;
+        bestScore = -Infinity;
+        for (i = 0; i < slotIds.length; i++) {
+          sid = slotIds[i];
+          slot = bestBySlot[sid].slot;
+          sc = recommendSlotScore(contested, slot.pos, rank, formation, slot.id);
+          if (sc > bestScore) {
+            bestScore = sc;
+            bestSid = sid;
+          }
         }
-        var softX = x.score - xiAbilityScore(x.player, rank);
-        var softY = y.score - xiAbilityScore(y.player, rank);
-        var roleX = footRoleClass(x.pos);
-        var roleY = footRoleClass(y.pos);
-        /* Wings/backs: inverted/natural foot side before pot across slots —
-           stops parking best HV (V-fot) on VV just because pot is high. */
-        if ((roleX === 'wing' || roleX === 'back' || roleY === 'wing' || roleY === 'back') &&
-            Math.abs(softY - softX) >= 6) {
-          return softY - softX;
-        }
-        var useX = usablePotential(x.player);
-        var useY = usablePotential(y.player);
-        if (Math.abs(useY - useX) >= 2) return useY - useX;
-        if (softY !== softX) return softY - softX;
-        if (y.score !== x.score) return y.score - x.score;
-        var cmp = compareRecommendPair(
-          x.player, y.player, x.pos, rank, formation, null
-        );
-        if (cmp !== 0) return cmp;
-        return (x.slotId || '').localeCompare(y.slotId || '');
-      });
-      var filledSlots = {};
-      for (pi = 0; pi < pairs.length; pi++) {
-        pair = pairs[pi];
-        if (used.has(pair.player.id) || filledSlots[pair.slotId]) continue;
-        entry = result[pair.slotId];
-        if (entry[rank]) continue;
-        entry[rank] = pair.player;
-        used.add(pair.player.id);
-        filledSlots[pair.slotId] = true;
+        if (!bestSid || result[bestSid][rank]) break;
+        result[bestSid][rank] = contested;
+        used.add(contested.id);
       }
     }
   }
@@ -3838,6 +3910,31 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
    * 5) Refill leftovers / force-place keep/develop/start (Van Loon); sell may stay unplaced
    * opts.includeAcademy: true = med junior view; false/omit for uten junior / apply.
    */
+  /**
+   * After all assign/spread/leftover/academy/force passes, ensure each slot's
+   * [r1,r2,r3] depth order matches compareRecommendPair for that slot.
+   * Compacts nulls. Does not move players across slots.
+   */
+  function reorderRecommendDepth(result, formation) {
+    formation.slots.forEach(function (slot) {
+      var e = result[slot.id];
+      if (!e) return;
+      var arr = [e.r1, e.r2, e.r3].filter(Boolean);
+      if (arr.length < 2) {
+        e.r1 = arr[0] || null;
+        e.r2 = arr[1] || null;
+        e.r3 = arr[2] || null;
+        return;
+      }
+      arr.sort(function (a, b) {
+        return compareRecommendPair(a, b, slot.pos, 'r1', formation, slot.id);
+      });
+      e.r1 = arr[0] || null;
+      e.r2 = arr[1] || null;
+      e.r3 = arr[2] || null;
+    });
+  }
+
   function buildRecommendedXI(opts) {
     opts = opts || {};
     var includeAcademy = opts.includeAcademy === true;
@@ -3867,6 +3964,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     spreadHighPotAcrossXI(result, tropp, formation, used);
     used = recommendUsedSet(result, formation);
     fillRecommendLeftover(result, tropp, formation, used);
+    reorderRecommendDepth(result, formation);
     var unplaced = tropp.filter(function (p) { return !used.has(p.id); });
     return {
       formation: formation,
