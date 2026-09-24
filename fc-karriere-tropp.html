@@ -977,6 +977,15 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   font-size:10px; font-weight:600; letter-spacing:.01em;
   background:rgba(212,160,84,.14); color:#e8c48a; border:1px solid rgba(212,160,84,.32); }
 .badge-miss[title] { cursor: help; }
+.tren-hint {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  color: #e8d4a0;
+  line-height: 1.2;
+}
 </style>
 </head>
 <body>
@@ -1928,16 +1937,16 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     }
     var retrain = null;
     if (retrainTo) {
-      if (kind === 'inverted') {
-        retrain = 'Utvikle/tren ' + retrainTo + ' (' +
-          (fotN === 'V' ? 'venstre' : 'høyre') + ' fot — kutte inn fra motsatt kant)';
-      } else {
-        /* Backs: right-footed VB → Utvikle/tren HB, etc. */
-        retrain = 'Utvikle/tren ' + retrainTo + ' (naturlig ' +
-          (fotN === 'V' ? 'venstre' : 'høyre') + ' fot på den siden)';
-      }
+      /* Short label used in tips + anbefalt XI; only shown if player lacks target pos. */
+      retrain = 'Tren til ' + retrainTo;
     }
-    return { score: penalty, note: noteBad, weight: weight, retrain: retrain };
+    return {
+      score: penalty,
+      note: noteBad,
+      weight: weight,
+      retrain: retrain,
+      retrainTo: retrainTo || null
+    };
   }
 
   /**
@@ -1970,16 +1979,67 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   }
 
   /**
-   * Tip only (never moves manual XI): if hoved is a wing/back with wrong preferred
-   * foot, recommend developing the natural/inverted other side.
-   * e.g. right-footed VB → «Utvikle/tren HB»; left-footed VV → «Utvikle/tren HV».
+   * Foot-correct side for a wrong-foot wing/back (from hoved).
+   * Inverted wings: HV+H → VV, VV+V → HV. Backs: VB+H → HB, HB+V → VB, etc.
+   * Returns pos code or null. Does not consider whether player already has that pos.
    */
-  function footRetrainTip(player) {
+  function footRetrainTarget(player) {
     if (!player || !player.fot || !player.hoved) return null;
     var hoved = normalizePosCode(player.hoved) || player.hoved;
     var f = footFitForPos(player.fot, hoved);
-    if (!f || !f.retrain || f.weight !== 'strong') return null;
-    return f.retrain;
+    if (!f || f.weight !== 'strong') return null;
+    if (f.retrainTo) return f.retrainTo;
+    /* Fallback: parse short «Tren til XX» if older fit objects lack retrainTo */
+    if (f.retrain && String(f.retrain).indexOf('Tren til ') === 0) {
+      return String(f.retrain).replace(/^Tren til\s+/, '').split(/\s|\(/)[0] || null;
+    }
+    return null;
+  }
+
+  /** True if hoved or ekstra already lists posCode (normalized). */
+  function playerHasPos(player, posCode) {
+    if (!player || !posCode) return false;
+    var target = normalizePosCode(posCode) || String(posCode).toUpperCase();
+    return playerPositions(player).some(function (c) {
+      var n = normalizePosCode(c) || c;
+      return n === target;
+    });
+  }
+
+  /**
+   * Short tip «Tren til VV» / «Tren til HB» etc.
+   * Only when foot-correct side is NOT already on hoved/ekstra.
+   * Tip only for list/verdict — anbefalt XI may still place them on that side.
+   */
+  function footTrenLabel(player) {
+    var target = footRetrainTarget(player);
+    if (!target) return null;
+    if (playerHasPos(player, target)) return null;
+    return 'Tren til ' + posDisplayCode(target);
+  }
+
+  /** @deprecated alias — same as footTrenLabel (short «Tren til …»). */
+  function footRetrainTip(player) {
+    return footTrenLabel(player);
+  }
+
+  /**
+   * Anbefalt XI may place a wrong-foot wing/back on the foot-correct side
+   * even if that side is not yet on the card (hoved/ekstra).
+   */
+  function qualifiesForRecommend(player, posCode) {
+    if (qualifies(player, posCode)) return true;
+    var target = footRetrainTarget(player);
+    if (!target) return false;
+    var slotPos = normalizePosCode(posCode) || String(posCode || '').toUpperCase();
+    if (slotPos === target) return true;
+    var aliases = SLOT_ALIASES[posCode] || [posCode];
+    return aliases.indexOf(target) >= 0;
+  }
+
+  /** Manual/applied recommend placements: accept foot-retrain target slots. */
+  function qualifiesForSlot(player, posCode) {
+    return qualifiesForRecommend(player, posCode);
   }
 
   function footBadgeHtml(fot) {
@@ -2350,7 +2410,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         entry.forceEmpty[rank] = forceEmpty;
         if (manual[rank]) {
           p = state.players.find(function (x) { return x.id === manual[rank]; });
-          if (p && qualifies(p, slot.pos) && !used.has(p.id)) {
+          if (p && qualifiesForSlot(p, slot.pos) && !used.has(p.id)) {
             entry[rank] = p;
             used.add(p.id);
           }
@@ -2424,7 +2484,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       pos = eff.effective;
       for (j = 0; j < formation.slots.length; j++) {
         slot = formation.slots[j];
-        if (!qualifies(player, slot.pos)) continue;
+        if (!qualifiesForRecommend(player, slot.pos)) continue;
         /* Also accept if effective remapped role matches this slot's player-facing pos. */
         fit = footScoreDelta(player.fot, slot.pos);
         if (best == null || fit > best) best = fit;
@@ -2445,6 +2505,12 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     var score = ability + foot * fw;
     var bestFoot = playerBestFootFitInFormation(player, formation);
     var role = footRoleClass(posCode);
+    /* Prefer foot-correct retrain side (HV+H → VV, VB+H → HB, …). */
+    var retrainTo = footRetrainTarget(player);
+    var slotPos = normalizePosCode(posCode) || posCode;
+    if (retrainTo && (slotPos === retrainTo || (SLOT_ALIASES[posCode] || []).indexOf(retrainTo) >= 0)) {
+      score += (rank === 'r1' ? 16 : (rank === 'r2' ? 12 : 8));
+    }
     /* Don't park a natural/best HV on VV (or wrong-side back) just to fill a hole. */
     if (bestFoot - foot >= 0.8 && (role === 'wing' || role === 'back')) {
       score -= (rank === 'r1' ? 14 : (rank === 'r2' ? 10 : 6));
@@ -2523,7 +2589,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     var rk = rank || 'r1';
     var form = formation || getFormation();
     var candidates = state.players
-      .filter(function (p) { return !used.has(p.id) && qualifies(p, posCode); });
+      .filter(function (p) { return !used.has(p.id) && qualifiesForRecommend(p, posCode); });
     candidates.sort(function (a, b) {
       return compareRecommendPair(a, b, posCode, rk, form);
     });
@@ -2551,7 +2617,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       for (i = 0; i < formation.slots.length; i++) {
         slot = formation.slots[i];
         state.players.forEach(function (p) {
-          if (used.has(p.id) || !qualifies(p, slot.pos)) return;
+          if (used.has(p.id) || !qualifiesForRecommend(p, slot.pos)) return;
           pairs.push({
             slotId: slot.id,
             pos: slot.pos,
@@ -2583,7 +2649,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     return { formation: formation, result: result, used: used, recommended: true };
   }
 
-  function cellHTMLReadonly(slotId, rank, player) {
+  function cellHTMLReadonly(slotId, rank, player, slotPos) {
     if (!player) {
       var missCls = (rank === 'r3') ? 'miss-opt' : 'miss';
       return '<div class="cell empty" data-role="' + rank + '">' +
@@ -2592,13 +2658,24 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     }
     var potChip = (player.potensial - player.rating >= 8)
       ? ' <span class="chip-pot" title="Høyt potensial">↑</span>' : '';
+    var trenHtml = '';
+    var retrainTo = footRetrainTarget(player);
+    if (retrainTo && slotPos && !playerHasPos(player, retrainTo)) {
+      var sp = normalizePosCode(slotPos) || slotPos;
+      var onTarget = (sp === retrainTo) ||
+        (SLOT_ALIASES[slotPos] || []).indexOf(retrainTo) >= 0 ||
+        (SLOT_ALIASES[retrainTo] || []).indexOf(sp) >= 0;
+      if (onTarget) {
+        trenHtml = '<span class="tren-hint">Tren til ' + esc(posDisplayCode(retrainTo)) + '</span>';
+      }
+    }
     return '<div class="cell" data-role="' + rank + '" data-pid="' + esc(player.id) + '">' +
       '<div class="role">' + RANK_LABEL[rank] + '</div>' +
       '<div class="pname">' + esc(player.navn) + potChip + '</div>' +
       '<div class="ratings-line"><span class="ovr ' + ratingTier(player.rating) + '" title="Rating">' + player.rating + '</span>' +
       '<span class="ratings-sep" aria-hidden="true">/</span>' +
       '<span class="pot ' + ratingTier(player.potensial) + '" title="Potensial"><span class="pot-lbl">pot </span>' + player.potensial + '</span></div>' +
-      '<div class="meta"><span class="phys">' + esc(physText(player)) + '</span></div>' +
+      '<div class="meta"><span class="phys">' + esc(physText(player)) + '</span>' + trenHtml + '</div>' +
       '</div>';
   }
 
@@ -2608,9 +2685,9 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       '<div class="slot-head">' +
       '<div class="slot-pos">' + esc(pos) + '</div>' +
       '</div>' +
-      cellHTMLReadonly(slotId, 'r1', e.r1) +
-      cellHTMLReadonly(slotId, 'r2', e.r2) +
-      cellHTMLReadonly(slotId, 'r3', e.r3) +
+      cellHTMLReadonly(slotId, 'r1', e.r1, pos) +
+      cellHTMLReadonly(slotId, 'r2', e.r2, pos) +
+      cellHTMLReadonly(slotId, 'r3', e.r3, pos) +
       '</div>';
   }
 
@@ -2830,6 +2907,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       .replace(/"/g, '&quot;');
   }
 
+  /** Full refresh from current tropp+akademi: tips, Speiderplan, anbefalt XI always rebuilt. */
   function render() {
     try {
       var xi = buildXI();
@@ -3795,30 +3873,37 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 
     // Cap readable list (scout gaps rendered separately via renderScoutTips)
 
-    /* Preferred-foot retrain tips (wings/backs) — tip only, never force manual XI */
-    state.players.forEach(function (p) {
-      if (tips.length >= 8) return;
-      var rt = footRetrainTip(p);
+    /* Preferred-foot tips — scan whole tropp (+ akademi). Reserved slots so they are not crowded out. */
+    var footTips = [];
+    function pushFootTip(p, src) {
+      var rt = footTrenLabel(p);
       if (!rt) return;
-      if (tips.some(function (t) { return t.text.indexOf(p.navn) >= 0 && t.text.indexOf('Utvikle/tren') >= 0; })) return;
       var fotL = p.fot === 'V' ? 'venstre' : (p.fot === 'H' ? 'høyre' : (p.fot || '?'));
-      tips.push({
+      var srcBit = src === 'akademi' ? ' · akademi' : '';
+      footTips.push({
         kind: 'info',
-        text: p.navn + ' (' + posDisplayCode(p.hoved || '?') + ', ' + fotL + ' fot) — ' + rt
+        text: p.navn + ' (' + posDisplayCode(p.hoved || '?') + srcBit + ', ' + fotL + ' fot) — ' + rt
       });
-    });
+    }
+    (state.players || []).forEach(function (p) { pushFootTip(p, 'tropp'); });
+    (state.akademi || []).forEach(function (p) { pushFootTip(p, 'akademi'); });
 
-    var missFot = state.players.filter(function (p) { return !normalizeFot(p.fot); }).length;
-    if (missFot > 0 && tips.length < 8) {
-      tips.push({
+    var missFot = (state.players || []).filter(function (p) { return !normalizeFot(p.fot); }).length;
+    var missTip = null;
+    if (missFot > 0) {
+      missTip = {
         kind: 'info',
         text: missFot === 1
           ? '1 spiller mangler preferert fot — sett V/H/B for bedre anbefalt oppstilling.'
           : (missFot + ' spillere mangler preferert fot — sett V/H/B for bedre anbefalt oppstilling.')
-      });
+      };
     }
 
-    return tips.slice(0, 8);
+    /* Keep up to 5 non-foot tips, then all foot tips (cap 8), then miss-fot if room */
+    var other = tips.slice(0, 5);
+    var merged = other.concat(footTips.slice(0, 8));
+    if (missTip && merged.length < 12) merged.push(missTip);
+    return merged.slice(0, 12);
   }
 
 
@@ -4091,6 +4176,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         heightNote: '',
         footNote: foot.note || '',
         footRetrain: foot.retrain || '',
+        footRetrainTo: foot.retrainTo || null,
         footWeight: foot.weight || 'none'
       };
       scored.push(entry);
@@ -4181,8 +4267,16 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     if (target.heightNote) {
       lead += ' — ' + target.heightNote;
     }
-    if (target.footRetrain) {
-      lead += ' — ' + target.footRetrain;
+    var acadTren = null;
+    if (target.footRetrainTo && prospect && !playerHasPos(prospect, target.footRetrainTo)) {
+      acadTren = 'Tren til ' + posDisplayCode(target.footRetrainTo);
+    } else if (target.footRetrain && prospect) {
+      /* Legacy string — only if prospect lacks any «Tren til X» target already on card */
+      var mTren = String(target.footRetrain).match(/Tren til\s+(\S+)/);
+      if (mTren && !playerHasPos(prospect, mTren[1])) acadTren = 'Tren til ' + posDisplayCode(mTren[1]);
+    }
+    if (acadTren) {
+      lead += ' — ' + acadTren;
     } else if (target.footNote && target.footWeight === 'strong') {
       lead += ' — ' + target.footNote;
     }
@@ -4887,13 +4981,14 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
       potensial: data.potensial,
       alder: data.alder,
       hoyde: data.hoyde,
+      fot: data.fot,
       hoved: data.hoved,
       ekstra: data.ekstra
     });
     if (!state.akademi) state.akademi = [];
     state.akademi.push(p);
     saveState();
-    renderAcademy();
+    render();
     flashMsg('Lagt til i akademi: ' + p.navn, 'success');
     return p;
   }
@@ -4903,7 +4998,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     var p = state.akademi.find(function (x) { return x.id === id; });
     state.akademi = state.akademi.filter(function (x) { return x.id !== id; });
     saveState();
-    renderAcademy();
+    render();
     if (p) flashMsg('Fjernet fra akademi: ' + p.navn);
   }
 
@@ -5392,11 +5487,11 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
       var tipOut = tip || '';
       var reasonOut = reason || tip || '';
       if (footRt) {
-        /* Clear per-player tip — do not auto-move manual XI */
-        if (tipOut.indexOf('Utvikle/tren') < 0) {
+        /* Clear per-player tip — only when target pos not already on card */
+        if (tipOut.indexOf('Tren til') < 0 && tipOut.indexOf('Utvikle/tren') < 0) {
           tipOut = tipOut.replace(/\.?\s*$/, '') + ' · ' + footRt + '.';
         }
-        if (reasonOut.indexOf('Utvikle/tren') < 0) {
+        if (reasonOut.indexOf('Tren til') < 0 && reasonOut.indexOf('Utvikle/tren') < 0) {
           reasonOut = reasonOut.replace(/\.?\s*$/, '') + ' · ' + footRt;
         }
       }
@@ -5756,7 +5851,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     if (!slot) return;
     var player = state.players.find(function (p) { return p.id === playerId; });
     if (!player) return;
-    if (!qualifies(player, slot.pos)) {
+    if (!qualifiesForSlot(player, slot.pos)) {
       flashMsg('Spilleren har ikke denne posisjonen på kortet');
       return;
     }
@@ -5800,7 +5895,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     if (!slot) return { ok: false, msg: 'Ugyldig posisjon' };
     var player = state.players.find(function (p) { return p.id === playerId; });
     if (!player) return { ok: false, msg: 'Spiller ikke funnet' };
-    if (!qualifies(player, slot.pos)) {
+    if (!qualifiesForSlot(player, slot.pos)) {
       return { ok: false, msg: 'Spilleren har ikke denne posisjonen på kortet' };
     }
     // Remove from old assignments
@@ -6194,7 +6289,8 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
         return c !== (normalizePosCode(data.hoved) || data.hoved);
       }),
       alder: data.alder,
-      hoyde: data.hoyde
+      hoyde: data.hoyde,
+      fot: normalizeFot(data.fot)
     };
     state.players.push(player);
 
@@ -8593,7 +8689,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
         p.ekstra = normed.ekstra;
         saveState();
         closeAcademyEdit();
-        renderAcademy();
+        render();
         flashMsg('Lagret: ' + p.navn, 'success');
       });
     }
