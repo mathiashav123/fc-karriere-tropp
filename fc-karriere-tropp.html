@@ -148,6 +148,8 @@ label {
 .tips .tip-tag.lan { background: rgba(106,154,212,.22); color: #9bc0ea; }
 .tips .tip-tag.fokus { background: var(--accent-soft); color: #7ddea0; }
 .tips .tip-tag.info { background: rgba(255,255,255,.08); color: var(--muted); }
+.tips .tip-tag.speid { background: rgba(180,140,255,.2); color: #cbb0ff; }
+.verdict-tip.scout { border-left-color: #9a7ad4; background: rgba(154,122,212,0.12); }
 .view-tabs {
   display: flex; gap: 6px; max-width: 1360px; margin: 0 auto;
   padding: 10px 14px 0;
@@ -197,6 +199,21 @@ label {
 .akademi-actions button { min-height: 36px; font-size: 12px; font-weight: 600; }
 
 .verdict-chip.watch { background: rgba(154,171,158,.22); color: #c5d4c8; }
+.verdict-chip.sell { background: var(--danger-soft); color: #ff8a8a; }
+.verdict-chip.loan { background: rgba(106,154,212,.22); color: #9bc0ea; }
+.verdict-chip.develop { background: var(--accent-soft); color: #7ddea0; }
+.verdict-chip.start { background: rgba(125,222,160,.28); color: #9aefb4; }
+.verdict-chip.hold { background: rgba(212,160,84,.2); color: #f0d8a0; }
+.verdict-tip.loan { border-left-color: #6a9ad4; background: rgba(106,154,212,0.12); }
+.verdict-tip.sell { border-left-color: #d45454; background: rgba(212,84,84,0.1); }
+.verdict-tip.develop { border-left-color: #3d9a5f; background: rgba(61,154,95,0.12); }
+.verdict-tip.start { border-left-color: #3d9a5f; background: rgba(61,154,95,0.12); }
+.player-row .verdict { margin-top: 4px; }
+.player-row .verdict-tip { margin-top: 4px; font-size: 11px; padding: 5px 7px; }
+.player-row { align-items: flex-start; }
+.player-row .p-ratings, .player-row .btn-edit-row, .player-row .icon.danger {
+  margin-top: 6px;
+}
 .verdict-sub { display: block; width: 100%; font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.35; }
 
 /* Rating / potensial: grønnere når bra, dempet når lavt */
@@ -963,6 +980,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       </div>
     </div>
     <div class="weak-spots" id="weak-spots"></div>
+    <div class="tips scout-tips" id="scout-tips" hidden></div>
     <div class="tips" id="tips" hidden></div>
     <p class="hint" id="formation-hint"></p>
   </section>
@@ -1044,6 +1062,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     <section class="card">
       <h2>Akademi <span id="akademi-count">(0)</span></h2>
       <p class="hint" style="margin-top:0">Tips om beholde, slippe eller ta opp til A-laget (fra 16 år) — sammenlignet med troppen på samme posisjon.</p>
+      <div class="tips scout-tips" id="scout-tips-akademi" hidden></div>
       <ul class="player-list" id="akademi-list"></ul>
       <div class="empty-state" id="akademi-empty">Ingen akademispillere. Legg til prospects over.</div>
     </section>
@@ -1248,8 +1267,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     { code: 'SDM', label: 'SDM · sittende midtbane / 6-er' },
     { code: 'SM', label: 'SM · sentral midtbane / 8-er' },
     { code: 'SOM', label: 'SOM · offensiv midtbane' },
-    { code: 'LM', label: 'LM · venstre midtbane' },
-    { code: 'RM', label: 'RM · høyre midtbane' },
+    { code: 'VM', label: 'VM · venstre midtbane' },
+    { code: 'HM', label: 'HM · høyre midtbane' },
     { code: 'VV', label: 'VV · venstre ving' },
     { code: 'S', label: 'S · spiss' },
     { code: 'HV', label: 'HV · høyre ving' }
@@ -1274,8 +1293,11 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   POS_BY_CODE['RWB'] = { code: 'RWB', label: 'HWB · høyre wingback' };
   POS_BY_CODE['CDM'] = { code: 'CDM', label: 'SDM · sittende midtbane / 6-er' };
   POS_BY_CODE['CM'] = { code: 'CM', label: 'SM · sentral midtbane / 8-er' };
-  POS_BY_CODE['LM'] = { code: 'LM', label: 'LM · venstre midtbane' };
-  POS_BY_CODE['RM'] = { code: 'RM', label: 'RM · høyre midtbane' };
+  /* Legacy LM/RM — normalize to VM/HM on load; kept for OCR/slot aliases. HM ≠ HMS. */
+  POS_BY_CODE['LM'] = { code: 'LM', label: 'VM · venstre midtbane' };
+  POS_BY_CODE['RM'] = { code: 'RM', label: 'HM · høyre midtbane' };
+  POS_BY_CODE['VM'] = { code: 'VM', label: 'VM · venstre midtbane' };
+  POS_BY_CODE['HM'] = { code: 'HM', label: 'HM · høyre midtbane' };
   POS_BY_CODE['LW'] = { code: 'LW', label: 'VV · venstre ving' };
   POS_BY_CODE['RW'] = { code: 'RW', label: 'HV · høyre ving' };
   POS_BY_CODE['ST'] = { code: 'ST', label: 'S · spiss' };
@@ -1288,6 +1310,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     GK: 'K', LB: 'VB', RB: 'HB', LWB: 'VWB', RWB: 'HWB',
     CDM: 'SDM', CM: 'SM', CAM: 'SOM', AM: 'SOM',
     VSM: 'SM', HSM: 'SM',
+    LM: 'VM', RM: 'HM',
     LW: 'VV', RW: 'HV', ST: 'S', CF: 'S', LF: 'VV', RF: 'HV',
     CB: 'MS', VMS: 'MS', HMS: 'MS'
   };
@@ -1307,12 +1330,15 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     SOM: ['SOM', 'AM', 'CAM', 'SM', 'CM'],
     AM:  ['SOM', 'AM', 'CAM', 'SM', 'CM'],
     CAM: ['SOM', 'AM', 'CAM', 'SM', 'CM'],
-    LM:  ['LM', 'VV', 'LW', 'LF'],
-    RM:  ['RM', 'HV', 'RW', 'RF'],
-    VSM: ['LM', 'SM', 'CM', 'VSM', 'HSM'],
-    HSM: ['RM', 'SM', 'CM', 'HSM', 'VSM'],
-    VV:  ['VV', 'LM', 'LW', 'LF'],
-    HV:  ['HV', 'RM', 'RW', 'RF'],
+    /* VM/HM = player midfield wings. HMS/VMS stay CB-only (midtstoppere). */
+    VM:  ['VM', 'LM', 'VV', 'LW', 'LF'],
+    HM:  ['HM', 'RM', 'HV', 'RW', 'RF'],
+    LM:  ['VM', 'LM', 'VV', 'LW', 'LF'],
+    RM:  ['HM', 'RM', 'HV', 'RW', 'RF'],
+    VSM: ['VM', 'LM', 'SM', 'CM', 'VSM', 'HSM'],
+    HSM: ['HM', 'RM', 'SM', 'CM', 'HSM', 'VSM'],
+    VV:  ['VV', 'VM', 'LM', 'LW', 'LF'],
+    HV:  ['HV', 'HM', 'RM', 'RW', 'RF'],
     S:   ['S', 'ST', 'CF']
   };
 
@@ -1867,6 +1893,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     if (code === 'CB' || code === 'VMS' || code === 'HMS') return 'MS';
     if (code === 'VSM' || code === 'HSM' || code === 'CM') return 'SM';
     if (code === 'CAM' || code === 'AM') return 'SOM';
+    if (code === 'LM') return 'VM';
+    if (code === 'RM') return 'HM';
     if (code === 'GK') return 'K';
     if (code === 'LB') return 'VB';
     if (code === 'RB') return 'HB';
@@ -2046,6 +2074,90 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
    * Tips: surplus (selg/lån) + fokus utvikling.
    * Research-aligned: min-2 coverage; loan young blocked; sell older/low-growth.
    */
+
+  /**
+   * Positions to scout: used in formation, thin/weak in tropp, and no strong YA prospect.
+   * Uses same formation remaps (SOM→SM etc. already reflected in used set).
+   */
+  function computeScoutNeeds() {
+    var used = formationUsedPlayerPositions();
+    var positions = Object.keys(used).filter(function (p) {
+      return !!p && p !== 'undefined';
+    });
+    /* Order roughly by pitch importance */
+    var order = ['K','VB','VWB','MS','HB','HWB','SDM','SM','SOM','VM','HM','VV','S','HV'];
+    positions.sort(function (a, b) {
+      var ia = order.indexOf(a); var ib = order.indexOf(b);
+      if (ia < 0) ia = 99; if (ib < 0) ib = 99;
+      return ia - ib || a.localeCompare(b);
+    });
+
+    var akademi = Array.isArray(state.akademi) ? state.akademi : [];
+    var needs = [];
+
+    positions.forEach(function (pos) {
+      var depth = signedDepthForPos(pos);
+      var bestOvr = 0, bestPot = 0;
+      depth.forEach(function (p) {
+        if ((p.rating || 0) > bestOvr) bestOvr = p.rating || 0;
+        if ((p.potensial || 0) > bestPot) bestPot = p.potensial || 0;
+      });
+      var thin = depth.length < 2;
+      var weak = depth.length === 0 ||
+        (bestOvr < 72 && bestPot < 80) ||
+        (bestPot < 76 && bestOvr < 75) ||
+        (depth.length === 1 && bestPot < 82 && bestOvr < 78);
+
+      if (!thin && !weak) return;
+
+      /* Academy options for this effective/used role with bra potensial */
+      var yaGood = [];
+      akademi.forEach(function (a) {
+        var positionsA = playerPositions(a);
+        if (!positionsA.length) positionsA = [normalizePosCode(a.hoved) || 'SM'];
+        var fits = false;
+        for (var i = 0; i < positionsA.length; i++) {
+          var eff = academyEffectivePos(positionsA[i], used);
+          if (eff.effective === pos) { fits = true; break; }
+        }
+        if (!fits && !qualifies(a, pos)) return;
+        var potHi = academyOptimisticPot(a);
+        if (potHi >= 78 || (potHi >= 75 && potHi >= bestPot + 2)) {
+          yaGood.push({ p: a, potHi: potHi });
+        }
+      });
+      yaGood.sort(function (a, b) { return b.potHi - a.potHi; });
+
+      if (yaGood.length) return; /* academy covers the gap */
+
+      var label = posDisplayCode(pos);
+      var why;
+      if (depth.length === 0) {
+        why = 'ingen i tropp eller akademi med bra potensial';
+      } else if (thin) {
+        why = 'mangler dybde / ingen god nok i tropp eller akademi';
+      } else {
+        why = 'svak dekning (' + bestOvr + '→' + bestPot + '), ingen god YA';
+      }
+      needs.push({
+        pos: pos,
+        label: label,
+        thin: thin,
+        weak: weak,
+        depth: depth.length,
+        bestOvr: bestOvr,
+        bestPot: bestPot,
+        text: 'Speid etter ' + label + ' — ' + why,
+        kind: 'speid',
+        severity: depth.length === 0 ? 3 : (thin ? 2 : 1)
+      });
+    });
+
+    needs.sort(function (a, b) { return b.severity - a.severity || a.pos.localeCompare(b.pos); });
+    /* Cap spam — only real gaps */
+    return needs.slice(0, 5);
+  }
+
   function computeTips(xi) {
     var tips = [];
     if (!state.players.length) return tips;
@@ -2218,11 +2330,32 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       });
     }
 
-    // Cap readable list
+    // Cap readable list (scout gaps rendered separately via renderScoutTips)
     return tips.slice(0, 6);
   }
 
+
+  function renderScoutTips() {
+    var needs = computeScoutNeeds();
+    function fill(elId) {
+      var el = document.getElementById(elId);
+      if (!el) return;
+      if (!needs.length) {
+        el.hidden = true;
+        el.innerHTML = '';
+        return;
+      }
+      el.hidden = false;
+      el.innerHTML = '<h3>Speiding</h3><ul>' + needs.map(function (n) {
+        return '<li><span class="tip-tag speid">Speid</span>' + esc(n.text) + '</li>';
+      }).join('') + '</ul>';
+    }
+    fill('scout-tips');
+    fill('scout-tips-akademi');
+  }
+
   function renderTips(xi) {
+    renderScoutTips();
     var el = document.getElementById('tips');
     if (!el) return;
     var tips = computeTips(xi);
@@ -2232,10 +2365,10 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       return;
     }
     el.hidden = false;
-    var tagLabel = { selg: 'Selg', lan: 'Lån', fokus: 'Fokus', info: 'Tips' };
+    var tagLabel = { selg: 'Selg', lan: 'Lån', fokus: 'Fokus', info: 'Tips', speid: 'Speid' };
     el.innerHTML = '<h3>Tips</h3><ul>' + tips.map(function (t) {
       return '<li><span class="tip-tag ' + t.kind + '">' + (tagLabel[t.kind] || 'Tips') +
-        '</span>' + esc(t.text.replace(/^(Selg|Lån ut|Fokus):\s*/, '')) + '</li>';
+        '</span>' + esc(t.text.replace(/^(Selg|Lån ut|Fokus|Speid etter):\s*/, '')) + '</li>';
     }).join('') + '</ul>';
   }
 
@@ -2309,7 +2442,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     VB: [178, 185], HB: [178, 185], VWB: [178, 185], HWB: [178, 185],
     SDM: [180, 185],
     SM: [175, 183], SOM: [175, 183], AM: [175, 183],
-    LM: [173, 180], RM: [173, 180], VV: [173, 180], HV: [173, 180],
+    VM: [173, 180], HM: [173, 180], LM: [173, 180], RM: [173, 180], VV: [173, 180], HV: [173, 180],
     S: [175, 188]
   };
 
@@ -2363,6 +2496,73 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     return false;
   }
 
+
+  /**
+   * Player-facing positions used by the current formation.
+   * Maps formation slot codes → canonical player codes.
+   * VMS/HMS → MS; VSM → VM (midtbanekant); HSM → HM; HM ≠ HMS.
+   */
+  function formationUsedPlayerPositions() {
+    var formation = getFormation();
+    var used = {};
+    function mark(code) {
+      if (code) used[code] = true;
+    }
+    (formation.slots || []).forEach(function (slot) {
+      var code = slot && slot.pos ? String(slot.pos).toUpperCase() : '';
+      if (!code) return;
+      if (code === 'VMS' || code === 'HMS' || code === 'CB') {
+        mark('MS');
+        return;
+      }
+      if (code === 'VSM') {
+        mark('VM'); /* VM-ish wing mid — counts as using VM */
+        mark('SM');
+        return;
+      }
+      if (code === 'HSM') {
+        mark('HM'); /* HM-ish wing mid — counts as using HM (≠ HMS) */
+        mark('SM');
+        return;
+      }
+      if (code === 'LM') { mark('VM'); return; }
+      if (code === 'RM') { mark('HM'); return; }
+      if (code === 'AM' || code === 'CAM') { mark('SOM'); return; }
+      if (code === 'CM') { mark('SM'); return; }
+      if (code === 'CDM') { mark('SDM'); return; }
+      if (code === 'GK') { mark('K'); return; }
+      if (code === 'LB') { mark('VB'); return; }
+      if (code === 'RB') { mark('HB'); return; }
+      if (code === 'LWB') { mark('VWB'); return; }
+      if (code === 'RWB') { mark('HWB'); return; }
+      if (code === 'LW' || code === 'LF') { mark('VV'); return; }
+      if (code === 'RW' || code === 'RF') { mark('HV'); return; }
+      if (code === 'ST' || code === 'CF') { mark('S'); return; }
+      /* Already player-facing: K VB VWB MS HB HWB SDM SM SOM VM HM VV S HV */
+      mark(normalizePosCode(code) || code);
+    });
+    return used;
+  }
+
+  /**
+   * If a player pos is not used in the current formation, remap to a used role:
+   * SOM → SM; HM (RM) → HV; VM (LM) → VV. Tips only — does not mutate saved hoved.
+   */
+  function academyEffectivePos(posCode, usedSet) {
+    var raw = normalizePosCode(posCode) || String(posCode || '').toUpperCase();
+    var used = usedSet || formationUsedPlayerPositions();
+    if ((raw === 'SOM' || raw === 'AM' || raw === 'CAM') && !used['SOM']) {
+      return { raw: 'SOM', effective: 'SM', remap: 'som_unused' };
+    }
+    if ((raw === 'HM' || raw === 'RM') && !used['HM']) {
+      return { raw: 'HM', effective: 'HV', remap: 'hm_unused' };
+    }
+    if ((raw === 'VM' || raw === 'LM') && !used['VM']) {
+      return { raw: 'VM', effective: 'VV', remap: 'vm_unused' };
+    }
+    return { raw: raw, effective: raw, remap: null };
+  }
+
   /**
    * Score every hoved+ekstra position; pick where prospect helps most (need × fit).
    * Height: soft tie-break when need similar; skip if hoyde missing.
@@ -2375,19 +2575,24 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     }
     var hoved = normalizePosCode(prospect.hoved);
     var cm = academyHeightCm(prospect);
+    var used = formationUsedPlayerPositions();
     var best = null;
     var scored = [];
     for (var i = 0; i < positions.length; i++) {
-      var pos = normalizePosCode(positions[i]) || positions[i];
-      if (!pos) continue;
+      var rawPos = normalizePosCode(positions[i]) || positions[i];
+      if (!rawPos) continue;
+      var eff = academyEffectivePos(rawPos, used);
+      var pos = eff.effective;
       var info = projectedAcademyRank(prospect, potHi, pos);
       var need = academyPosNeedScore(info.depth.length);
       var fit = academyPosFitScore(info.rank, potHi, info.depth);
       var score = need * fit;
-      var isHoved = !!hoved && pos === hoved;
+      var isHoved = !!hoved && rawPos === hoved && !eff.remap;
       var hFit = cm != null ? academyHeightFitForPos(pos, cm) : null;
       var entry = {
         pos: pos,
+        rawPos: eff.raw,
+        remap: eff.remap,
         rank: info.rank,
         depth: info.depth,
         need: need,
@@ -2403,18 +2608,22 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       if (!best || academyPreferTarget(entry, best)) best = entry;
     }
     if (!best) {
-      var p0 = hoved || 'SM';
+      var p0raw = hoved || 'SM';
+      var eff0 = academyEffectivePos(p0raw, used);
+      var p0 = eff0.effective;
       var info0 = projectedAcademyRank(prospect, potHi, p0);
       var h0 = cm != null ? academyHeightFitForPos(p0, cm) : null;
       best = {
         pos: p0,
+        rawPos: eff0.raw,
+        remap: eff0.remap,
         rank: info0.rank,
         depth: info0.depth,
         need: academyPosNeedScore(info0.depth.length),
         fit: academyPosFitScore(info0.rank, potHi, info0.depth),
         score: 0,
         thin: info0.depth.length < 2,
-        isHoved: true,
+        isHoved: !eff0.remap,
         hFit: h0,
         hTier: h0 ? h0.tier : null,
         heightNote: ''
@@ -2422,7 +2631,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       scored = [best];
     }
 
-    // Height tip notes (only when hoyde known)
+    // Height tip notes (only when hoyde known) — use effective pos
     if (cm != null && best) {
       var code = posDisplayCode(best.pos);
       if (best.hTier != null && best.hTier >= 2) {
@@ -2452,9 +2661,17 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   /** Short Norwegian lead naming best/needed pos for tip/reason. */
   function academyBestPosLead(target, prospect) {
     var code = posDisplayCode(target.pos);
+    var rawCode = posDisplayCode(target.rawPos || target.pos);
     var n = target.depth.length;
     var lead;
-    if (target.thin) {
+    if (target.remap === 'som_unused') {
+      lead = 'Best som ' + code + ' (du bruker ikke SOM i formasjonen)';
+      lead += ' — utvikle/bruk som ' + code;
+    } else if (target.remap === 'hm_unused') {
+      lead = 'Best på ' + code + ' fremfor HM (HM ikke i din formasjon)';
+    } else if (target.remap === 'vm_unused') {
+      lead = 'Best på ' + code + ' fremfor VM (VM ikke i din formasjon)';
+    } else if (target.thin) {
       if (n <= 0) lead = 'Best på ' + code + ' (trengs mest — ingen i troppen)';
       else lead = 'Best på ' + code + ' (trengs mest — bare ' + n + ' i troppen)';
     } else if (target.rank === 2 && target.depth[0]) {
@@ -2464,8 +2681,13 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     } else {
       lead = 'Best på ' + code + ' (#' + target.rank + ' vs troppen)';
     }
-    if (!target.isHoved) {
+    if (target.remap && target.remap !== 'som_unused') {
+      /* HM/VM remap: suggest ekstra toward effective role without mutating data */
+      lead += ' — anbefalt som ' + code + ' / sett ekstra ' + code;
+    } else if (!target.remap && !target.isHoved) {
       lead += ' — bruk/utvikle som ' + code + ' fremfor ' + posDisplayCode(prospect.hoved);
+    } else if (!target.remap && target.isHoved && rawCode && rawCode !== code) {
+      lead += ' — anbefalt som ' + code;
     }
     if (target.heightNote) {
       lead += ' — ' + target.heightNote;
@@ -3012,6 +3234,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 
   function renderAcademy() {
     updateAcademyCounts();
+    renderScoutTips();
     var list = document.getElementById('akademi-list');
     var empty = document.getElementById('akademi-empty');
     if (!list) return;
@@ -3339,6 +3562,299 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     return arr;
   }
 
+
+  /** Best used/effective role for a signed player (formation remaps: SOM→SM, HM→HV, VM→VV). */
+  function troppRoleForPlayer(player) {
+    var used = formationUsedPlayerPositions();
+    var positions = playerPositions(player);
+    if (!positions.length) {
+      var fb = normalizePosCode(player.hoved) || 'SM';
+      positions = [fb];
+    }
+    var hoved = normalizePosCode(player.hoved);
+    var best = null;
+    for (var i = 0; i < positions.length; i++) {
+      var raw = normalizePosCode(positions[i]) || positions[i];
+      if (!raw) continue;
+      var eff = academyEffectivePos(raw, used);
+      var depth = signedDepthForPos(eff.effective);
+      var rank = 1;
+      for (var d = 0; d < depth.length; d++) {
+        if (depth[d].id === player.id) { rank = d + 1; break; }
+        rank = d + 2;
+      }
+      var entry = {
+        raw: eff.raw,
+        pos: eff.effective,
+        remap: eff.remap,
+        depth: depth,
+        rank: rank,
+        thin: depth.length < 2,
+        crowded: depth.length >= 3,
+        isHoved: !!hoved && raw === hoved
+      };
+      // Prefer hoved unless remap makes ekstra clearly better for used formation
+      if (!best) best = entry;
+      else if (entry.isHoved && !best.isHoved && !entry.remap) best = entry;
+      else if (best.remap && !entry.remap) best = entry;
+      else if (entry.thin && !best.thin) best = entry;
+      else if (entry.isHoved && best.isHoved === false) best = entry;
+    }
+    return best || {
+      raw: hoved || 'SM',
+      pos: hoved || 'SM',
+      remap: null,
+      depth: signedDepthForPos(hoved || 'SM'),
+      rank: 1,
+      thin: true,
+      crowded: false,
+      isHoved: true
+    };
+  }
+
+  function troppNearPot(player) {
+    var pot = player.potensial != null ? player.potensial : player.rating;
+    var ovr = player.rating != null ? player.rating : 0;
+    return ovr >= pot || (pot - ovr) <= 3;
+  }
+
+  function troppGrowth(player) {
+    var pot = player.potensial != null ? player.potensial : player.rating;
+    var ovr = player.rating != null ? player.rating : 0;
+    return pot - ovr;
+  }
+
+  /**
+   * Replacement in tropp at same effective pos: younger and/or higher pot,
+   * or already similar/better OVR with at least similar ceiling.
+   */
+  function findTroppReplacement(player, role) {
+    var depth = role.depth || [];
+    var best = null;
+    depth.forEach(function (p) {
+      if (!p || p.id === player.id) return;
+      var younger = (p.alder != null && player.alder != null && p.alder + 1 <= player.alder) ||
+        (p.alder != null && player.alder == null && p.alder <= 23);
+      var higherPot = (p.potensial || 0) > (player.potensial || 0);
+      var similarOvr = (p.rating || 0) >= (player.rating || 0) - 2;
+      var equalOrBetterCeil = (p.potensial || 0) >= (player.potensial || 0) - 1;
+      if (!(younger || higherPot || (similarOvr && equalOrBetterCeil))) return;
+      var score = (p.potensial || 0) * 2 + (p.rating || 0);
+      if (younger) score += 12;
+      if (higherPot) score += 10;
+      if ((p.alder || 99) < (player.alder || 30)) score += Math.max(0, 8 - ((p.alder || 22) - 16));
+      if (!best || score > best.score) best = { p: p, score: score, from: 'tropp' };
+    });
+    return best;
+  }
+
+  /**
+   * Academy prospect who can take over same effective/used position.
+   * Prefer age ≥16, strong pot ceiling / ready to promote.
+   */
+  function findAcademyReplacement(player, role) {
+    var list = Array.isArray(state.akademi) ? state.akademi : [];
+    var used = formationUsedPlayerPositions();
+    var pos = role.pos;
+    var best = null;
+    list.forEach(function (a) {
+      if (!a) return;
+      var positions = playerPositions(a);
+      if (!positions.length) positions = [normalizePosCode(a.hoved) || 'SM'];
+      var fits = false;
+      for (var i = 0; i < positions.length; i++) {
+        var eff = academyEffectivePos(positions[i], used);
+        if (eff.effective === pos) { fits = true; break; }
+      }
+      if (!fits && !qualifies(a, pos)) return;
+      if (!fits) {
+        /* qualifies raw slot aliases only — still require effective match when possible */
+        var effH = academyEffectivePos(a.hoved, used);
+        if (effH.effective !== pos && !qualifies(a, pos)) return;
+        if (effH.effective !== pos) {
+          /* allow qualifies fallback for wing/SM aliases */
+          fits = true;
+        }
+      }
+      var potHi = academyOptimisticPot(a);
+      var age = a.alder;
+      var ageOk = age == null || age >= ACADEMY_MIN_SIGN_AGE;
+      if (potHi < 72) return;
+      if (potHi < (player.rating || 0) - 3 && potHi < (player.potensial || 0) - 5) return;
+      var score = potHi * 2 + (a.rating || 0);
+      if (ageOk) score += 14;
+      if (age != null && age < ACADEMY_MIN_SIGN_AGE) score -= 18;
+      if (age != null && age >= 16 && age <= 19) score += 6;
+      if (potHi >= (player.potensial || 0)) score += 10;
+      if (potHi >= (player.rating || 0) + 5) score += 6;
+      if (!best || score > best.score) best = { p: a, score: score, from: 'akademi', potHi: potHi };
+    });
+    return best;
+  }
+
+  function pickReplacement(player, role) {
+    var tropp = findTroppReplacement(player, role);
+    if (tropp) return tropp;
+    return findAcademyReplacement(player, role);
+  }
+
+  /**
+   * Per signed player tip (always visible) — Behold / Start / Utvikle / Vurder salg / Selg / Lån ut / Ikke selg.
+   * Sell only when near pot AND a named replacement exists (tropp preferred, else academy).
+   * Thin depth → never push sell. No fake transfer values.
+   */
+  function troppVerdict(player, xi) {
+    var role = troppRoleForPlayer(player);
+    var pos = role.pos;
+    var posLabel = posDisplayCode(pos);
+    var age = player.alder;
+    var growth = troppGrowth(player);
+    var nearPot = troppNearPot(player);
+    var usageMap = xi && xi._usageCache ? xi._usageCache : playerUsage(xi);
+    if (xi) xi._usageCache = usageMap;
+    var u = usageMap[player.id];
+    var isStarter = u && u.role === 'r1';
+    var isBackup = u && (u.role === 'r2' || u.role === 'r3');
+    var unused = !u;
+    var depthN = role.depth.length;
+    var repl = pickReplacement(player, role);
+    var replName = repl && repl.p ? repl.p.navn : null;
+    var replFromAcademy = repl && repl.from === 'akademi';
+
+    function pack(level, chip, tipKind, tip, reason) {
+      return {
+        level: level,
+        chip: chip,
+        tipKind: tipKind,
+        tip: tip,
+        reason: reason || tip,
+        pos: pos,
+        rawPos: role.raw,
+        remap: role.remap,
+        rank: role.rank,
+        replacementId: repl && repl.p ? repl.p.id : null
+      };
+    }
+
+    var remapNote = '';
+    if (role.remap === 'som_unused') remapNote = ' (bruk som SM — SOM ikke i formasjonen)';
+    else if (role.remap === 'hm_unused') remapNote = ' (bruk som HV — HM ikke i formasjonen)';
+    else if (role.remap === 'vm_unused') remapNote = ' (bruk som VV — VM ikke i formasjonen)';
+
+    // 1) Thin depth — protect regardless of pot; nudge scout if no replacement
+    if (role.thin || depthN < 2) {
+      var scoutNudge = !replName
+        ? (' Speid etter ' + posLabel + ' først.')
+        : '';
+      var thinTip = nearPot
+        ? ('Ikke selg — tynn ' + posLabel + '-dybde' + (depthN <= 1 ? ' (bare ' + depthN + ')' : '') +
+          ', selv om nær potensialet' + remapNote + '.' + scoutNudge)
+        : ('Behold — tynn ' + posLabel + '-dybde; ikke selg' + remapNote + '.' + scoutNudge);
+      if (isStarter && growth >= 5 && (age == null || age <= 24)) {
+        return pack('start', 'Start / gi minutter', 'start',
+          'Start/gi minutter på ' + posLabel + ' — tynn dybde, rom til å vokse' + remapNote + '.' + scoutNudge,
+          thinTip);
+      }
+      return pack('hold', 'Ikke selg', !replName ? 'scout' : 'wait', thinTip, thinTip);
+    }
+
+    // 2) Near pot + replacement → vurder salg / selg (stronger if crowded)
+    if (nearPot && replName) {
+      var peaked = (player.rating || 0) >= (player.potensial || 0);
+      var sellPhrase;
+      if (replFromAcademy) {
+        sellPhrase = peaked
+          ? ('Rett tid å selge — på potensialet; ' + replName + ' i akademiet kan ta over')
+          : ('Vurder salg — nær potensialet; ' + replName + ' i akademiet kan ta over');
+      } else {
+        sellPhrase = peaked
+          ? ('Rett tid å selge — på potensialet, du har ' + replName + ' som erstatning')
+          : ('Vurder salg — nær potensialet; ' + replName + ' kan erstatte');
+      }
+      sellPhrase += ' på ' + posLabel + remapNote + '.';
+      if (role.crowded && depthN >= 3) {
+        return pack('sell', 'Selg', 'sell', 'Selg — ' + sellPhrase.replace(/^[^—]+— /, ''), sellPhrase);
+      }
+      // Aging backup peaked
+      if ((age != null && age >= 28) || (unused && growth <= 2) || (isBackup && age != null && age >= 26 && growth <= 3)) {
+        return pack('sell', 'Vurder salg', 'sell', sellPhrase, sellPhrase);
+      }
+      if (!isStarter || (age != null && age >= 27)) {
+        return pack('sell', 'Vurder salg', 'risk', sellPhrase, sellPhrase);
+      }
+      // Starter near pot with replacement — soft
+      return pack('hold', 'Behold / vurder', 'risk',
+        'Behold som ' + posLabel + '-starter foreløpig — ' + sellPhrase,
+        sellPhrase);
+    }
+
+    // 3) Near pot, no replacement — hold; suggest scout when depth isn't deep
+    if (nearPot && !replName) {
+      var tip3 = 'Behold — nær potensialet på ' + posLabel + ', men ingen klar erstatning' + remapNote + '.';
+      if (depthN < 3) tip3 += ' Speid etter ' + posLabel + ' før du selger.';
+      return pack('hold', 'Behold', depthN < 3 ? 'scout' : 'wait', tip3, 'Behold — ingen erstatning');
+    }
+
+    // 4) Overcrowded weak/old without being near pot — soft loan/sell only if clearly surplus
+    if (role.crowded && depthN >= 3 && role.rank >= 3 && (age == null || age >= 24) && growth <= 4) {
+      var ahead = role.depth[0] ? role.depth[0].navn : null;
+      return pack('loan', 'Lån ut', 'loan',
+        'Lån ut / vurder salg — #' + role.rank + ' på ' + posLabel +
+        (ahead ? ' bak ' + ahead : '') + ', begrenset tak' + remapNote + '.',
+        'Overskudd på ' + posLabel);
+    }
+
+    // 5) Young with room — develop / minutes
+    if ((age == null || age <= 23) && growth >= 6) {
+      if (isStarter) {
+        return pack('start', 'Start / gi minutter', 'start',
+          'Start/gi minutter — ung med rom til pot ' + player.potensial + ' på ' + posLabel + remapNote + '.',
+          'Utvikle som starter');
+      }
+      if (unused && depthN >= 3) {
+        return pack('loan', 'Lån ut', 'loan',
+          'Lån ut for utvikling — høy pot (' + player.potensial + '), lite minutter bak ' +
+          depthN + ' på ' + posLabel + remapNote + '.',
+          'Lån for spilletid');
+      }
+      return pack('develop', 'Utvikle', 'develop',
+        'Utvikle / gi minutter — ' + growth + ' poeng til pot på ' + posLabel + remapNote + '.',
+        'Utvikle');
+    }
+
+    // 6) Starter high OVR near-ish pot
+    if (isStarter) {
+      return pack('start', 'Behold / start', 'start',
+        'Behold — starter på ' + posLabel + ' (' + player.rating + '→' + player.potensial + ')' + remapNote + '.',
+        'Starter');
+    }
+
+    // 7) Solid backup with growth
+    if (isBackup && growth >= 5 && (age == null || age <= 25)) {
+      return pack('develop', 'Utvikle', 'develop',
+        'Utvikle som ' + posLabel + '-reserve — rom til pot ' + player.potensial + remapNote + '.',
+        'Reserve med pot');
+    }
+
+    // 8) Aging stagnant surplus
+    if (unused && (age != null && age >= 28) && growth <= 3) {
+      if (replName) {
+        var t = replFromAcademy
+          ? ('Vurder salg — lite tak; ' + replName + ' i akademiet kan ta over på ' + posLabel + '.')
+          : ('Vurder salg — lite tak; ' + replName + ' kan erstatte på ' + posLabel + '.');
+        return pack('sell', 'Vurder salg', 'sell', t, t);
+      }
+      return pack('loan', 'Lån ut', 'loan',
+        'Lån ut / vurder salg — utenom XI, lavt tak på ' + posLabel + remapNote + '.',
+        'Surplus');
+    }
+
+    // Default
+    return pack('hold', 'Behold', 'wait',
+      'Behold i troppen på ' + posLabel + ' (#' + role.rank + '/' + depthN + ')' + remapNote + '.',
+      'Behold');
+  }
+
   function renderSquad(xi) {
     var usage = playerUsage(xi);
     var list = document.getElementById('player-list');
@@ -3356,6 +3872,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     if (empty) empty.classList.add('hidden');
     if (!list) return;
 
+    if (xi) xi._usageCache = usage;
     list.innerHTML = players.map(function (p) {
       var u = usage[p.id];
       var badge = '<span class="badge depth">dybde</span>';
@@ -3373,11 +3890,18 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       var potChip = (p.potensial - p.rating >= 8) ? '<span class="chip-pot">↑</span>' : '';
       var ekstraStr = formatEkstra(p);
       var ekstra = ekstraStr ? ', ' + esc(ekstraStr) : '';
+      var v = troppVerdict(p, xi);
+      var tipText = (v.tip && String(v.tip).trim()) || 'Behold i troppen.';
+      var tipHtml = '<span class="verdict-tip ' + esc(v.tipKind || 'wait') + '">' + esc(tipText) + '</span>';
       return '<li class="player-row ' + cls + '" data-edit="' + esc(p.id) +
         '" draggable="true" data-pid="' + esc(p.id) + '" title="Trykk for å redigere">' +
         '<div class="p-info"><div class="p-name">' + esc(p.navn) + ' ' + potChip + ' ' + badge +
         '</div><div class="p-sub"><span class="p-pos">' + esc(posDisplayCode(p.hoved)) + ekstra +
-        '</span> <span class="p-phys">' + esc(physText(p)) + '</span></div></div>' +
+        '</span> <span class="p-phys">' + esc(physText(p)) + '</span></div>' +
+        '<div class="verdict">' +
+        '<span class="verdict-chip ' + esc(v.level) + '">' + esc(v.chip) + '</span>' +
+        '<span class="verdict-reason">' + esc(v.reason) + '</span>' +
+        '</div>' + tipHtml + '</div>' +
         '<div class="p-ratings"><div class="r ' + ratingTier(p.rating) + '">' + p.rating + '</div>' +
         '<div class="p ' + ratingTier(p.potensial) + '">pot ' + p.potensial + '</div></div>' +
         '<button type="button" class="btn-edit-row" data-edit-btn="' + esc(p.id) +
@@ -5244,7 +5768,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 
   var POS_OCR_TOKENS = [
     'LWB', 'RWB', 'CDM', 'CAM', 'VWB', 'HWB', 'SDM', 'VMS', 'HMS', 'VSM', 'HSM',
-    'GK', 'CB', 'LB', 'RB', 'CM', 'LM', 'RM', 'LW', 'RW', 'ST', 'CF', 'LF', 'RF',
+    'GK', 'CB', 'LB', 'RB', 'CM', 'LM', 'RM', 'VM', 'HM', 'LW', 'RW', 'ST', 'CF', 'LF', 'RF',
     'VB', 'MS', 'HB', 'SM', 'SOM', 'AM', 'VV', 'HV', 'K', 'S'
   ];
 
@@ -5756,7 +6280,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 
     // —— Position: short code above name. Prefer MS/CB; avoid false S from "PES"/noise ——
     var AMBIGUOUS_POS = { S: 1, K: 1, ST: 1, CM: 1, AM: 1, SOM: 1 };
-    var PREFERRED_POS = { MS: 30, CB: 28, SDM: 18, SM: 16, SOM: 14, AM: 14, LM: 13, RM: 13, VB: 14, HB: 14, VV: 12, HV: 12, VWB: 12, HWB: 12, GK: 12, K: 4, S: 2, ST: 3 };
+    var PREFERRED_POS = { MS: 30, CB: 28, SDM: 18, SM: 16, SOM: 14, AM: 14, VM: 13, HM: 13, LM: 13, RM: 13, VB: 14, HB: 14, VV: 12, HV: 12, VWB: 12, HWB: 12, GK: 12, K: 4, S: 2, ST: 3 };
     var posCands = [];
     words.forEach(function (w) {
       var rawTok = w.text.replace(/[^A-Za-zÆØÅæøå]/g, '');
