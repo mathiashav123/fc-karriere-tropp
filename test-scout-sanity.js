@@ -104,6 +104,7 @@ try {
   process.exit(1);
 }
 const FC = sandbox.__ex;
+// sandbox kept for synthetic thin-map cache poke
 
 const defaultBackups = [
   '/workspace/uploads/fc-tropp-backup-msi.json',
@@ -200,5 +201,120 @@ function runAgainst(backupPath) {
   });
 }
 
+function assert(cond, msg) {
+  if (!cond) {
+    console.error('ASSERT FAIL:', msg);
+    process.exitCode = 1;
+    throw new Error(msg);
+  }
+  console.log('OK:', msg);
+}
+
+function assertNoBroadWhileThinCovered(plan, thinPosSet, label) {
+  const thinStill = new Set(thinPosSet);
+  plan.scouts.forEach(s => {
+    if (s.positions.length === 1 && thinStill.has(s.positions[0])) {
+      thinStill.delete(s.positions[0]);
+    }
+  });
+  plan.scouts.forEach(s => {
+    if (s.positions.length <= 1) return;
+    const midCluster = s.positions.includes('MS') && s.positions.length > 1 &&
+      (s.positions.includes('SDM') || s.positions.includes('SM'));
+    if (midCluster && thinStill.has('MS')) {
+      assert(false, label + ': scout ' + s.index + ' is multi midfield ' + s.positions.join('+') +
+        ' while MS still needs a dedicated hunt (remaining thin: ' + [...thinStill].join(',') + ')');
+    }
+  });
+  assert(true, label + ': no MS+SDM/SM broad cluster while MS still thin');
+  if (thinPosSet.size >= 3) {
+    plan.scouts.forEach(s => {
+      assert(s.style === 'spisset' && s.positions.length === 1,
+        label + ': with ≥3 thin, scout ' + s.index + ' must be spisset 1-pos (got ' +
+        s.style + ' ' + s.positions.join('+') + ')');
+      assert(thinPosSet.has(s.positions[0]),
+        label + ': scout ' + s.index + ' pos ' + s.positions[0] + ' should be one of thin ' +
+        [...thinPosSet].join(','));
+    });
+  }
+}
+
+/** Drop anyone with VB/VWB on hoved or ekstra so anbefalt XI marks VB thin. */
+function stripVbQualification(players) {
+  return players.filter(p => {
+    const codes = [];
+    const hoved = p.hoved || p.pos;
+    if (hoved) codes.push(String(hoved).toUpperCase());
+    (p.ekstra || []).forEach(e => codes.push(String(e || '').toUpperCase()));
+    return !codes.some(c => c === 'VB' || c === 'VWB' || c === 'LB' || c === 'LWB');
+  });
+}
+
+function loadBackup(backupPath, opts) {
+  const backup = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+  let players = (backup.players || []).map(p => Object.assign({}, p, {
+    ekstra: Array.isArray(p.ekstra) ? p.ekstra.slice() : []
+  }));
+  if (opts && opts.stripVb) players = stripVbQualification(players);
+  FC.state.players = players;
+  FC.state.akademi = (backup.akademi || []).map(p => Object.assign({}, p, {
+    ekstra: Array.isArray(p.ekstra) ? p.ekstra.slice() : []
+  }));
+  FC.state.formationId = backup.formationId || '433';
+  FC.state.manualSlots = {};
+}
+
+function runSyntheticThreeThin(backupPath) {
+  console.log('\n========== SYNTHETIC K+VB+MS thin @ ' + path.basename(backupPath) + ' ==========');
+  loadBackup(backupPath, { stripVb: true });
+  FC.setRecommendIncludeJuniorsFlag(false);
+  FC.invalidateScoutXiThinCache();
+  const thinMap = FC.scoutXiThinByPos();
+  const thinPos = Object.keys(thinMap).filter(k => thinMap[k].thinSlots > 0);
+  console.log('Thin after VB strip:', thinPos.join(', '), JSON.stringify(thinMap));
+  assert(thinPos.includes('K') && thinPos.includes('VB') && thinPos.includes('MS'),
+    'synth setup: K, VB, MS all thin (got ' + thinPos.join(',') + ')');
+  const plan = FC.computeScoutPlan();
+  plan.scouts.forEach(s => {
+    console.log('Speider ' + s.index + ' (' + s.roleLabel + '):', s.positions.join(' · '),
+      '| focused=' + s.focused, '|', s.why);
+  });
+  const thinSet = new Set(['K', 'VB', 'MS']);
+  assertNoBroadWhileThinCovered(plan, thinSet, path.basename(backupPath) + ' synth');
+  const posOrder = plan.scouts.map(s => s.positions[0]);
+  assert(posOrder.includes('K') && posOrder.includes('VB') && posOrder.includes('MS'),
+    'synth: scouts cover K, VB, MS (got ' + posOrder.join(',') + ')');
+  assert(plan.scouts.every(s => s.positions.length === 1 && s.style === 'spisset'),
+    'synth: all three spisset single-pos');
+}
+
 backupPaths.forEach(runAgainst);
-console.log('\nDone.');
+
+console.log('\n========== ASSERTIONS (live backups) ==========');
+backupPaths.forEach(backupPath => {
+  loadBackup(backupPath, {});
+  ['uten', 'med'].forEach(mode => {
+    FC.setRecommendIncludeJuniorsFlag(mode === 'med');
+    FC.invalidateScoutXiThinCache();
+    const thinMap = FC.scoutXiThinByPos();
+    const thinPos = new Set(Object.keys(thinMap).filter(k => thinMap[k].thinSlots > 0));
+    const plan = FC.computeScoutPlan();
+    console.log(path.basename(backupPath), mode, 'thin=', [...thinPos].join(',') || '(none)');
+    console.log('  picks:', plan.scouts.map(s => s.style + ':' + s.positions.join('+')).join(' | '));
+    assertNoBroadWhileThinCovered(plan, thinPos, path.basename(backupPath) + ' ' + mode);
+    const dedicated = new Set();
+    plan.scouts.forEach(s => {
+      if (s.positions.length === 1 && thinPos.has(s.positions[0])) dedicated.add(s.positions[0]);
+    });
+    [...thinPos].slice(0, 3).forEach(pos => {
+      assert(dedicated.has(pos),
+        path.basename(backupPath) + ' ' + mode + ': thin ' + pos +
+        ' must have a dedicated single-pos scout (dedicated=' + [...dedicated].join(',') +
+        ' picks=' + plan.scouts.map(s => s.positions.join('+')).join(';') + ')');
+    });
+  });
+});
+
+backupPaths.forEach(runSyntheticThreeThin);
+
+console.log('\nDone.' + (process.exitCode ? ' WITH FAILURES' : ' all asserts passed.'));

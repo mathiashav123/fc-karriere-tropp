@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#121814">
 <title>FC Karriere-tropp</title>
-<meta name="app-build" content="20260924-scout-mangler">
+<meta name="app-build" content="20260924-scout-spiss3">
 <!-- build: 20260924-ba-hv-softfix — rank-major per-slot; soft never beats clear pot across slots -->
 <style>
 :root {
@@ -4964,7 +4964,8 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   /**
    * Speiderplan: ALWAYS exactly 3 scouts (Speider 1–3), each with 3 land.
    * Academy-first: prefer gaps without strong YA; pad with dybdeforsikring if few needs.
-   * Scout 1 = spisset (focused), Scout 2 = trengs, Scout 3 = speid og se (broad).
+   * When thin/mustHunt roles are clear: ALL scouts are spisset (1 pos each) in thinness order.
+   * Broad «speid og se» pad ONLY for leftover scout(s) when fewer than 3 distinct thin roles.
    */
   function computeScoutPlan() {
     var FALLBACK_ORDER = ['MS', 'S', 'SM', 'VB', 'VV', 'HV', 'SDM', 'HB', 'K', 'SOM', 'VM', 'HM'];
@@ -5089,8 +5090,9 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
         };
       }
       var maxPos;
-      if (style === 'spisset' || (mission && mission.mustHunt && style !== 'speid')) maxPos = 1;
-      else if (style === 'trengs') maxPos = mission.severity >= 4 || mission.mustHunt ? 1 : 2;
+      /* mustHunt / spisset always 1 pos — never expand a clear thin role into a cluster */
+      if (style === 'spisset' || (mission && mission.mustHunt)) maxPos = 1;
+      else if (style === 'trengs') maxPos = mission.severity >= 4 ? 1 : 2;
       else maxPos = 3;
 
       var positions;
@@ -5143,20 +5145,43 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       };
     }
 
-    /* Spisset hits thin must-hunt first (1 pos); second may also be spisset if mustHunt */
-    var style1 = 'spisset';
-    var style2 = (m2 && (m2.mustHunt || m2.severity >= 4)) ? 'spisset' : 'trengs';
-    var style3 = 'speid';
+    /* Style from mission: every mustHunt is spisset (1 pos). Broad pad only for leftovers. */
+    function styleForMission(mission, idx) {
+      if (mission && mission.mustHunt) return 'spisset';
+      if (idx === 1) return 'spisset';
+      if (idx === 2) return (mission && mission.severity >= 4) ? 'spisset' : 'trengs';
+      return 'speid'; /* leftover pad */
+    }
+    var style1 = styleForMission(m1, 1);
+    var style2 = styleForMission(m2, 2);
+    var style3 = styleForMission(m3, 3);
 
+    var thinMissionCount = [m1, m2, m3].filter(function (m) { return m && m.mustHunt; }).length;
     var scouts = [
       buildScout(1, m1, style1),
       buildScout(2, m2, style2),
       buildScout(3, m3, style3)
     ];
 
-    /* Scout 3: prefer 2–3 related (speid og se). Swap primary if stuck on K-only. */
+    /* Document broad pad: only when fewer than 3 distinct thin roles left a leftover scout */
+    scouts.forEach(function (sc, i) {
+      var mis = [m1, m2, m3][i];
+      if (sc.style === 'speid' && !(mis && mis.mustHunt)) {
+        var padNote = 'bred pad (kun ' + thinMissionCount +
+          ' tynn' + (thinMissionCount === 1 ? '' : 'e') +
+          ' posisjon' + (thinMissionCount === 1 ? '' : 'er') +
+          ' — speid og se)';
+        if (!sc.why || sc.why.indexOf('bred pad') < 0) {
+          sc.why = (sc.why && sc.why.indexOf('dybdeforsikring') >= 0)
+            ? padNote
+            : (sc.why ? sc.why + ' · ' + padNote : padNote);
+        }
+      }
+    });
+
+    /* Leftover scout 3 pad only: prefer 2–3 related. Never replace a mustHunt spisset. */
     var s3 = scouts[2];
-    if (s3.positions.length < 2) {
+    if (s3.style === 'speid' && !(m3 && m3.mustHunt) && s3.positions.length < 2) {
       var usedScoutPos = {};
       scouts.forEach(function (sc) {
         (sc.positions || []).forEach(function (p) { usedScoutPos[p] = true; });
@@ -5165,12 +5190,16 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       scored.concat(FALLBACK_ORDER.map(function (fp) { return scoreScoutPosition(fp, thinMap); })).forEach(function (s) {
         if (alt) return;
         if (!s || usedScoutPos[s.pos]) return;
+        if (s.mustHunt) return; /* do not steal a thin role into a broad cluster */
         var rel = relatedPositionsFor(s.pos, 3, usedForm);
         if (rel.length >= 2) alt = { mission: s, positions: rel.slice(0, 3) };
       });
       if (alt) {
         s3.positions = alt.positions;
-        s3.why = alt.mission.why || 'speid og se / dybde';
+        s3.why = 'bred pad (kun ' + thinMissionCount +
+          ' tynn' + (thinMissionCount === 1 ? '' : 'e') +
+          ' posisjon' + (thinMissionCount === 1 ? '' : 'er') +
+          ' — speid og se)';
         s3.severity = Math.max(1, alt.mission.severity || 1);
         var avoid = {};
         scouts[0].countries.forEach(function (c) { avoid[c] = true; });
