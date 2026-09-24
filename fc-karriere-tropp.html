@@ -5032,22 +5032,6 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     return out;
   }
 
-  function recognizeWithPsm(Tesseract, imageSource, psm, whitelist) {
-    var opts = {
-      logger: function () {},
-      tessedit_pageseg_mode: String(psm)
-    };
-    if (whitelist) {
-      opts.tessedit_char_whitelist = whitelist;
-    }
-    return Tesseract.recognize(imageSource, 'eng', opts).then(function (result) {
-      var text = (result && result.data && result.data.text) || '';
-      var conf = result && result.data && typeof result.data.confidence === 'number'
-        ? result.data.confidence : 0;
-      return { text: text, conf: conf, parsed: parseEaFcOcrText(text) };
-    });
-  }
-
   function runOcrOnFile(target, file, options) {
     options = options || {};
     var aggressive = !!options.aggressive;
