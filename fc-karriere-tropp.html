@@ -1827,17 +1827,77 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   }
 
   /**
+   * Foot-preference pos for a formation slot (placement only).
+   * When a formation has multiple central SM slots (pos SM), treat them
+   * left→right by pitch row order: leftmost → VSM (prefer V), rightmost → HSM
+   * (prefer H), middle of 3+ → SM (near-neutral). Same light weight as real
+   * VSM/HSM; does not change displayed slot pos or «Tren til» tips.
+   * Formations that already use VSM/HSM are unchanged.
+   */
+  function footPosForSlot(formation, slot) {
+    if (!slot) return '';
+    if (!formation || !formation.slots || !formation.rows) return slot.pos;
+    /* Raw slot codes — do NOT use normalizePosCode (OLD_TO maps VSM→SM). */
+    function plainSmCode(code) {
+      var p = String(code || '').trim().toUpperCase();
+      if (p === 'CM') return 'SM';
+      return p; /* keep VSM/HSM/VMS/HMS distinct from plain SM */
+    }
+    var pos = plainSmCode(slot.pos);
+    if (pos !== 'SM') return slot.pos;
+
+    /* Collect plain SM slots only (not VSM/HSM) in pitch left→right. */
+    var queues = { SM: [] };
+    formation.slots.forEach(function (s) {
+      if (plainSmCode(s.pos) === 'SM') queues.SM.push(s);
+    });
+    var ordered = [];
+    formation.rows.forEach(function (row) {
+      row.forEach(function (rowPos) {
+        if (plainSmCode(rowPos) !== 'SM') return;
+        if (queues.SM.length) ordered.push(queues.SM.shift());
+      });
+    });
+    /* Fallback: slots array order if rows had no SM entries. */
+    if (!ordered.length) {
+      formation.slots.forEach(function (s) {
+        if (plainSmCode(s.pos) === 'SM') ordered.push(s);
+      });
+    }
+    if (ordered.length < 2) return slot.pos;
+
+    var idx = -1;
+    var i;
+    for (i = 0; i < ordered.length; i++) {
+      if (ordered[i].id === slot.id) { idx = i; break; }
+    }
+    if (idx < 0) return slot.pos;
+    if (ordered.length === 2) return idx === 0 ? 'VSM' : 'HSM';
+    if (idx === 0) return 'VSM';
+    if (idx === ordered.length - 1) return 'HSM';
+    return 'SM'; /* middle of 3+: near-neutral */
+  }
+
+  /**
    * Preferred-foot fit for a formation/player pos.
    * Wings (VV/HV, VM/HM): inverted meta — VV prefer H, HV prefer V (strong).
    * Backs (VB/HB, VWB/HWB): natural side — left foot left, right foot right (strong).
    * Sided SM/MS slots (VSM/HSM, VMS/HMS): natural side, light weight only.
-   * Central SM/SOM/MS: near-neutral (begge = tiny plus).
+   * Multiple plain SM slots: footPosForSlot maps leftmost→VSM / rightmost→HSM.
+   * Central SM/SOM/MS (single or middle): near-neutral (begge = tiny plus).
    * Returns { score, note, weight: strong|light|none, retrain }. Missing fot → 0.
    */
   function footFitForPos(fot, posCode) {
     var fotN = normalizeFot(fot);
     if (!fotN) return { score: 0, note: null, weight: 'none', retrain: null };
-    var pos = normalizePosCode(posCode) || String(posCode || '').toUpperCase();
+    /* Preserve sided pitch places before OLD_TO (which maps VSM→SM, VMS→MS). */
+    var rawPos = String(posCode || '').trim().toUpperCase();
+    var pos;
+    if (rawPos === 'VSM' || rawPos === 'HSM' || rawPos === 'VMS' || rawPos === 'HMS') {
+      pos = rawPos;
+    } else {
+      pos = normalizePosCode(posCode) || rawPos;
+    }
     if (pos === 'LB' || pos === 'LWB') pos = pos.indexOf('W') >= 0 ? 'VWB' : 'VB';
     if (pos === 'RB' || pos === 'RWB') pos = pos.indexOf('W') >= 0 ? 'HWB' : 'HB';
     if (pos === 'LW' || pos === 'LF') pos = 'VV';
@@ -1849,8 +1909,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     if (pos === 'CAM' || pos === 'AM') pos = 'SOM';
     if (pos === 'ST' || pos === 'CF') pos = 'S';
     if (pos === 'GK') pos = 'K';
-    /* Keep VMS/HMS/VSM/HSM as sided codes for light natural-foot preference.
-       Plain CB → central MS (no side). */
+    /* VMS/HMS/VSM/HSM kept above. Plain CB → central MS (no side). */
     if (pos === 'CB') pos = 'MS';
 
     /* Zero foot factor */
@@ -2486,7 +2545,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         slot = formation.slots[j];
         if (!qualifiesForRecommend(player, slot.pos)) continue;
         /* Also accept if effective remapped role matches this slot's player-facing pos. */
-        fit = footScoreDelta(player.fot, slot.pos);
+        fit = footScoreDelta(player.fot, footPosForSlot(formation, slot));
         if (best == null || fit > best) best = fit;
       }
     }
@@ -2498,13 +2557,22 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
    * Slot score for anbefalt: ability + foot + don't-park-on-wrong-side.
    * Large OVR gaps on r1 dominate pot (handled in compareRecommendPair).
    */
-  function recommendSlotScore(player, posCode, rank, formation) {
+  function recommendSlotScore(player, posCode, rank, formation, slotId) {
     var ability = xiAbilityScore(player, rank);
-    var foot = footScoreDelta(player.fot, posCode);
-    var fw = xiFootWeight(rank, posCode);
+    var footPos = posCode;
+    if (formation && slotId) {
+      var slotForFoot = null;
+      var si;
+      for (si = 0; si < formation.slots.length; si++) {
+        if (formation.slots[si].id === slotId) { slotForFoot = formation.slots[si]; break; }
+      }
+      if (slotForFoot) footPos = footPosForSlot(formation, slotForFoot);
+    }
+    var foot = footScoreDelta(player.fot, footPos);
+    var fw = xiFootWeight(rank, footPos);
     var score = ability + foot * fw;
     var bestFoot = playerBestFootFitInFormation(player, formation);
-    var role = footRoleClass(posCode);
+    var role = footRoleClass(footPos);
     /* Prefer foot-correct retrain side (HV+H → VV, VB+H → HB, …). */
     var retrainTo = footRetrainTarget(player);
     var slotPos = normalizePosCode(posCode) || posCode;
@@ -2537,7 +2605,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
    * wins regardless of pot (still allow foot to matter via precomputed scores
    * only when OVR is close). When OVR within ~5 and pot within ~4, prefer younger + pot.
    */
-  function compareRecommendPair(a, b, posCode, rank, formation) {
+  function compareRecommendPair(a, b, posCode, rank, formation, slotId) {
     var ovrA = a.rating || 0;
     var ovrB = b.rating || 0;
     var potA = a.potensial != null ? a.potensial : ovrA;
@@ -2551,8 +2619,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       if (ovrGap !== 0) return ovrGap > 0 ? -1 : 1;
     }
 
-    var scoreA = recommendSlotScore(a, posCode, rank, formation);
-    var scoreB = recommendSlotScore(b, posCode, rank, formation);
+    var scoreA = recommendSlotScore(a, posCode, rank, formation, slotId);
+    var scoreB = recommendSlotScore(b, posCode, rank, formation, slotId);
 
     /* Close on ability+foot: prefer younger with higher pot. */
     var closeOvr = Math.abs(ovrGap) <= 5;
@@ -2622,13 +2690,16 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
             slotId: slot.id,
             pos: slot.pos,
             player: p,
-            score: recommendSlotScore(p, slot.pos, rank, formation)
+            score: recommendSlotScore(p, slot.pos, rank, formation, slot.id)
           });
         });
       }
       pairs.sort(function (x, y) {
         /* Prefer higher slot score; break ties with pairwise rules (OVR gap, age). */
-        var cmp = compareRecommendPair(x.player, y.player, x.pos, rank, formation);
+        var cmp = compareRecommendPair(
+          x.player, y.player, x.pos, rank, formation,
+          x.slotId === y.slotId ? x.slotId : null
+        );
         if (x.slotId === y.slotId) return cmp;
         if (y.score !== x.score) return y.score - x.score;
         if (cmp !== 0) return cmp;
