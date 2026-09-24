@@ -2953,21 +2953,150 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     return n ? Math.round(sum / n) : 70;
   }
 
-  /** Soft OVR floor + pot aim, scaled a bit by tropp level. */
-  function scoutTargets() {
+  function clampScoutAim(n, lo, hi) {
+    n = Math.round(Number(n) || 0);
+    if (n < lo) return lo;
+    if (n > hi) return hi;
+    return n;
+  }
+
+  /**
+   * Tropp + akademi usable in role (after remaps) — source for Speiderplan OVR/pot.
+   * Sorted high→low for best / 2nd-best reads.
+   */
+  function scoutDepthPool(pos) {
+    var ovrs = [];
+    var pots = [];
+    var depth = signedDepthForPos(pos);
+    depth.forEach(function (p) {
+      if (typeof p.rating === 'number' && p.rating > 0) ovrs.push(p.rating);
+      if (typeof p.potensial === 'number' && p.potensial > 0) pots.push(p.potensial);
+    });
+    var ya = academyUsableForPos(pos);
+    ya.forEach(function (y) {
+      var a = y.p;
+      if (a && typeof a.rating === 'number' && a.rating > 0) ovrs.push(a.rating);
+      if (y.potHi > 0) pots.push(y.potHi);
+      else if (a && typeof a.potensial === 'number' && a.potensial > 0) pots.push(a.potensial);
+    });
+    ovrs.sort(function (a, b) { return b - a; });
+    pots.sort(function (a, b) { return b - a; });
+    return {
+      ovrs: ovrs,
+      pots: pots,
+      count: Math.max(ovrs.length, pots.length),
+      troppN: depth.length,
+      yaN: ya.length
+    };
+  }
+
+  /**
+   * Per-scout OVR/pot from current depth — not hardcoded ~58+/88+.
+   * Pot: raise bar vs best (+2–4) or at least beat #2. Be critical.
+   * OVR: upgrade #2 depth / near starting XI floor for the slot.
+   * Softens slightly if unrealistically high for YA hunting.
+   */
+  function scoutTargetsForPositions(positions) {
     var avg = squadAvgOvr();
-    var floor = 60;
-    if (avg < 64) floor = 56;
-    else if (avg < 68) floor = 58;
-    else if (avg < 74) floor = 60;
-    else if (avg < 80) floor = 62;
-    else floor = 64;
+    var posList = (positions && positions.length) ? positions.slice() : ['SM'];
+    var primary = posList[0];
+    var pool = scoutDepthPool(primary);
+    /* Multi-pos: if primary empty, use first role that has depth */
+    if (pool.count === 0 && posList.length > 1) {
+      for (var i = 1; i < posList.length; i++) {
+        var alt = scoutDepthPool(posList[i]);
+        if (alt.count > 0) {
+          pool = alt;
+          primary = posList[i];
+          break;
+        }
+      }
+    }
+
+    var bestPot = pool.pots[0] || 0;
+    var secondPot = pool.pots[1] || 0;
+    var bestOvr = pool.ovrs[0] || 0;
+    var secondOvr = pool.ovrs[1] || 0;
+    var potAim;
+    var ovrFloor;
+    var softened = false;
+
+    /* —— Pot: raise the bar vs best / beat #2 —— */
+    if (!bestPot) {
+      /* Empty role: solid YA hunt scaled to tropp — not a fixed 88 */
+      potAim = avg < 66 ? 82 : avg < 74 ? 85 : avg < 80 ? 88 : 90;
+    } else if (!secondPot) {
+      potAim = bestPot + (bestPot >= 90 ? 2 : bestPot >= 84 ? 3 : 4);
+    } else {
+      var bump = bestPot >= 92 ? 2 : bestPot >= 88 ? 3 : 4;
+      potAim = Math.max(bestPot + bump, secondPot + 3);
+      /* Elite #1 with close #2: nudge +2 past best */
+      if (bestPot >= 92 && bestPot - secondPot <= 2) potAim = bestPot + 2;
+    }
+
+    /* —— OVR: upgrade depth / near XI floor —— */
+    if (!bestOvr) {
+      ovrFloor = clampScoutAim(avg - 12, 52, 64);
+    } else if (!secondOvr) {
+      /* Near sole starter floor — YA usually arrive a bit under */
+      ovrFloor = clampScoutAim(bestOvr - 6, 52, Math.max(52, bestOvr - 2));
+    } else {
+      /* Above current #2 so a find upgrades bench competition */
+      ovrFloor = secondOvr + 1;
+      /* If #2 already near starter, aim near XI floor (not above #1) */
+      if (ovrFloor > bestOvr - 2) {
+        ovrFloor = Math.max(secondOvr, bestOvr - 4);
+      }
+    }
+
+    /* Soften if unrealistically high / few would match in YA */
+    if (potAim > 94) {
+      potAim = 92;
+      softened = true;
+    }
+    if (potAim >= 93 && bestPot > 0 && bestPot < 90) {
+      potAim = Math.max(bestPot + 2, 90);
+      softened = true;
+    }
+    if (ovrFloor > 70) {
+      ovrFloor = 68;
+      softened = true;
+    }
+    if (avg > 0 && ovrFloor > avg + 2) {
+      ovrFloor = Math.round(avg);
+      softened = true;
+    }
+    if (softened) {
+      potAim = Math.max(78, potAim - 1);
+      ovrFloor = Math.max(50, ovrFloor - 2);
+    }
+
+    potAim = clampScoutAim(potAim, 78, 95);
+    ovrFloor = clampScoutAim(ovrFloor, 50, 75);
+
+    var special = potAim >= 90 ? ' (eller «Potential to be Special»)' : '';
+    var line = '~' + ovrFloor + ' OVR+, pot ' + potAim + '+' + special;
+
     return {
       avg: avg,
-      ovrFloor: floor,
-      potAim: 88,
-      line: '~' + floor + ' OVR+, pot 88+ (eller «Potential to be Special»)'
+      pos: primary,
+      ovrFloor: ovrFloor,
+      potAim: potAim,
+      bestOvr: bestOvr,
+      secondOvr: secondOvr,
+      bestPot: bestPot,
+      secondPot: secondPot,
+      depthCount: pool.count,
+      troppN: pool.troppN,
+      yaN: pool.yaN,
+      softened: softened,
+      line: line
     };
+  }
+
+  /** Squad-level fallback (prefer scoutTargetsForPositions per speider). */
+  function scoutTargets() {
+    return scoutTargetsForPositions(usedPositionsOrdered().slice(0, 1));
   }
 
   /**
@@ -3368,6 +3497,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         : style === 'trengs' ? 'trengs'
         : 'speid og se';
 
+      var scoutTg = scoutTargetsForPositions(positions);
       return {
         index: idx,
         style: style,
@@ -3378,7 +3508,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         why: mission.why || 'dybdeforsikring / speid og se',
         severity: mission.severity || 1,
         gap: !!mission.gap,
-        targets: targets,
+        targets: scoutTg,
         focused: style === 'spisset',
         broad: style === 'speid'
       };
@@ -3427,6 +3557,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         s3.countries = s3.countries.slice(0, 3);
       }
       s3.labels = s3.positions.map(posDisplayCode);
+      s3.targets = scoutTargetsForPositions(s3.positions);
       s3.style = 'speid';
       s3.roleLabel = 'speid og se';
       s3.broad = true;
@@ -3471,16 +3602,15 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
           ' (' + esc(s.roleLabel) + '):</span> <span class="sp-pos">' + esc(posStr) + '</span></div>' +
           '<div class="sp-countries"><span class="sp-countries-label">Land:</span> ' +
           esc(landStr) + '</div>' +
-          '<div class="sp-sikte"><strong>Sikt etter:</strong> ' + esc(targets.line) + '</div>' +
+          '<div class="sp-sikte"><strong>Sikt etter:</strong> ' +
+          esc((s.targets && s.targets.line) ? s.targets.line : targets.line) + '</div>' +
           '<span class="sp-why">' + esc(s.why) + '</span>' +
           '</div>';
       }).join('');
       var merk = hasMulti
         ? '<p class="sp-merk">Merk: flere posisjoner = færre av hver — greit når du bare speider bredt.</p>'
         : '';
-      var avgNote = targets.avg
-        ? '<p class="sp-hint">Tropp-snitt ~' + targets.avg + ' OVR — gulv tilpasset nivået.</p>'
-        : '';
+      var avgNote = '<p class="sp-hint">OVR/pot per speider er regnet fra dybde i tropp+akademi for rollen (løft beste pot, oppgrader #2-OVR) — ikke fast 58/88.</p>';
       el.innerHTML =
         '<h3>Speiderplan (3 speidere)</h3>' +
         cards +
