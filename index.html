@@ -1592,17 +1592,18 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     return posDisplayCode(c);
   }
 
-  /** Within-group: OVR desc → pot desc → younger first → name. */
+  /** Within-group list: usable pot (age-aware) → OVR → younger → name. Recomputed each render. */
   function comparePlayersWithinHoved(a, b) {
+    var useA = usablePotential(a);
+    var useB = usablePotential(b);
+    if (Math.abs(useB - useA) >= 2) return useB - useA;
     var ar = a.rating != null ? a.rating : 0;
     var br = b.rating != null ? b.rating : 0;
     if (br !== ar) return br - ar;
-    var ap = a.potensial != null ? a.potensial : ar;
-    var bp = b.potensial != null ? b.potensial : br;
-    if (bp !== ap) return bp - ap;
     var aa = a.alder != null ? a.alder : 99;
     var ba = b.alder != null ? b.alder : 99;
     if (aa !== ba) return aa - ba;
+    if (useB !== useA) return useB - useA;
     return (a.navn || '').localeCompare(b.navn || '', 'nb');
   }
 
@@ -2494,20 +2495,30 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     return extras.length ? extras.map(posDisplayCode).join(', ') : '';
   }
 
+  /**
+   * Generic player rank for auto depth / lists — same growth-aware pot rules as anbefalt XI.
+   * Never hardcodes names; always derived from current OVR/pot/age/foot/pos.
+   */
   function comparePlayers(a, b) {
-    if (b.rating !== a.rating) return b.rating - a.rating;
-    if (b.potensial !== a.potensial) return b.potensial - a.potensial;
-    return a.navn.localeCompare(b.navn, 'nb');
+    return compareRecommendPair(a, b, a.hoved || 'SM', 'r1', getFormation());
   }
 
   function getFormation() {
     return FORMATIONS[state.formationId] || FORMATIONS['433'];
   }
 
-  function pickBest(posCode, used) {
+  /**
+   * Best unused player for a formation slot at this depth rank.
+   * Sorts live from state.players each call (edit OVR/pot/age/foot/pos → new order).
+   */
+  function pickBest(posCode, used, rank) {
+    var rk = rank || 'r1';
+    var form = getFormation();
     var candidates = state.players
-      .filter(function (p) { return !used.has(p.id) && qualifies(p, posCode); })
-      .sort(comparePlayers);
+      .filter(function (p) { return !used.has(p.id) && qualifies(p, posCode); });
+    candidates.sort(function (a, b) {
+      return compareRecommendPair(a, b, posCode, rk, form);
+    });
     return candidates[0] || null;
   }
 
@@ -2555,7 +2566,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       for (r = 0; r < RANKS.length; r++) {
         var rk = RANKS[r];
         if (!entry[rk] && !entry.forceEmpty[rk]) {
-          pick = pickBest(slot.pos, used);
+          pick = pickBest(slot.pos, used, rk);
           if (pick) { entry[rk] = pick; used.add(pick.id); }
         }
       }
@@ -3097,7 +3108,11 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       .replace(/"/g, '&quot;');
   }
 
-  /** Full refresh from current tropp+akademi: tips, Speiderplan, anbefalt XI always rebuilt. */
+  /**
+   * Full refresh from current tropp+akademi.
+   * Always rebuilds auto #1/#2/#3 depth (buildXI), anbefalt XI, tips — no stale order.
+   * Any edit to OVR/pot/age/foot/pos, add/remove, promote, or formation → saveState + render.
+   */
   function render() {
     try {
       var xi = buildXI();
@@ -4126,16 +4141,11 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 
   /** Signed players who qualify for pos, sorted by potensial then rating (long-term depth). */
   function signedDepthForPos(posCode) {
+    /* Live depth list from current state — usable pot (age-aware), never cached order. */
     return state.players
       .filter(function (p) { return qualifies(p, posCode); })
       .sort(function (a, b) {
-        if (b.potensial !== a.potensial) return b.potensial - a.potensial;
-        if (b.rating !== a.rating) return b.rating - a.rating;
-        // Soft: younger first when pot/OVR equal
-        var aa = a.alder != null ? a.alder : 99;
-        var ba = b.alder != null ? b.alder : 99;
-        if (aa !== ba) return aa - ba;
-        return a.navn.localeCompare(b.navn, 'nb');
+        return compareRecommendPair(a, b, posCode, 'r1', getFormation());
       });
   }
 
