@@ -3489,6 +3489,271 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     });
   }
 
+
+  /**
+   * Cross-position high-pot spread (Mathias):
+   * When a role is stacked with usable high pot (≥2 at ~88+) and a multi-pos
+   * player sits there while another role they qualify for (hoved/ekstra + remaps)
+   * has weaker pot depth, reassign them to the needy slot so ceiling spreads
+   * across the XI — e.g. Vlasic MS/SDM → SDM when MS already has another 90+.
+   * Guards: OVR floor on huge gaps, foot meta (wings/backs), clear sell-outs.
+   */
+  var HIGH_POT_USE_SPREAD = 88;
+
+  function recommendPosFamily(posCode) {
+    return posDisplayCode(normalizePosCode(posCode) || posCode) || String(posCode || '');
+  }
+
+  /** Probe slot for family pool (MS → VMS aliases, same as Speiderplan). */
+  function spreadProbePos(posCode) {
+    var fam = recommendPosFamily(posCode);
+    if (fam === 'MS') return 'VMS';
+    return fam || posCode;
+  }
+
+  function countFormationSlotsForFamily(formation, family) {
+    var n = 0;
+    formation.slots.forEach(function (s) {
+      if (recommendPosFamily(s.pos) === family) n++;
+    });
+    return Math.max(1, n);
+  }
+
+  function highPotPoolForPos(pool, posCode, excludeId) {
+    var probe = spreadProbePos(posCode);
+    var out = [];
+    (pool || []).forEach(function (p) {
+      if (!p || p.id === excludeId) return;
+      if (p._fromAcademy) return;
+      if (isClearSellOutForXI(p)) return;
+      if (!qualifiesForRecommend(p, probe) && !qualifiesForRecommend(p, posCode)) return;
+      if (usablePotential(p) < HIGH_POT_USE_SPREAD) return;
+      out.push(p);
+    });
+    out.sort(function (a, b) {
+      return usablePotential(b) - usablePotential(a) || (b.rating || 0) - (a.rating || 0);
+    });
+    return out;
+  }
+
+  function findPlayerPlacement(result, formation, playerId) {
+    var i, slot, e, r, rank;
+    for (i = 0; i < formation.slots.length; i++) {
+      slot = formation.slots[i];
+      e = result[slot.id];
+      if (!e) continue;
+      for (r = 0; r < RANKS.length; r++) {
+        rank = RANKS[r];
+        if (e[rank] && e[rank].id === playerId) {
+          return { slotId: slot.id, pos: slot.pos, rank: rank, ri: r, entry: e, player: e[rank] };
+        }
+      }
+    }
+    return null;
+  }
+
+  /** Compact ranks after removing a seat (shift up). */
+  function compactSlotRanks(entry) {
+    var arr = [entry.r1, entry.r2, entry.r3].filter(Boolean);
+    entry.r1 = arr[0] || null;
+    entry.r2 = arr[1] || null;
+    entry.r3 = arr[2] || null;
+  }
+
+  /**
+   * Insert player into slot at best rank they earn vs current occupants;
+   * shift depth down; return displaced overflow (or null).
+   */
+  function insertIntoSlotSpreading(entry, player, pos, formation, slotId) {
+    var ri, rank, cur;
+    for (ri = 0; ri < RANKS.length; ri++) {
+      rank = RANKS[ri];
+      cur = entry[rank];
+      if (!cur) {
+        entry[rank] = player;
+        return null;
+      }
+      if (compareRecommendPair(player, cur, pos, rank, formation, slotId) < 0) {
+        var old = [entry.r1, entry.r2, entry.r3];
+        var next = old.slice(0, ri).concat([player], old.slice(ri));
+        var d;
+        for (d = 0; d < RANKS.length; d++) entry[RANKS[d]] = next[d] || null;
+        return next[RANKS.length] || null;
+      }
+    }
+    /* Weaker than r3 — should not happen if caller checked gain; still replace r3 if better */
+    if (entry.r3 && compareRecommendPair(player, entry.r3, pos, 'r3', formation, slotId) < 0) {
+      var displaced = entry.r3;
+      entry.r3 = player;
+      return displaced;
+    }
+    return player; /* failed */
+  }
+
+  /**
+   * One greedy improvement pass: move multi-pos high-pot from surplus → needy.
+   * Returns true if a move was applied.
+   */
+  function tryOneHighPotSpreadMove(result, pool, formation, used) {
+    var placements = [];
+    formation.slots.forEach(function (slot) {
+      var e = result[slot.id];
+      if (!e) return;
+      RANKS.forEach(function (rank, ri) {
+        var p = e[rank];
+        if (!p || p._fromAcademy) return;
+        if (isClearSellOutForXI(p)) return;
+        placements.push({ player: p, slotId: slot.id, pos: slot.pos, rank: rank, ri: ri, entry: e });
+      });
+    });
+    /* Prefer moving higher usable pot first (Vlasic before fringe dual-pos). */
+    placements.sort(function (a, b) {
+      return usablePotential(b.player) - usablePotential(a.player);
+    });
+
+    var best = null;
+    var pi, pl, player, fromFam, highHere, slotDemand, altSlots, ai, alt, toFam;
+    var highThere, starterThere, useP, useStarter, gain, ovrDrop, replPool, repl;
+    var roleFrom, roleTo, softFrom, softTo, footOk;
+
+    for (pi = 0; pi < placements.length; pi++) {
+      pl = placements[pi];
+      player = pl.player;
+      useP = usablePotential(player);
+      if (useP < HIGH_POT_USE_SPREAD) continue;
+
+      fromFam = recommendPosFamily(pl.pos);
+      highHere = highPotPoolForPos(pool, pl.pos, null);
+      /* Surplus: ≥2 strong options at this family (including mover). */
+      if (highHere.length < 2) continue;
+      slotDemand = countFormationSlotsForFamily(formation, fromFam);
+      /* After leaving, at least one other high-pot remains in the family pool. */
+      if (highPotPoolForPos(pool, pl.pos, player.id).length < 1) continue;
+
+      altSlots = formation.slots.filter(function (s) {
+        if (s.id === pl.slotId) return false;
+        if (recommendPosFamily(s.pos) === fromFam) return false; /* same family (VMS↔HMS) */
+        return qualifiesForRecommend(player, s.pos);
+      });
+      if (!altSlots.length) continue;
+
+      for (ai = 0; ai < altSlots.length; ai++) {
+        alt = altSlots[ai];
+        toFam = recommendPosFamily(alt.pos);
+        highThere = highPotPoolForPos(pool, alt.pos, player.id);
+        starterThere = result[alt.id] && result[alt.id].r1 ? result[alt.id].r1 : null;
+        useStarter = starterThere ? usablePotential(starterThere) : 0;
+
+        /* Needy: target family lacks high-pot depth OR starter pot clearly weaker. */
+        if (highThere.length >= 2 && useStarter >= HIGH_POT_USE_SPREAD) continue;
+        if (useStarter >= useP - 1) continue; /* target already as strong */
+        /* Meaningful pot upgrade at target (≥ ~4 usable, or bring first 88+ into empty/weak). */
+        gain = useP - useStarter;
+        if (gain < 4 && useStarter >= HIGH_POT_USE_SPREAD - 2) continue;
+        if (useP < HIGH_POT_USE_SPREAD && gain < 8) continue;
+
+        /* Foot meta: don't park wing/back on clearly wrong side for spread. */
+        roleTo = footRoleClass(footPosForSlot(formation, alt));
+        softTo = footScoreDelta(player.fot, footPosForSlot(formation, alt));
+        softFrom = footScoreDelta(player.fot, footPosForSlot(formation, { id: pl.slotId, pos: pl.pos }));
+        footOk = true;
+        if ((roleTo === 'wing' || roleTo === 'back') && softTo <= -0.8 && softFrom > softTo) {
+          footOk = false;
+        }
+        if (!footOk) continue;
+
+        /* OVR floor: if mover is r1, replacement at source must not leave huge OVR hole. */
+        if (pl.rank === 'r1') {
+          replPool = highPotPoolForPos(pool, pl.pos, player.id);
+          /* Also allow strong non-high-pot replacement if OVR close */
+          if (!replPool.length) {
+            replPool = (pool || []).filter(function (p) {
+              if (!p || p.id === player.id || p._fromAcademy) return false;
+              if (isClearSellOutForXI(p)) return false;
+              var probe = spreadProbePos(pl.pos);
+              return qualifiesForRecommend(p, probe) || qualifiesForRecommend(p, pl.pos);
+            }).sort(function (a, b) {
+              return compareRecommendPair(a, b, pl.pos, 'r1', formation, pl.slotId);
+            });
+          }
+          repl = replPool[0] || (pl.entry.r2 && pl.entry.r2.id !== player.id ? pl.entry.r2 : null);
+          /* Prefer someone not already starting another family's only seat — soft: just check OVR */
+          if (pl.entry.r2 && pl.entry.r2.id !== player.id) {
+            /* Depth promotion is the natural replacement */
+            repl = pl.entry.r2;
+          }
+          if (repl) {
+            ovrDrop = (player.rating || 0) - (repl.rating || 0);
+            if (ovrDrop >= 10) continue;
+          } else if (slotDemand <= 1) {
+            /* Would leave starter empty — only OK if target gain is huge and slot optional? skip */
+            continue;
+          }
+        }
+
+        /* Don't displace a target r1 who is also high-pot unless we are clearly better
+           and target family still has no other high pot (we're the spread). */
+        if (starterThere && usablePotential(starterThere) >= HIGH_POT_USE_SPREAD &&
+            useP < usablePotential(starterThere) + 2) continue;
+
+        var score = gain * 10 + (highHere.length - highThere.length) * 3 - pl.ri;
+        /* Prefer filling empty/weak r1 over stuffing r2 */
+        if (!starterThere) score += 15;
+        else if (useStarter < HIGH_POT_USE_SPREAD) score += 8;
+
+        if (!best || score > best.score) {
+          best = {
+            score: score,
+            player: player,
+            from: pl,
+            toSlot: alt,
+            gain: gain
+          };
+        }
+      }
+    }
+
+    if (!best) return false;
+
+    /* Apply move */
+    var mover = best.player;
+    var fromEntry = best.from.entry;
+    var toEntry = result[best.toSlot.id];
+    if (!toEntry) return false;
+
+    /* Remove from source */
+    fromEntry[best.from.rank] = null;
+    compactSlotRanks(fromEntry);
+
+    /* Insert into target */
+    var overflow = insertIntoSlotSpreading(toEntry, mover, best.toSlot.pos, formation, best.toSlot.id);
+    if (overflow === mover) {
+      /* Failed — rollback by putting mover back (shouldn't). */
+      fromEntry.r3 = fromEntry.r3 || fromEntry.r2;
+      fromEntry.r2 = fromEntry.r2 || fromEntry.r1;
+      fromEntry.r1 = mover;
+      compactSlotRanks(fromEntry);
+      return false;
+    }
+    if (overflow && overflow.id) {
+      used.delete(overflow.id);
+    }
+    used.add(mover.id);
+    return true;
+  }
+
+  function spreadHighPotAcrossXI(result, pool, formation, used) {
+    var guard = 0;
+    while (guard < 12 && tryOneHighPotSpreadMove(result, pool, formation, used)) {
+      guard++;
+      /* Rebuild used from result so displaced ids can refill later */
+      var fresh = recommendUsedSet(result, formation);
+      used.clear();
+      fresh.forEach(function (id) { used.add(id); });
+    }
+  }
+
+
   /** Default: uten junior (who starts now). Med junior = promote overlays only. */
   var recommendIncludeJuniors = false;
   try {
@@ -3512,7 +3777,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     if (hint) {
       hint.textContent = recommendIncludeJuniors
         ? 'Med junior: akademi når de slår tropp-dybde («Bør tas opp», maks 1 junior per plass). «Bruk anbefaling» tar med juniorer (merket på pitch).'
-        : 'Uten junior: kun A-lag — hvem som starter nå. «Bruk anbefaling» plasserer bare tropp (ingen junior).';
+        : 'Uten junior: kun A-lag — hvem som starter nå (høyt pot fordeles på tvers av plasser). «Bruk anbefaling» plasserer bare tropp (ingen junior).';
     }
   }
 
@@ -3520,8 +3785,9 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
    * Pure recommended XI: ignores manual placements.
    * 1) Tropp first — clear tip-Selg / strong surplus-Lån last (only if slot empty)
    * 2) Leftover tropp → empty ranks (sell-outs after keep/develop/start)
-   * 3) Optional academy overlay when they beat tropp («Bør tas opp»), shift depth
-   * 4) Refill leftovers / force-place keep/develop/start (Van Loon); sell may stay unplaced
+   * 3) High-pot spread: multi-pos from surplus 88+ → thinner needy roles (Vlasic MS→SDM)
+   * 4) Optional academy overlay when they beat tropp («Bør tas opp»), shift depth
+   * 5) Refill leftovers / force-place keep/develop/start (Van Loon); sell may stay unplaced
    * opts.includeAcademy: true = med junior view; false/omit for uten junior / apply.
    */
   function buildRecommendedXI(opts) {
@@ -3538,6 +3804,9 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     }
     assignRecommendExclusive(result, tropp, formation, used);
     fillRecommendLeftover(result, tropp, formation, used);
+    spreadHighPotAcrossXI(result, tropp, formation, used);
+    used = recommendUsedSet(result, formation);
+    fillRecommendLeftover(result, tropp, formation, used);
     if (includeAcademy) {
       insertAcademyIntoRecommend(result, formation, used);
       /* Rebuild used after academy shifts that free ids */
@@ -3546,6 +3815,10 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     }
     forcePlaceRemainingTropp(result, tropp, formation, used);
     used = recommendUsedSet(result, formation);
+    /* Spread again after force-place may have re-stacked a surplus role. */
+    spreadHighPotAcrossXI(result, tropp, formation, used);
+    used = recommendUsedSet(result, formation);
+    fillRecommendLeftover(result, tropp, formation, used);
     var unplaced = tropp.filter(function (p) { return !used.has(p.id); });
     return {
       formation: formation,
