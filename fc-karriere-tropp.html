@@ -732,6 +732,63 @@ label {
 .modal-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
 .modal-actions button { flex: 1; }
 
+/* Empty-slot player picker (Formasjon) */
+.picker-modal { display: flex; flex-direction: column; max-height: min(88vh, 720px); padding-bottom: calc(12px + var(--safe-b)); }
+.picker-modal h3 { margin: 0 0 4px; }
+.picker-sub { margin: 0 0 10px; font-size: 13px; color: var(--muted); line-height: 1.35; }
+.picker-search { margin-bottom: 10px; }
+.picker-search input {
+  width: 100%; min-height: var(--tap); border-radius: 10px;
+  border: 1px solid var(--border); background: var(--bg2); color: var(--text);
+  padding: 10px 12px; font-size: 15px;
+}
+.picker-list {
+  list-style: none; margin: 0; padding: 0;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  flex: 1; min-height: 120px; max-height: 55vh;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--bg2);
+}
+.picker-list li { margin: 0; padding: 0; border-bottom: 1px solid var(--border); }
+.picker-list li:last-child { border-bottom: none; }
+.picker-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  text-align: left; background: transparent; border: 0; color: var(--text);
+  padding: 12px 12px; min-height: var(--tap); cursor: pointer;
+  font: inherit;
+}
+.picker-item:hover, .picker-item:focus-visible { background: var(--accent-soft); outline: none; }
+.picker-item:active { background: rgba(61, 154, 95, 0.28); }
+.picker-item .pi-main { flex: 1; min-width: 0; }
+.picker-item .pi-name { font-weight: 650; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.picker-item .pi-meta { font-size: 12px; color: var(--muted); margin-top: 2px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.picker-item .pi-ratings { flex-shrink: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.picker-item .pi-ratings .r { font-weight: 700; font-size: 16px; }
+.picker-item .pi-ratings .p { font-size: 12px; color: var(--muted); }
+.picker-chip {
+  display: inline-flex; align-items: center; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.02em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--card2); color: var(--muted);
+}
+.picker-chip.best { border-color: rgba(61,154,95,0.45); color: #9fe0b4; background: var(--accent-soft); }
+.picker-chip.near { border-color: rgba(212,160,84,0.4); color: #f0d8a0; background: rgba(212,160,84,0.12); }
+.picker-chip.placed { border-color: rgba(255,255,255,0.14); color: #c8d4cc; }
+.picker-section {
+  padding: 8px 12px 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--muted); background: rgba(0,0,0,0.2);
+  position: sticky; top: 0; z-index: 1;
+}
+.picker-empty { padding: 24px 14px; text-align: center; color: var(--muted); font-size: 14px; }
+.cell.empty { cursor: pointer; }
+.cell.empty .miss, .cell.empty .miss-opt { opacity: 0.85; }
+.cell.empty::after {
+  content: '+';
+  position: absolute; right: 5px; bottom: 2px;
+  font-size: 14px; font-weight: 700; color: rgba(184, 240, 200, 0.55);
+  pointer-events: none; line-height: 1;
+}
+.cell { position: relative; }
+
 .drag-ghost {
   position: fixed; z-index: 200; pointer-events: none;
   background: var(--card2); border: 1px solid var(--accent);
@@ -1231,7 +1288,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         <select id="formation" aria-label="Formasjon"></select>
         <button type="button" class="primary" id="btn-auto">Auto-bygg tropp</button>
       </div>
-      <p class="desktop-hint" style="display:block;margin:0 0 8px">Dra spillere mellom plasser · klikk for å redigere</p>
+      <p class="desktop-hint" style="display:block;margin:0 0 8px">Dra spillere mellom plasser · klikk tom plass for å velge · klikk spiller for meny</p>
       <p class="hint" id="formation-hint"></p>
     </section>
 <section class="card pitch-card" style="padding:10px">
@@ -1465,6 +1522,20 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         <button type="submit" class="primary">Lagre</button>
       </div>
     </form>
+  </div>
+</div>
+<div class="modal-backdrop hidden" id="slot-picker-modal" role="dialog" aria-modal="true" aria-labelledby="slot-picker-title">
+  <div class="modal picker-modal">
+    <h3 id="slot-picker-title">Velg spiller</h3>
+    <p class="picker-sub" id="slot-picker-sub"></p>
+    <div class="picker-search">
+      <label class="sr-only" for="slot-picker-q">Søk</label>
+      <input type="search" id="slot-picker-q" placeholder="Søk navn…" autocomplete="off" enterkeyhint="search">
+    </div>
+    <ul class="picker-list" id="slot-picker-list" role="listbox" aria-label="Spillere til plassen"></ul>
+    <div class="modal-actions">
+      <button type="button" class="ghost" id="slot-picker-cancel">Avbryt</button>
+    </div>
   </div>
 </div>
 <div id="cell-menu" class="cell-menu hidden" role="menu"></div>
@@ -5877,6 +5948,281 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     swapRanksInSlot(slotId, rank, other);
   }
 
+  /**
+   * Core card codes that count as "best fit" for a formation slot.
+   * Related aliases (e.g. VM on VV, SM on SOM) are near-fits / remaps.
+   */
+  var SLOT_CORE = {
+    K: ['K', 'GK'],
+    VB: ['VB', 'LB'],
+    VWB: ['VWB', 'LWB'],
+    VMS: ['MS', 'VMS', 'CB'],
+    HMS: ['MS', 'HMS', 'CB'],
+    HB: ['HB', 'RB'],
+    HWB: ['HWB', 'RWB'],
+    SDM: ['SDM', 'CDM'],
+    SM: ['SM', 'CM'],
+    SOM: ['SOM', 'AM', 'CAM'],
+    AM: ['SOM', 'AM', 'CAM'],
+    CAM: ['SOM', 'AM', 'CAM'],
+    VM: ['VM', 'LM'],
+    HM: ['HM', 'RM'],
+    LM: ['VM', 'LM'],
+    RM: ['HM', 'RM'],
+    VSM: ['VSM', 'VM', 'LM'],
+    HSM: ['HSM', 'HM', 'RM'],
+    VV: ['VV', 'LW', 'LF'],
+    HV: ['HV', 'RW', 'RF'],
+    S: ['S', 'ST', 'CF']
+  };
+
+  var slotPickerState = { slotId: null, rank: null, pos: null, items: [] };
+
+  function posInCore(posCode, slotPos) {
+    var core = SLOT_CORE[slotPos] || [slotPos];
+    var n = normalizePosCode(posCode) || String(posCode || '').toUpperCase();
+    var i;
+    for (i = 0; i < core.length; i++) {
+      if (core[i] === n || core[i] === posCode) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Fit info for empty-slot picker.
+   * Best: hoved or ekstra is a core code for the slot.
+   * Near: qualifies via related aliases, remaps (SOM→SM, VM→VV), or foot-retrain.
+   */
+  function pickerFitInfo(player, slotPos, slotId) {
+    if (!player || !qualifiesForSlot(player, slotPos)) return null;
+    var hovedRaw = player.hoved;
+    var hoved = normalizePosCode(hovedRaw) || '';
+    var extras = Array.isArray(player.ekstra) ? player.ekstra : [];
+    var used = formationUsedPlayerPositions();
+    var source = 'nær';
+    var tier = 1; /* 0 = best, 1 = near */
+    var matchLabel = '';
+
+    if (hoved && posInCore(hoved, slotPos)) {
+      tier = 0;
+      source = 'hoved';
+      matchLabel = 'Hoved · ' + posDisplayCode(hoved);
+    } else {
+      var ei;
+      for (ei = 0; ei < extras.length; ei++) {
+        if (posInCore(extras[ei], slotPos)) {
+          tier = 0;
+          source = 'ekstra';
+          matchLabel = 'Ekstra · ' + posDisplayCode(normalizePosCode(extras[ei]) || extras[ei]);
+          break;
+        }
+      }
+    }
+
+    if (tier === 1) {
+      var eff = academyEffectivePos(hoved || hovedRaw, used);
+      if (eff.remap && (posInCore(eff.effective, slotPos) || qualifies(player, slotPos))) {
+        /* Remap / related (SOM→SM, VM→VV, …) */
+        if (eff.remap && (posInCore(eff.effective, slotPos) ||
+            (SLOT_ALIASES[slotPos] || []).indexOf(eff.effective) >= 0)) {
+          source = 'remap';
+          matchLabel = posDisplayCode(eff.raw) + ' → ' + posDisplayCode(eff.effective);
+        }
+      }
+      if (source === 'nær') {
+        var remappedExtra = null;
+        extras.some(function (c) {
+          var e2 = academyEffectivePos(normalizePosCode(c) || c, used);
+          if (e2.remap && (posInCore(e2.effective, slotPos) ||
+              (SLOT_ALIASES[slotPos] || []).indexOf(e2.effective) >= 0)) {
+            remappedExtra = e2;
+            return true;
+          }
+          return false;
+        });
+        if (remappedExtra) {
+          source = 'remap';
+          matchLabel = posDisplayCode(remappedExtra.raw) + ' → ' + posDisplayCode(remappedExtra.effective);
+        } else if (!qualifies(player, slotPos) && qualifiesForRecommend(player, slotPos)) {
+          source = 'fot';
+          var rt = footRetrainTarget(player);
+          matchLabel = rt ? ('Tren til ' + posDisplayCode(rt)) : 'Fot';
+        } else {
+          /* Related alias on card (e.g. VM listed → VV slot via SLOT_ALIASES) */
+          source = 'nær';
+          matchLabel = 'Nær · ' + posDisplayCode(hoved || slotPos);
+        }
+      }
+    }
+
+    var formation = getFormation();
+    var slotObj = null;
+    var si;
+    if (slotId) {
+      for (si = 0; si < formation.slots.length; si++) {
+        if (formation.slots[si].id === slotId) { slotObj = formation.slots[si]; break; }
+      }
+    }
+    if (!slotObj) {
+      for (si = 0; si < formation.slots.length; si++) {
+        if (formation.slots[si].pos === slotPos) { slotObj = formation.slots[si]; break; }
+      }
+    }
+    var footPos = slotObj ? footPosForSlot(formation, slotObj) : slotPos;
+    var foot = footScoreDelta(player.fot, footPos);
+    return {
+      tier: tier,
+      source: source,
+      matchLabel: matchLabel,
+      foot: foot,
+      use: usablePotential(player),
+      ovr: player.rating || 0,
+      pot: player.potensial != null ? player.potensial : (player.rating || 0)
+    };
+  }
+
+  function comparePickerCandidates(a, b) {
+    /* Prefer free (not on pitch) before occupied. */
+    if (!!a.placed !== !!b.placed) return a.placed ? 1 : -1;
+    if (a.fit.tier !== b.fit.tier) return a.fit.tier - b.fit.tier;
+    /* Within best: hoved before ekstra. */
+    if (a.fit.tier === 0) {
+      var srcRank = { hoved: 0, ekstra: 1 };
+      var sa = srcRank[a.fit.source] != null ? srcRank[a.fit.source] : 2;
+      var sb = srcRank[b.fit.source] != null ? srcRank[b.fit.source] : 2;
+      if (sa !== sb) return sa - sb;
+    }
+    if (b.fit.foot !== a.fit.foot) return b.fit.foot - a.fit.foot;
+    if (Math.abs(b.fit.use - a.fit.use) >= 1.5) return b.fit.use - a.fit.use;
+    if (b.fit.ovr !== a.fit.ovr) return b.fit.ovr - a.fit.ovr;
+    if (b.fit.pot !== a.fit.pot) return b.fit.pot - a.fit.pot;
+    var aa = a.player.alder != null ? a.player.alder : 99;
+    var ba = b.player.alder != null ? b.player.alder : 99;
+    if (aa !== ba) return aa - ba;
+    return (a.player.navn || '').localeCompare(b.player.navn || '', 'nb');
+  }
+
+  function listSlotPickerCandidates(slotId, rank) {
+    var formation = getFormation();
+    var slot = formation.slots.find(function (s) { return s.id === slotId; });
+    if (!slot) return [];
+    var xi = buildXI();
+    var placedIds = {};
+    formation.slots.forEach(function (s) {
+      var e = xi.result[s.id];
+      if (!e) return;
+      RANKS.forEach(function (r) {
+        if (e[r]) placedIds[e[r].id] = s.pos + ' ' + RANK_LABEL[r];
+      });
+    });
+    var out = [];
+    state.players.forEach(function (p) {
+      var fit = pickerFitInfo(p, slot.pos, slotId);
+      if (!fit) return;
+      out.push({
+        player: p,
+        fit: fit,
+        placed: placedIds[p.id] || null
+      });
+    });
+    out.sort(comparePickerCandidates);
+    return out;
+  }
+
+  function closeSlotPicker() {
+    var modal = document.getElementById('slot-picker-modal');
+    if (modal) modal.classList.add('hidden');
+    slotPickerState = { slotId: null, rank: null, pos: null, items: [] };
+    var q = document.getElementById('slot-picker-q');
+    if (q) q.value = '';
+  }
+
+  function renderSlotPickerList(filter) {
+    var list = document.getElementById('slot-picker-list');
+    if (!list) return;
+    var q = (filter || '').trim().toLowerCase();
+    var items = slotPickerState.items;
+    if (q) {
+      items = items.filter(function (it) {
+        return (it.player.navn || '').toLowerCase().indexOf(q) >= 0;
+      });
+    }
+    if (!items.length) {
+      list.innerHTML = '<li class="picker-empty">' +
+        (slotPickerState.items.length ? 'Ingen treff på søket' : 'Ingen spillere passer denne plassen') +
+        '</li>';
+      return;
+    }
+    var html = [];
+    var lastTier = null;
+    items.forEach(function (it) {
+      if (it.fit.tier !== lastTier) {
+        lastTier = it.fit.tier;
+        html.push('<li class="picker-section" aria-hidden="true">' +
+          (lastTier === 0 ? 'Best passform' : 'Nær passform') + '</li>');
+      }
+      var p = it.player;
+      var chips = [];
+      chips.push('<span class="picker-chip ' + (it.fit.tier === 0 ? 'best' : 'near') + '">' +
+        esc(it.fit.matchLabel || (it.fit.tier === 0 ? 'Best' : 'Nær')) + '</span>');
+      if (it.placed) {
+        chips.push('<span class="picker-chip placed" title="Flyttes hit">På ' + esc(it.placed) + '</span>');
+      }
+      var fot = normalizeFot(p.fot);
+      html.push(
+        '<li role="option">' +
+        '<button type="button" class="picker-item" data-pick="' + esc(p.id) + '">' +
+        '<div class="pi-main">' +
+        '<div class="pi-name">' + esc(p.navn) + (fot ? footBadgeHtml(p.fot) : '') + '</div>' +
+        '<div class="pi-meta">' + chips.join('') +
+        '<span>' + esc(posDisplayCode(normalizePosCode(p.hoved) || p.hoved || '')) +
+        (formatEkstra(p) ? (' · ' + esc(formatEkstra(p))) : '') + '</span>' +
+        '<span>' + esc(physText(p)) + '</span></div></div>' +
+        '<div class="pi-ratings"><div class="r ' + ratingTier(p.rating) + '">' + p.rating + '</div>' +
+        '<div class="p">pot ' + p.potensial + '</div></div>' +
+        '</button></li>'
+      );
+    });
+    list.innerHTML = html.join('');
+    list.querySelectorAll('[data-pick]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var pid = btn.getAttribute('data-pick');
+        var sid = slotPickerState.slotId;
+        var rk = slotPickerState.rank;
+        closeSlotPicker();
+        if (pid && sid && rk) placePlayerOnCell(pid, sid, rk);
+      });
+    });
+  }
+
+  function openSlotPicker(slotId, rank) {
+    hideCellMenu();
+    var formation = getFormation();
+    var slot = formation.slots.find(function (s) { return s.id === slotId; });
+    if (!slot) return;
+    slotPickerState = {
+      slotId: slotId,
+      rank: rank,
+      pos: slot.pos,
+      items: listSlotPickerCandidates(slotId, rank)
+    };
+    var title = document.getElementById('slot-picker-title');
+    var sub = document.getElementById('slot-picker-sub');
+    if (title) title.textContent = 'Velg til ' + slot.pos + ' · ' + (RANK_LABEL[rank] || rank);
+    if (sub) {
+      sub.textContent = 'Best passform først. Spillere som allerede er plassert flyttes hit (ikke duplikat).';
+    }
+    var modal = document.getElementById('slot-picker-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    renderSlotPickerList('');
+    var q = document.getElementById('slot-picker-q');
+    if (q) {
+      q.value = '';
+      setTimeout(function () { try { q.focus(); } catch (e) {} }, 50);
+    }
+  }
+
   function hideCellMenu() {
     var menu = document.getElementById('cell-menu');
     if (!menu) return;
@@ -6231,11 +6577,17 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     if (ev.target.closest('button')) return;
     if (dragState && dragState.moved) return;
     var cell = ev.currentTarget;
+    /* Recommended (readonly) pitch: no picker / menu */
+    if (cell.closest('.pitch.readonly')) return;
     var pid = cell.getAttribute('data-pid');
-    if (!pid) return;
+    var slotId = cell.getAttribute('data-slot');
+    var role = cell.getAttribute('data-role');
+    if (!pid) {
+      if (slotId && role) openSlotPicker(slotId, role);
+      return;
+    }
     var rect = cell.getBoundingClientRect();
-    showCellMenu(pid, cell.getAttribute('data-slot'), cell.getAttribute('data-role'),
-      rect.left, rect.bottom + 4);
+    showCellMenu(pid, slotId, role, rect.left, rect.bottom + 4);
   }
 
   function bindSquadDnD(list) {
@@ -6633,6 +6985,11 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
   });
   document.addEventListener('keydown', function (ev) {
     if (ev.key !== 'Escape') return;
+    var pickModal = document.getElementById('slot-picker-modal');
+    if (pickModal && !pickModal.classList.contains('hidden')) {
+      closeSlotPicker();
+      return;
+    }
     var aModal = document.getElementById('akademi-modal');
     if (aModal && !aModal.classList.contains('hidden')) {
       closeAcademyEdit();
@@ -6645,6 +7002,23 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     }
     hideCellMenu();
   });
+
+  (function bindSlotPickerUi() {
+    var modal = document.getElementById('slot-picker-modal');
+    var cancel = document.getElementById('slot-picker-cancel');
+    var q = document.getElementById('slot-picker-q');
+    if (modal) {
+      modal.addEventListener('click', function (ev) {
+        if (ev.target.id === 'slot-picker-modal') closeSlotPicker();
+      });
+    }
+    if (cancel) cancel.addEventListener('click', closeSlotPicker);
+    if (q) {
+      q.addEventListener('input', function () {
+        renderSlotPickerList(q.value);
+      });
+    }
+  })();
 
   document.getElementById('btn-export').addEventListener('click', function () {
     if (downloadBackup(BACKUP_FILENAME)) {
