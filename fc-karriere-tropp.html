@@ -1138,7 +1138,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       <button type="button" class="ghost btn-gear" id="btn-sky" title="Sky-synk mellom mobil og PC" aria-label="Sky og innstillinger">☁</button>
       <input type="file" id="import-file" accept="application/json,.json">
     </div>
-    <p class="persist-hint" id="persist-hint" hidden>Tips: bruk Lagre fil før du lukker — så mistet du ikke troppen.</p>
+    <p class="persist-hint" id="persist-hint" hidden>Tips: «Lagre fil» skriver alltid <code>fc-tropp-backup.json</code> (samme navn — velg Erstatt i Chrome om den spør). Bruk før du lukker.</p>
   </div>
 </header>
 
@@ -1801,6 +1801,8 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     K:   ['K', 'GK'],
     VB:  ['VB', 'LB', 'LWB', 'VWB'],
     VWB: ['VWB', 'LWB', 'VB', 'LB'],
+    /* Player-facing MS (midtstopper) — same pool as pitch VMS/HMS */
+    MS:  ['MS', 'VMS', 'HMS', 'CB'],
     VMS: ['MS', 'VMS', 'HMS', 'CB'],
     HMS: ['MS', 'HMS', 'VMS', 'CB'],
     HB:  ['HB', 'RB', 'RWB', 'HWB'],
@@ -2613,33 +2615,87 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     try { if (typeof FcCloud !== 'undefined' && FcCloud.schedulePush) FcCloud.schedulePush(); } catch (ePush) {}
   }
 
+  /** Remembered FS Access handle so «Lagre fil» can overwrite the same path. */
+  var backupFileHandle = null;
+
+  /**
+   * Always download/save as fixed basename fc-tropp-backup.json (never timestamped).
+   * Prefer File System Access (overwrite same file). Fallback: <a download> with that
+   * basename — Chrome may still add " (1)" if the user does not choose Replace.
+   */
   function downloadBackup(filename) {
-    filename = filename || BACKUP_FILENAME;
+    /* Ignore callers' names — always the stable backup basename. */
+    filename = BACKUP_FILENAME;
     try {
       var blob = new Blob([serializeState()], { type: 'application/json' });
-      var a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = filename;
-      a.rel = 'noopener';
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(function () {
-        try { URL.revokeObjectURL(a.href); } catch (e) {}
-        if (a.parentNode) a.parentNode.removeChild(a);
-      }, 800);
-      stateDirty = false;
-      return true;
+      if (typeof window !== 'undefined' && window.showSaveFilePicker) {
+        /* Async path: export button. beforeunload flush uses anchor below. */
+        return downloadBackupFsAccess(blob);
+      }
+      return downloadBackupAnchor(blob, filename);
     } catch (err) {
       console.error('downloadBackup failed:', err);
       return false;
     }
   }
 
+  function downloadBackupAnchor(blob, filename) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename || BACKUP_FILENAME;
+    a.rel = 'noopener';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () {
+      try { URL.revokeObjectURL(a.href); } catch (e) {}
+      if (a.parentNode) a.parentNode.removeChild(a);
+    }, 800);
+    stateDirty = false;
+    return true;
+  }
+
+  /** Returns true synchronously if write started; FS Access resolves in background. */
+  function downloadBackupFsAccess(blob) {
+    var p = (async function () {
+      try {
+        if (!backupFileHandle) {
+          backupFileHandle = await window.showSaveFilePicker({
+            suggestedName: BACKUP_FILENAME,
+            types: [{
+              description: 'FC tropp backup',
+              accept: { 'application/json': ['.json'] }
+            }]
+          });
+        }
+        var writable = await backupFileHandle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        stateDirty = false;
+        return true;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return false;
+        /* Lost handle / permission — clear and fall back to anchor once */
+        backupFileHandle = null;
+        console.warn('FS Access backup failed, using download', err);
+        return downloadBackupAnchor(blob, BACKUP_FILENAME);
+      }
+    })();
+    /* Fire-and-forget for click handler; surface result via .then when awaited */
+    downloadBackup._lastPromise = p;
+    return true;
+  }
+
   function flushBackupIfDirty() {
     if (!stateDirty) return;
     if (!state.players || !state.players.length) return;
-    downloadBackup(BACKUP_FILENAME);
+    /* Leave-page flush cannot open a picker — fixed-name anchor download only. */
+    try {
+      var blob = new Blob([serializeState()], { type: 'application/json' });
+      downloadBackupAnchor(blob, BACKUP_FILENAME);
+    } catch (err) {
+      console.error('flushBackupIfDirty failed:', err);
+    }
   }
 
   function uid() {
@@ -4014,55 +4070,105 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     return Math.max(1, n);
   }
 
-  /** Academy prospects that can cover pos after formation remaps (usable YA depth). */
+  /**
+   * Probe slot code for qualifiesForRecommend — MS pool uses VMS aliases
+   * (same CB pool as anbefalt XI for VMS/HMS).
+   */
+  function scoutProbeSlot(pos) {
+    var code = posDisplayCode(normalizePosCode(pos) || pos) || pos;
+    if (code === 'MS') return 'VMS';
+    return code;
+  }
+
+  /**
+   * Tropp usable for Speiderplan — same rules as anbefalt XI / #1–#3:
+   * qualifiesForRecommend (remaps + foot-retrain), clear sell-outs excluded
+   * (they may stay off #1–#3). Falls back to including sell-outs only if
+   * nobody else qualifies (XI last-resort fill).
+   */
+  function scoutTroppUsableForPos(pos) {
+    var probe = scoutProbeSlot(pos);
+    var code = posDisplayCode(normalizePosCode(pos) || pos) || pos;
+    var all = [];
+    var keep = [];
+    (state.players || []).forEach(function (p) {
+      if (!qualifiesForRecommend(p, probe) && !qualifiesForRecommend(p, code) &&
+          !qualifies(p, probe) && !qualifies(p, code)) return;
+      all.push(p);
+      if (!isClearSellOutForXI(p)) keep.push(p);
+    });
+    return keep.length ? keep : all;
+  }
+
+  /**
+   * YA usable — same pool gate as anbefalt overlay (recommendAcademyPool)
+   * plus formation remaps / qualifiesForRecommend on the probe slot.
+   */
   function academyUsableForPos(pos) {
-    var akademi = Array.isArray(state.akademi) ? state.akademi : [];
+    var probe = scoutProbeSlot(pos);
+    var code = posDisplayCode(normalizePosCode(pos) || pos) || pos;
     var used = formationUsedPlayerPositions();
     var out = [];
-    akademi.forEach(function (a) {
-      var positionsA = playerPositions(a);
-      if (!positionsA.length) positionsA = [normalizePosCode(a.hoved) || 'SM'];
-      var fits = false;
-      for (var i = 0; i < positionsA.length; i++) {
-        var eff = academyEffectivePos(positionsA[i], used);
-        if (eff.effective === pos || posDisplayCode(eff.effective) === posDisplayCode(pos)) {
-          fits = true; break;
+    recommendAcademyPool().forEach(function (a) {
+      var raw = a._academyId
+        ? (state.akademi || []).find(function (x) { return x.id === a._academyId; })
+        : null;
+      var src = raw || a;
+      var positionsA = playerPositions(src);
+      if (!positionsA.length) positionsA = [normalizePosCode(src.hoved) || 'SM'];
+      var fits = qualifiesForRecommend(a, probe) || qualifiesForRecommend(a, code);
+      if (!fits) {
+        for (var i = 0; i < positionsA.length; i++) {
+          var eff = academyEffectivePos(positionsA[i], used);
+          if (eff.effective === code || posDisplayCode(eff.effective) === code) {
+            fits = true; break;
+          }
         }
       }
-      if (!fits && !qualifies(a, pos)) return;
-      var potHi = academyOptimisticPot(a);
-      /* Count as usable cover if pot is at least development-relevant */
-      if (potHi >= 72) out.push({ p: a, potHi: potHi });
+      if (!fits && !qualifies(src, probe) && !qualifies(src, code)) return;
+      var potHi = academyOptimisticPot(src);
+      if (potHi == null) potHi = a.potensial || 0;
+      if (potHi >= 72) out.push({ p: src, potHi: potHi, cand: a });
     });
     out.sort(function (a, b) { return b.potHi - a.potHi; });
     return out;
   }
 
   function scoreScoutPosition(pos) {
-    var depth = signedDepthForPos(pos);
+    /* Full signed depth (for OVR/pot labels) — not sell-filtered */
+    var depthAll = signedDepthForPos(scoutProbeSlot(pos));
+    if (!depthAll.length) depthAll = signedDepthForPos(pos);
+    var depth = scoutTroppUsableForPos(pos); /* XI-aligned usable tropp */
     var bestOvr = 0, bestPot = 0;
     depth.forEach(function (p) {
       if ((p.rating || 0) > bestOvr) bestOvr = p.rating || 0;
       if ((p.potensial || 0) > bestPot) bestPot = p.potensial || 0;
     });
+    if (!bestOvr && !bestPot) {
+      depthAll.forEach(function (p) {
+        if ((p.rating || 0) > bestOvr) bestOvr = p.rating || 0;
+        if ((p.potensial || 0) > bestPot) bestPot = p.potensial || 0;
+      });
+    }
     var slots = formationSlotDemand(pos);
-    /* Need #1+#2 per formation slot (e.g. MS with VMS+HMS → 4). */
+    /* Ideal #1+#2 per slot (MS/VMS/HMS → 4). Soft target only — not must-hunt. */
     var needMin = 2 * slots;
     var yaList = academyUsableForPos(pos);
     var yaGood = yaList.filter(function (y) { return y.potHi >= 78; });
-    var usable = depth.length + yaList.length; /* tropp + academy after remaps */
+    /* Usable = XI-style tropp (sell-outs out) + YA overlay pool after remaps */
+    var usable = depth.length + yaList.length;
     var shortfall = Math.max(0, needMin - usable);
     var thinTropp = depth.length < 2;
-    var thinSlots = usable < needMin; /* < 2 usable per slot */
-    var thinAbsolute = usable < 2; /* hard floor: always hunt if < 2 total */
-    var mustHunt = thinAbsolute || thinSlots;
+    var thinSlots = usable < needMin; /* soft under-depth vs ideal 2/slot */
+    /* Must-hunt ONLY when shared depth < 2 — same bar as anbefalt thin (#1/#2).
+       Do NOT force MS just because ideal 4 is unmet when XI already looks fine. */
+    var mustHunt = usable < 2;
     var weak = depth.length === 0 ||
       (bestOvr < 72 && bestPot < 80) ||
       (bestPot < 76 && bestOvr < 75) ||
       (depth.length === 1 && bestPot < 82 && bestOvr < 78);
 
     var yaCovered = yaGood.length > 0;
-    /* YA only «covers» enough to skip when usable meets 2-per-slot need */
     var yaStrong = !mustHunt && (
       yaGood.some(function (y) { return y.potHi >= 82; }) ||
       (yaGood.length >= 2 && yaGood[0].potHi >= 78)
@@ -4071,13 +4177,13 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     var gap = mustHunt || ((thinTropp || weak) && !yaCovered);
     var severity;
     if (mustHunt && usable === 0) {
-      severity = 6; /* empty tropp+YA for a used formation role */
-    } else if (mustHunt && thinAbsolute) {
-      severity = 5; /* < 2 usable total — must-hunt (esp. MS) */
+      severity = 6; /* empty XI-usable tropp+YA for a used formation role */
     } else if (mustHunt) {
-      severity = 4; /* < 2 per slot (e.g. 2–3 MS for 2 CB slots) */
+      severity = 5; /* < 2 usable — must-hunt */
     } else if (yaStrong) {
       severity = 0;
+    } else if (thinSlots && shortfall >= 2) {
+      severity = 2; /* soft: under ideal 2/slot (e.g. 2–3 MS for 2 CB) — not must-hunt */
     } else if (thinTropp && !yaCovered) {
       severity = 3;
     } else if (weak && !yaCovered) {
@@ -4086,7 +4192,9 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       severity = 2;
     } else if (!yaCovered && bestPot < 82) {
       severity = 1;
-    } else if (yaCovered && (thinTropp || weak)) {
+    } else if (yaCovered && (thinTropp || weak || thinSlots)) {
+      severity = 1;
+    } else if (thinSlots) {
       severity = 1;
     } else {
       severity = 0;
@@ -4095,14 +4203,11 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     var why;
     var label = posDisplayCode(pos);
     if (mustHunt && usable === 0) {
-      why = 'mangler ' + label + ' — 0 i tropp/akademi (trenger ' + needMin + ' for ' + slots + ' plass' + (slots > 1 ? 'er' : '') + ')';
-    } else if (mustHunt && thinAbsolute) {
-      why = 'tynn ' + label + '-dybde (' + usable + ' brukbar' + (usable === 1 ? '' : 'e') +
-        ' i tropp+akademi, trenger minst 2' +
-        (slots > 1 ? ' — egentlig ' + needMin + ' for ' + slots + ' plasser' : '') + ')';
+      why = 'mangler ' + label + ' — 0 brukbare i tropp/akademi (anbefalt XI-dybde)';
     } else if (mustHunt) {
-      why = 'under dybde på ' + label + ' (' + usable + '/' + needMin +
-        ' — trenger 2 per plass, ' + slots + ' i formasjonen)';
+      why = 'tynn ' + label + '-dybde (' + usable + ' brukbar' + (usable === 1 ? '' : 'e') +
+        ' etter anbefalt-regler, trenger minst 2' +
+        (slots > 1 ? ' for ' + slots + ' plasser' : '') + ')';
     } else if (yaStrong) {
       why = 'god YA-dekning (skip)';
     } else if (depth.length === 0) {
@@ -4111,6 +4216,9 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       why = 'mangler dybde / ingen god nok i tropp eller akademi';
     } else if (weak && !yaCovered) {
       why = 'svak dekning (' + bestOvr + '→' + bestPot + '), ingen god YA';
+    } else if (thinSlots) {
+      why = 'dybdeforsikring (' + usable + '/' + needMin +
+        ' mot 2 per plass — anbefalt har dekning, speid valgfritt)';
     } else if (depth.length <= 1) {
       why = 'dybdeforsikring (bare ' + depth.length + ' i tropp)';
     } else {
@@ -4176,7 +4284,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     var usedForm = formationUsedPlayerPositions();
     var scored = usedPositionsOrdered().map(scoreScoutPosition);
     scored.sort(function (a, b) {
-      /* Must-hunt thin slots (esp. MS) before backs/wings opportunistic */
+      /* Must-hunt (<2 XI-usable) before soft dybde / backs/wings */
       var ma = a.mustHunt ? 1 : 0, mb = b.mustHunt ? 1 : 0;
       if (mb !== ma) return mb - ma;
       if (b.shortfall !== a.shortfall) return b.shortfall - a.shortfall;
@@ -4205,7 +4313,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       return true;
     }
 
-    /* 1) All must-hunt first (MS thin before VB/VV) */
+    /* 1) All must-hunt first (<2 usable — same bar as anbefalt thin) */
     candidates.filter(function (s) { return s.mustHunt; }).forEach(function (s) {
       if (picked.length < 3) pushMission(s);
     });
@@ -7761,11 +7869,19 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
   })();
 
   document.getElementById('btn-export').addEventListener('click', function () {
-    if (downloadBackup(BACKUP_FILENAME)) {
-      flashMsg('Tropp lagret som fil', 'success');
-    } else {
-      flashMsg('Kunne ikke lagre fil', 'warn');
+    var ok = downloadBackup(BACKUP_FILENAME);
+    var pending = downloadBackup._lastPromise;
+    if (pending && typeof pending.then === 'function') {
+      pending.then(function (wrote) {
+        if (wrote) flashMsg('Tropp lagret som ' + BACKUP_FILENAME, 'success');
+        else flashMsg('Lagring avbrutt', 'warn');
+      }).catch(function () {
+        flashMsg('Kunne ikke lagre fil', 'warn');
+      });
+      return;
     }
+    if (ok) flashMsg('Tropp lagret som ' + BACKUP_FILENAME, 'success');
+    else flashMsg('Kunne ikke lagre fil', 'warn');
   });
 
   document.getElementById('btn-import').addEventListener('click', function () {

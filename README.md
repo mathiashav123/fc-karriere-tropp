@@ -11,3 +11,9 @@ localStorage-nøkkel: `fc-karriere-tropp-v1`
 
 ## OCR
 See [OCR-LAB.md](OCR-LAB.md). Manual entry is recommended for TV photos; soft OCR keeps colour preview.
+
+## Backup / Lagre fil
+- Always saves as **`fc-tropp-backup.json`** (fixed name — overwrite the same file).
+- Uses File System Access when the browser supports it; otherwise a normal download with that basename.
+- Chrome may still add ` (1)` if you decline Replace — still never timestamped names.
+- App HTML offline copy: keep one **`fc-karriere-tropp.html`** (overwrite, no dated copies).
