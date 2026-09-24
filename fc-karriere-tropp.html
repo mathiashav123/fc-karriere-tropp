@@ -176,11 +176,24 @@ label {
 .verdict-chip.drop { background: var(--danger-soft); color: #ff8a8a; }
 .verdict-reason { color: var(--muted); font-size: 12px; }
 .akademi-row {
-  display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 6px;
   padding: 12px 8px; border-bottom: 1px solid var(--border);
 }
-.akademi-row .p-info { flex: 1; min-width: 140px; }
-.akademi-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.akademi-row .p-name { margin: 0; }
+.akademi-meta {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px;
+  font-variant-numeric: tabular-nums; line-height: 1.2;
+}
+.akademi-meta .akademi-ovr {
+  font-size: 20px; font-weight: 800; letter-spacing: -0.02em;
+}
+.akademi-meta .akademi-pot {
+  font-size: 13px; font-weight: 700;
+}
+.akademi-meta .p-phys { color: var(--muted); font-size: 12px; }
+.akademi-row .verdict { margin-top: 2px; }
+.akademi-row .verdict-tip { margin-top: 2px; }
+.akademi-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 2px; }
 .akademi-actions button { min-height: 36px; font-size: 12px; font-weight: 600; }
 
 .verdict-chip.watch { background: rgba(154,171,158,.22); color: #c5d4c8; }
@@ -2337,9 +2350,9 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 
     // Tips: stort potensial-gap = risiko (selv om taket er høyt)
     if (span >= 15) {
-      setTip('risk', 'Risiko: potensialet svinger mye (' + fmtPotRange(prospect) + '). Ikke regn med toppen før du ser utvikling.');
+      setTip('risk', 'Pot ' + fmtPotRange(prospect) + ': svinger mye — ikke regn med toppen før du ser utvikling.');
     } else if (gapToCeil >= 18 && potHi >= 80) {
-      setTip('risk', 'Risiko: stort gap fra rating ' + ovr + ' til pot ' + potHi + '. Kan flate ut — følg med i 1–2 sesonger.');
+      setTip('risk', 'Pot ' + potHi + ': stort gap fra OVR ' + ovr + ' — kan flate ut. Følg med 1–2 sesonger.');
     }
 
     var clearlyWorseAtMax = rank >= 4 ||
@@ -2412,11 +2425,11 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 
     if (wouldDrop) {
       if (span >= 15 && !clearlyWorseAtMax) {
-        if (!tip) setTip('risk', 'Usikkert potensial — ikke slipp hardt ennå, men heller ikke prioriter.');
+        if (!tip) setTip('risk', 'Pot ' + fmtPotRange(prospect) + ': usikkert — ikke slipp hardt ennå, men heller ikke prioriter.');
         return pack({
           level: 'watch',
           chip: 'Følg med / usikkert',
-          reason: 'Usikkert potensial (' + fmtPotRange(prospect) + ') — ' + phrase
+          reason: 'Pot ' + fmtPotRange(prospect) + ': usikkert — ' + phrase
         });
       }
       if (!tip) setTip('drop', 'Anbefaling: slipp fra akademiet — tar plass uten nok takhøyde.');
@@ -2424,11 +2437,11 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     }
 
     if (span >= 15 && rank >= 3) {
-      if (!tip) setTip('risk', 'Bred range — følg utvikling før du bestemmer deg.');
+      if (!tip) setTip('risk', 'Pot ' + fmtPotRange(prospect) + ': bred range — følg utvikling før du bestemmer deg.');
       return pack({
         level: 'watch',
         chip: 'Følg med / usikkert',
-        reason: 'Bred range (' + fmtPotRange(prospect) + ') — ' + phrase
+        reason: 'Pot ' + fmtPotRange(prospect) + ': bred range — ' + phrase
       });
     }
 
@@ -2546,17 +2559,19 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         : ('Kan bare tas opp fra ' + ACADEMY_MIN_SIGN_AGE + ' år');
       var signLabel = v.canSign ? 'Ta opp til A-laget' : 'Opprykk fra 16';
       return '<li class="akademi-row" data-aid="' + esc(p.id) + '">' +
-        '<div class="p-info">' +
         '<div class="p-name">' + esc(p.navn) +
         ' <span class="badge depth">' + esc(posDisplayCode(p.hoved)) + '</span></div>' +
-        '<div class="p-sub"><span class="p-phys">' + esc(phys) + '</span></div>' +
+        '<div class="akademi-meta">' +
+        '<span class="akademi-ovr ' + ratingTier(p.rating) + '">' + p.rating + '</span>' +
+        '<span class="akademi-pot ' + ratingTier(potColorN) + '">pot ' + esc(potLabel) + '</span>' +
+        '<span class="p-phys">' + esc(phys) + '</span>' +
+        '</div>' +
         '<div class="verdict">' +
         '<span class="verdict-chip ' + v.level + '">' + esc(v.chip) + '</span>' +
         '<span class="verdict-reason">' + esc(v.reason) + '</span>' +
-        subHtml + tipHtml +
-        '</div></div>' +
-        '<div class="p-ratings"><div class="r ' + ratingTier(p.rating) + '">' + p.rating + '</div>' +
-        '<div class="p ' + ratingTier(potColorN) + '">pot ' + esc(potLabel) + '</div></div>' +
+        subHtml +
+        '</div>' +
+        tipHtml +
         '<div class="akademi-actions">' +
         '<button type="button" class="btn-sign" data-asign="' + esc(p.id) + '"' + signDisabled +
         ' title="' + esc(signTitle) + '">' + esc(signLabel) + '</button>' +
