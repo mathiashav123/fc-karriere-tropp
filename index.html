@@ -1194,7 +1194,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       <button type="button" class="ghost btn-gear" id="btn-sky" title="Sky-synk mellom mobil og PC" aria-label="Sky og innstillinger">☁</button>
       <input type="file" id="import-file" accept="application/json,.json">
     </div>
-    <p class="persist-hint" id="persist-hint" hidden>Tips: «Lagre fil» skriver alltid <code>fc-tropp-backup.json</code> (samme navn — velg Erstatt i Chrome om den spør). Bruk før du lukker.</p>
+    <p class="persist-hint" id="persist-hint" hidden>Tips: «Lagre fil» overskriver alltid <code>fc-tropp-backup.json</code> (samme fil via Fil-system / Erstatt). Ingen nye (1)-kopier ved fanebytte — kun ved «Lagre fil».</p>
   </div>
 </header>
 
@@ -2714,9 +2714,9 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   var backupFileHandle = null;
 
   /**
-   * Always download/save as fixed basename fc-tropp-backup.json (never timestamped).
-   * Prefer File System Access (overwrite same file). Fallback: <a download> with that
-   * basename — Chrome may still add " (1)" if the user does not choose Replace.
+   * Always download/save as fixed basename fc-tropp-backup.json (never timestamped / numbered).
+   * Prefer File System Access (overwrite same file handle). Fallback: <a download> only on
+   * explicit «Lagre fil» — never on visibility/beforeunload (that spawned (1)/(2) copies).
    */
   function downloadBackup(filename) {
     /* Ignore callers' names — always the stable backup basename. */
@@ -2784,10 +2784,22 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   function flushBackupIfDirty() {
     if (!stateDirty) return;
     if (!state.players || !state.players.length) return;
-    /* Leave-page flush cannot open a picker — fixed-name anchor download only. */
+    /* Never trigger <a download> on hide/unload — Chrome creates fc-tropp-backup (1).json.
+       localStorage already holds state. Only overwrite via remembered FS Access handle. */
+    if (!backupFileHandle || !window.showSaveFilePicker) return;
     try {
       var blob = new Blob([serializeState()], { type: 'application/json' });
-      downloadBackupAnchor(blob, BACKUP_FILENAME);
+      (async function () {
+        try {
+          var writable = await backupFileHandle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          stateDirty = false;
+        } catch (err) {
+          console.warn('flushBackupIfDirty FS overwrite failed', err);
+          backupFileHandle = null;
+        }
+      })();
     } catch (err) {
       console.error('flushBackupIfDirty failed:', err);
     }
@@ -2927,8 +2939,9 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   }
 
   /**
-   * Auto XI: for each formation slot in order,
-   * fill #1 then #2 then #3 with highest remaining qualified unused.
+   * Auto XI: fill #1 across all slots first, then #2, then #3 (rank-major).
+   * Slot-major (all ranks on VV before HV) parked multi-pos pot kings as VV #2
+   * and left HV to weaker players — same compare as anbefalt needs global #1 pass.
    * manualSlots overrides stick; '' = forced vacant (no auto).
    * May hold acad:<id> from «Bruk anbefaling» (Med junior) — shown as YA.
    */
@@ -2959,11 +2972,12 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       result[slot.id] = entry;
     }
 
-    for (i = 0; i < formation.slots.length; i++) {
-      slot = formation.slots[i];
-      entry = result[slot.id];
-      for (r = 0; r < RANKS.length; r++) {
-        var rk = RANKS[r];
+    /* Rank-major: every slot gets #1 before any #2 — pot kings land on best side first. */
+    for (r = 0; r < RANKS.length; r++) {
+      var rk = RANKS[r];
+      for (i = 0; i < formation.slots.length; i++) {
+        slot = formation.slots[i];
+        entry = result[slot.id];
         if (!entry[rk] && !entry.forceEmpty[rk]) {
           pick = pickBest(slot.pos, used, rk);
           if (pick) { entry[rk] = pick; used.add(pick.id); }
@@ -3113,14 +3127,16 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
 
   /**
    * Pairwise compare for same slot / depth (#1/#2/#3).
-   * Mathias rules (growth-aware pot):
-   * 1) Huge OVR floor on r1: gap ≥ 10 → higher OVR (55 must not start over 70).
-   *    Gap 8 is borderline — pot/ability may still win (Veiga 62/91 over Lamber 54/87).
-   * 2) Close usable pot (within ~2–3) + clearly higher OVR (≥ ~4–5): higher OVR ranks
+   * Mathias rules (growth-aware pot) — young band (~16–25) is pot-first:
+   * 1) Clear usable pot (≥ ~2): pot is king for developable players — beats OVR floor,
+   *    foot/retrain soft scores, and 1–3y age. Higher pot + higher OVR (72/90 vs 69/87)
+   *    always ranks above; never let OVR override a clearly higher young pot.
+   * 2) Pot nearly tied (<2): inverted/natural foot soft gap may decide wing/back placement
+   *    (stops parking a higher-OVR wrong-foot wing on the opposite side before their real slot).
+   * 3) Huge OVR floor on r1 only when pot is already close: gap ≥ 10 → higher OVR
+   *    (55 must not start over 70 when pots are similar). Gap ~8 is borderline.
+   * 4) Close usable pot (within ~2–3) + clearly higher OVR (≥ ~4–5): higher OVR ranks
    *    above — even if YA is ~1y younger. 63/94 age17 must not beat 68/95 age18.
-   * 3) Clear usable pot (≥ ~2) among developable: pot is king — beats foot AND
-   *    1–3 years age. Lower-pot H-foot kid must not outrank better-pot peer on same wing.
-   * 4) Foot/side soft gap only when pot is close (placement / inverted meta).
    * 5) Prefer higher OVR / ability before age when pot is still close.
    * 6) Age only final tie-break when OVR also nearly equal.
    * 7) 72/94 @32 → usable ≈ OVR (near-OVR ranking only).
@@ -3133,19 +3149,9 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     var ovrGap = ovrA - ovrB;
     var useGap = useA - useB;
 
-    if (rank === 'r1' && Math.abs(ovrGap) >= 10) {
-      /* Huge OVR floor only — 55 never starts over 70. Borderline ~8 OVR falls through to pot. */
-      if (ovrGap !== 0) return ovrGap > 0 ? -1 : 1;
-    }
-
-    /* Close pot + clearly higher OVR → start with the better OVR now.
-       Jovanovic 68/95 > Markovic YA 63/94 despite 1y younger academy. */
-    if (Math.abs(useGap) <= 3 && Math.abs(ovrGap) >= 4) {
-      if (ovrGap !== 0) return ovrGap > 0 ? -1 : 1;
-    }
-
-    /* Clear usable-pot advantage (≥ ~2): pot ranks highest among growable (16–24+).
-       Beats foot/retrain soft scores and small age gaps on the same wing. */
+    /* Clear usable-pot advantage (≥ ~2): pot ranks first among growable (16–25 full gf).
+       Must run BEFORE OVR floor — otherwise 72 OVR steals VV from 62/91 and demotes the
+       real HV pot king. Beats foot/retrain soft and small age gaps on the same wing. */
     if (Math.abs(useGap) >= 2) {
       return useGap > 0 ? -1 : 1;
     }
@@ -3156,9 +3162,21 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     var abilB = xiAbilityScore(b, rank);
     var softGap = (scoreA - abilA) - (scoreB - abilB);
 
-    /* Pot nearly tied: clear wrong-foot / wrong-side parking may still decide. */
+    /* Pot nearly tied: clear wrong-foot / wrong-side parking may still decide
+       (before OVR floor so inverted meta is not overridden by ≥10 OVR alone). */
     if (Math.abs(softGap) >= 8) {
       if (scoreB !== scoreA) return scoreB - scoreA;
+    }
+
+    if (rank === 'r1' && Math.abs(ovrGap) >= 10) {
+      /* Huge OVR floor only when pot already close — 55 never starts over 70. */
+      if (ovrGap !== 0) return ovrGap > 0 ? -1 : 1;
+    }
+
+    /* Close pot + clearly higher OVR → start with the better OVR now.
+       Jovanovic 68/95 > Markovic YA 63/94 despite 1y younger academy. */
+    if (Math.abs(useGap) <= 3 && Math.abs(ovrGap) >= 4) {
+      if (ovrGap !== 0) return ovrGap > 0 ? -1 : 1;
     }
 
     /* Pot still close: higher OVR / ability before younger-age tie-break. */
