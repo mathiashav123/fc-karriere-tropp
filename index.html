@@ -2333,6 +2333,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       return (p.alder == null || p.alder <= 22) && p.potensial >= 82;
     });
     var phrase = academyRankPhrase(pos, rank, depth);
+    var potLabel = fmtPotRange(prospect);
     var sub = '';
     if (span >= 10 && potLo !== potHi) {
       var loInfo = projectedAcademyRank(prospect, potLo);
@@ -2346,13 +2347,22 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     }
 
     var ovr = prospect.rating != null ? prospect.rating : 50;
-    var gapToCeil = potHi - ovr; // utviklingsgap
+    var gapToCeil = potHi - ovr;
     var tip = '';
     var tipKind = '';
+    var starterOvr = best ? best.rating : null;
+    // For lav OVR vs A-lag-starter → lån etter opprykk (dynamisk pot trenger spilletid)
+    var ovrTooLowForMinutes = starterOvr != null && ovr <= starterOvr - 8;
 
     function pack(v) {
       if (sub) v.sub = sub;
-      if (tip) { v.tip = tip; v.tipKind = tipKind; }
+      // ALLTID tip — tom tip-boks føles som «ingen anbefaling»
+      if (!tip) {
+        tipKind = tipKind || 'wait';
+        tip = 'Behold i akademiet: utvikle videre mot pot ' + potLabel + '.';
+      }
+      v.tip = tip;
+      v.tipKind = tipKind;
       v.canSign = !!canSign;
       return v;
     }
@@ -2362,16 +2372,35 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       tip = text;
     }
 
-    // Tips: bred pot-range = usikkerhet om hvor pot lander (ikke at gap OVR→pot er «risiko»).
-    // Stort gap OVR→pot er normalt i akademiet — spilleren utvikler seg oppover mot potensialet.
-    if (span >= 15) {
-      if (potHi >= 80) {
-        setTip('wait', 'Pot ' + fmtPotRange(prospect) + ': usikkert hvor potensialet lander — rom for vekst mot ' + potHi + '.');
-      } else {
-        setTip('risk', 'Pot ' + fmtPotRange(prospect) + ': usikkert hvor potensialet lander (gulv vs tak).');
-      }
-    } else if (gapToCeil >= 18 && potHi >= 80) {
-      setTip('sign', 'OVR ' + ovr + ' med pot ' + potHi + ': utvikler seg oppover mot potensialet — gapet er normalt.');
+    function tipWideSpan() {
+      return 'Behold i akademiet: bred Pot ' + potLabel +
+        ' — la potensialet lande før A-laget (dynamisk pot etter opprykk).';
+    }
+
+    function tipGapOk() {
+      return 'OVR ' + ovr + ' er greit for akademi: gap til pot ' + potHi +
+        ' er vanlig utvikling, ikke risiko.';
+    }
+
+    function tipLoanAfterPromote() {
+      return 'Ta opp + lån ut for spilletid: sterk vs dybde, men OVR ' + ovr +
+        ' er for lav for faste minutter (dynamisk pot trenger jevnlig spill).';
+    }
+
+    function tipPromoteMinutes() {
+      return 'Ta opp nå (16+): sterk vs ' + posDisplayCode(pos) +
+        '-dybde. Gi cup/rotasjon — eller lån ut for fast spilletid.';
+    }
+
+    function tipKeepDevelop() {
+      var base = 'Behold i akademiet: utvikle via YA/turneringer til pot lander';
+      if (span >= 10) base += ' (Pot ' + potLabel + ')';
+      else base += ' / OVR nærmer seg A-lag-minutter';
+      return base + '.';
+    }
+
+    function tipUnder16() {
+      return 'Behold i akademiet til 16: kan ikke tas opp ennå — utvikle mot pot ' + potLabel + '.';
     }
 
     var clearlyWorseAtMax = rank >= 4 ||
@@ -2393,12 +2422,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 
     if (strongSign) {
       if (underAge) {
-        if (!tip) {
-          setTip('wait', 'Kan ikke tas opp før fylte 16. Behold i akademiet til da — potensialet ser bra ut.');
-        } else {
-          tip = 'Kan ikke tas opp før 16. ' + tip;
-          tipKind = 'wait';
-        }
+        setTip('wait', tipUnder16());
         return pack({
           level: 'keep',
           chip: 'Behold til 16',
@@ -2406,17 +2430,31 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         });
       }
       if (!ageKnown) {
-        setTip('wait', 'Sett alder: spillere kan bare tas opp til A-laget fra 16 år.');
+        setTip('wait', 'Sett alder: spillere kan bare tas opp til A-laget fra 16 år. Behold i akademiet til da.');
         return pack({
           level: 'keep',
           chip: 'Sjekk alder',
           reason: 'Ser sterk ut — ' + phrase + ' · mangler alder (min. 16 for opprykk)'
         });
       }
-      if (!tip) {
-        setTip('sign', 'Ta opp til A-laget med en gang — klar for troppen.');
-      } else if (tipKind === 'risk') {
-        tip = 'Kan tas opp nå, men: ' + tip.replace(/^Risiko:\s*/, '');
+      // Bred range: behold i YA til pot lander (sikrere enn dynamisk pot på A-laget)
+      if (span >= 15 && potHi >= 80) {
+        var wideExtra = ovrTooLowForMinutes
+          ? ' Når range smalner: ta opp + lån ut for spilletid.'
+          : ' Når range smalner: ta opp og gi cup/rotasjon.';
+        setTip('wait', tipWideSpan() + wideExtra);
+        return pack({
+          level: 'keep',
+          chip: 'Behold (bred pot)',
+          reason: 'Behold — ' + phrase + ' · bred Pot ' + potLabel
+        });
+      }
+      if (ovrTooLowForMinutes && potHi >= 80) {
+        setTip('sign', tipLoanAfterPromote());
+      } else if (gapToCeil >= 15 && potHi >= 80) {
+        setTip('sign', tipPromoteMinutes() + ' ' + tipGapOk());
+      } else {
+        setTip('sign', tipPromoteMinutes());
       }
       return pack({ level: 'sign', chip: 'Ta opp nå', reason: signReason });
     }
@@ -2444,32 +2482,42 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 
     if (wouldDrop) {
       if (span >= 15 && !clearlyWorseAtMax) {
-        if (!tip) setTip('risk', 'Pot ' + fmtPotRange(prospect) + ': usikkert hvor potensialet lander — ikke slipp hardt ennå, men heller ikke prioriter.');
+        setTip('risk', tipWideSpan() + ' Ikke slipp hardt ennå — følg med til range smalner.');
         return pack({
           level: 'watch',
           chip: 'Følg med / usikkert',
-          reason: 'Pot ' + fmtPotRange(prospect) + ': usikkert — ' + phrase
+          reason: 'Pot ' + potLabel + ': usikkert — ' + phrase
         });
       }
-      if (!tip) setTip('drop', 'Anbefaling: slipp fra akademiet — tar plass uten nok takhøyde.');
+      setTip('drop', 'Slipp: taket taper mot unge du allerede har på posisjonen' +
+        (youngHigh[0] ? ' (f.eks. ' + fmtPlayerArrow(youngHigh[0]) + ')' : '') + '.');
       return pack({ level: 'drop', chip: 'Slipp', reason: dropReason });
     }
 
     if (span >= 15 && rank >= 3) {
-      if (!tip) setTip('risk', 'Pot ' + fmtPotRange(prospect) + ': usikkert hvor potensialet lander — følg med før du bestemmer deg.');
+      setTip('risk', tipWideSpan() + ' Følg med før du bestemmer deg.');
       return pack({
         level: 'watch',
         chip: 'Følg med / usikkert',
-        reason: 'Pot ' + fmtPotRange(prospect) + ': usikkert landingspunkt — ' + phrase
+        reason: 'Pot ' + potLabel + ': usikkert landingspunkt — ' + phrase
       });
     }
 
-    if (underAge && rank <= 2 && potHi >= 80) {
-      if (!tip) setTip('wait', 'Behold til 16, deretter vurder opprykk til A-laget.');
+    if (underAge) {
+      setTip('wait', tipUnder16() + (gapToCeil >= 15 ? ' ' + tipGapOk() : ''));
       return pack({
         level: 'keep',
-        chip: 'Behold til 16',
+        chip: rank <= 2 && potHi >= 80 ? 'Behold til 16' : 'Behold til 16',
         reason: 'Behold — ' + phrase + ' · opprykk først fra 16'
+      });
+    }
+
+    if (!ageKnown) {
+      setTip('wait', 'Sett alder (opprykk fra 16). ' + tipKeepDevelop());
+      return pack({
+        level: 'keep',
+        chip: 'Sjekk alder',
+        reason: 'Behold — ' + phrase + ' · mangler alder'
       });
     }
 
@@ -2482,10 +2530,28 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       } else if (best && potHi >= best.potensial - 3) {
         extra = ' · pot nær beste ' + fmtPlayerArrow(best);
       }
-      if (!tip && canSign && rank === 1) {
-        setTip('sign', 'Kan tas opp til A-laget når du vil.');
-      } else if (!tip && underAge) {
-        setTip('wait', 'Under 16 — bare utvikling i akademiet foreløpig.');
+
+      if (canSign && rank <= 2 && potHi >= 82 && ovrTooLowForMinutes) {
+        // Sterk nok til opprykk, men ikke klar for A-lag-minutter
+        setTip('sign', tipLoanAfterPromote());
+        chip = 'Ta opp + lån';
+        return pack({
+          level: 'sign',
+          chip: chip,
+          reason: 'Ta opp — ' + phrase + ' · OVR lav for minutter'
+        });
+      }
+
+      if (span >= 10) {
+        setTip('wait', tipWideSpan());
+      } else if (gapToCeil >= 12 && potHi >= 78) {
+        setTip('wait', tipKeepDevelop() + ' ' + tipGapOk());
+      } else if (canSign && rank === 1) {
+        setTip('sign', tipPromoteMinutes());
+      } else if (canSign && rank <= 2 && potHi >= 80) {
+        setTip('wait', 'Behold i akademiet litt til, eller ta opp når du kan gi cup/rotasjon/lån — ' + phrase + '.');
+      } else {
+        setTip('wait', tipKeepDevelop());
       }
       return pack({
         level: 'keep',
@@ -2494,8 +2560,10 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       });
     }
 
-    if (!tip && potHi < 78) {
-      setTip('drop', 'Svakt potensial i forhold til troppen — vurder å slippe.');
+    if (potHi < 78) {
+      setTip('drop', 'Slipp: taket er for lavt vs troppen på ' + posDisplayCode(pos) + ' — ' + phrase + '.');
+    } else {
+      setTip('wait', tipKeepDevelop());
     }
     return pack({
       level: 'keep',
@@ -2569,9 +2637,9 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       var subHtml = v.sub
         ? '<span class="verdict-sub">' + esc(v.sub) + '</span>'
         : '';
-      var tipHtml = v.tip
-        ? '<span class="verdict-tip ' + esc(v.tipKind || '') + '">' + esc(v.tip) + '</span>'
-        : '';
+      var tipText = (v.tip && String(v.tip).trim()) ||
+        ('Behold i akademiet: utvikle videre mot pot ' + potLabel + '.');
+      var tipHtml = '<span class="verdict-tip ' + esc(v.tipKind || 'wait') + '">' + esc(tipText) + '</span>';
       var signDisabled = v.canSign ? '' : ' disabled';
       var signTitle = v.canSign
         ? 'Ta opp til A-laget'
