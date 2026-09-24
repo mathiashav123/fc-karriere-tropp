@@ -1247,7 +1247,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     { code: 'HWB', label: 'HWB · høyre wingback' },
     { code: 'SDM', label: 'SDM · sittende midtbane / 6-er' },
     { code: 'SM', label: 'SM · sentral midtbane / 8-er' },
-    { code: 'AM', label: 'AM · angripende midtbane / 10-er' },
+    { code: 'SOM', label: 'SOM · offensiv midtbane' },
     { code: 'LM', label: 'LM · venstre midtbane' },
     { code: 'RM', label: 'RM · høyre midtbane' },
     { code: 'VV', label: 'VV · venstre ving' },
@@ -1263,7 +1263,10 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   POS_BY_CODE['HMS'] = { code: 'HMS', label: 'HMS · høyre midtstopper (plassering)' };
   POS_BY_CODE['VSM'] = { code: 'VSM', label: 'VSM · venstre SM-plass (plassering)' };
   POS_BY_CODE['HSM'] = { code: 'HSM', label: 'HSM · høyre SM-plass (plassering)' };
-  POS_BY_CODE['CAM'] = { code: 'CAM', label: 'AM · angripende midtbane / 10-er' };
+  POS_BY_CODE['SOM'] = { code: 'SOM', label: 'SOM · offensiv midtbane' };
+  /* Legacy AM/CAM — normalize to SOM on load; kept for OCR/slot aliases. */
+  POS_BY_CODE['AM'] = { code: 'AM', label: 'SOM · offensiv midtbane' };
+  POS_BY_CODE['CAM'] = { code: 'CAM', label: 'SOM · offensiv midtbane' };
   POS_BY_CODE['GK'] = { code: 'GK', label: 'K · keeper' };
   POS_BY_CODE['LB'] = { code: 'LB', label: 'VB · venstreback' };
   POS_BY_CODE['RB'] = { code: 'RB', label: 'HB · høyreback' };
@@ -1283,7 +1286,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   /* Old / sided codes → player attribute codes on load. */
   var OLD_TO = {
     GK: 'K', LB: 'VB', RB: 'HB', LWB: 'VWB', RWB: 'HWB',
-    CDM: 'SDM', CM: 'SM', CAM: 'AM',
+    CDM: 'SDM', CM: 'SM', CAM: 'SOM', AM: 'SOM',
     VSM: 'SM', HSM: 'SM',
     LW: 'VV', RW: 'HV', ST: 'S', CF: 'S', LF: 'VV', RF: 'HV',
     CB: 'MS', VMS: 'MS', HMS: 'MS'
@@ -1301,8 +1304,9 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     HWB: ['HWB', 'RWB', 'HB', 'RB'],
     SDM: ['SDM', 'CDM'],
     SM:  ['SM', 'CM'],
-    AM:  ['AM', 'CAM', 'SM', 'CM'],
-    CAM: ['AM', 'CAM', 'SM', 'CM'],
+    SOM: ['SOM', 'AM', 'CAM', 'SM', 'CM'],
+    AM:  ['SOM', 'AM', 'CAM', 'SM', 'CM'],
+    CAM: ['SOM', 'AM', 'CAM', 'SM', 'CM'],
     LM:  ['LM', 'VV', 'LW', 'LF'],
     RM:  ['RM', 'HV', 'RW', 'RF'],
     VSM: ['LM', 'SM', 'CM', 'VSM', 'HSM'],
@@ -1366,10 +1370,10 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     '4231': {
       id: '4231',
       name: '4-2-3-1',
-      hint: '4-2-3-1: AM (#10) mellom VSM og HSM · to SDM · VMS/HMS = midtstoppere',
+      hint: '4-2-3-1: SOM (#10) mellom VSM og HSM · to SDM · VMS/HMS = midtstoppere',
       rows: [
         ['S'],
-        ['VSM', 'AM', 'HSM'],
+        ['VSM', 'SOM', 'HSM'],
         ['SDM', 'SDM'],
         ['VB', 'VMS', 'HMS', 'HB'],
         ['K']
@@ -1383,7 +1387,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         { id: 'sdm1', pos: 'SDM' },
         { id: 'sdm2', pos: 'SDM' },
         { id: 'vsm', pos: 'VSM' },
-        { id: 'cam', pos: 'AM' },
+        { id: 'cam', pos: 'SOM' },
         { id: 'hsm', pos: 'HSM' },
         { id: 's', pos: 'S' }
       ]
@@ -1862,7 +1866,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     if (!code) return '';
     if (code === 'CB' || code === 'VMS' || code === 'HMS') return 'MS';
     if (code === 'VSM' || code === 'HSM' || code === 'CM') return 'SM';
-    if (code === 'CAM') return 'AM';
+    if (code === 'CAM' || code === 'AM') return 'SOM';
     if (code === 'GK') return 'K';
     if (code === 'LB') return 'VB';
     if (code === 'RB') return 'HB';
@@ -2252,10 +2256,12 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       });
   }
 
-  /** Where academy prospect would rank if signed (1-based). potOverride = optimistic/pessimistic pot. */
-  function projectedAcademyRank(prospect, potOverride) {
+  /** Where academy prospect would rank if signed (1-based). potOverride = optimistic/pessimistic pot.
+   *  Optional posCode: evaluate vs that position (default hoved). */
+  function projectedAcademyRank(prospect, potOverride, posCode) {
     var pot = potOverride != null ? potOverride : academyOptimisticPot(prospect);
-    var depth = signedDepthForPos(prospect.hoved);
+    var pos = posCode || prospect.hoved;
+    var depth = signedDepthForPos(pos);
     var rank = 1;
     for (var i = 0; i < depth.length; i++) {
       var s = depth[i];
@@ -2263,7 +2269,208 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
       if (pot === s.potensial && prospect.rating > s.rating) break;
       rank++;
     }
-    return { rank: rank, depth: depth, pot: pot };
+    return { rank: rank, depth: depth, pot: pot, pos: pos };
+  }
+
+  /** Coverage need: thin signed depth (<2) = higher need. */
+  function academyPosNeedScore(depthLen) {
+    if (depthLen <= 0) return 5;
+    if (depthLen === 1) return 4;
+    if (depthLen === 2) return 2;
+    return 1;
+  }
+
+  /** Fit vs signed depth at a position (optimistic pot). Better rank / closer to #1 → higher. */
+  function academyPosFitScore(rank, potHi, depth) {
+    var fit = 0;
+    if (rank === 1) fit = 10;
+    else if (rank === 2) fit = 7;
+    else if (rank === 3) fit = 4;
+    else fit = Math.max(0, 2 - (rank - 4));
+    var best = depth[0];
+    if (!best) {
+      fit += 3;
+    } else {
+      var diff = potHi - best.potensial;
+      if (diff >= 0) fit += 3;
+      else if (diff >= -3) fit += 2;
+      else if (diff >= -5) fit += 1;
+    }
+    return fit;
+  }
+
+  /**
+   * Soft height sweet-spots (cm) — FC Clubs/meta. Light tie-break only; need/depth primary.
+   * K/GK tall; MS (CB) tall; backs mid; SDM mid-tall; SM/SOM mid; wings shorter; S wide.
+   */
+  var ACADEMY_HEIGHT_BANDS = {
+    K: [190, 201],
+    MS: [188, 196],
+    VB: [178, 185], HB: [178, 185], VWB: [178, 185], HWB: [178, 185],
+    SDM: [180, 185],
+    SM: [175, 183], SOM: [175, 183], AM: [175, 183],
+    LM: [173, 180], RM: [173, 180], VV: [173, 180], HV: [173, 180],
+    S: [175, 188]
+  };
+
+  function academyHeightCm(prospect) {
+    if (!prospect || prospect.hoyde == null || prospect.hoyde === '') return null;
+    var n = Number(prospect.hoyde);
+    if (!Number.isFinite(n)) return null;
+    n = Math.round(n);
+    if (n < 150 || n > 210) return null;
+    return n;
+  }
+
+  /**
+   * Soft height fit vs pos band. Missing height → null (skip logic).
+   * tier: 2 in-band, 1 near (≤3cm), 0 soft ok (≤6cm), -1 clearly off, -2 way off.
+   */
+  function academyHeightFitForPos(posCode, cm) {
+    if (cm == null) return null;
+    var pos = normalizePosCode(posCode) || posCode;
+    var band = ACADEMY_HEIGHT_BANDS[pos];
+    if (!band) return { tier: 0, delta: 0, band: null };
+    var lo = band[0];
+    var hi = band[1];
+    if (cm >= lo && cm <= hi) return { tier: 2, delta: 0, band: band };
+    var delta = cm < lo ? (cm - lo) : (cm - hi);
+    var abs = Math.abs(delta);
+    if (abs <= 3) return { tier: 1, delta: delta, band: band };
+    if (abs <= 6) return { tier: 0, delta: delta, band: band };
+    if (abs <= 12) return { tier: -1, delta: delta, band: band };
+    return { tier: -2, delta: delta, band: band };
+  }
+
+  /** True when need/depth scores are close enough that height may tip. */
+  function academyNeedSimilar(a, b) {
+    if (a.need === b.need) return true;
+    return Math.abs(a.score - b.score) <= 4;
+  }
+
+  function academyPreferTarget(a, b) {
+    // Need/depth PRIMARY
+    if (!academyNeedSimilar(a, b)) {
+      if (a.score !== b.score) return a.score > b.score;
+    } else if (a.hTier != null && b.hTier != null && a.hTier !== b.hTier) {
+      // Soft height only when need is similar
+      return a.hTier > b.hTier;
+    }
+    if (a.score !== b.score) return a.score > b.score;
+    if (a.fit !== b.fit) return a.fit > b.fit;
+    if (a.rank !== b.rank) return a.rank < b.rank;
+    if (a.isHoved && !b.isHoved) return true;
+    return false;
+  }
+
+  /**
+   * Score every hoved+ekstra position; pick where prospect helps most (need × fit).
+   * Height: soft tie-break when need similar; skip if hoyde missing.
+   */
+  function pickBestAcademyTarget(prospect, potHi) {
+    var positions = playerPositions(prospect);
+    if (!positions.length) {
+      var fb = normalizePosCode(prospect.hoved) || 'SM';
+      positions = [fb];
+    }
+    var hoved = normalizePosCode(prospect.hoved);
+    var cm = academyHeightCm(prospect);
+    var best = null;
+    var scored = [];
+    for (var i = 0; i < positions.length; i++) {
+      var pos = normalizePosCode(positions[i]) || positions[i];
+      if (!pos) continue;
+      var info = projectedAcademyRank(prospect, potHi, pos);
+      var need = academyPosNeedScore(info.depth.length);
+      var fit = academyPosFitScore(info.rank, potHi, info.depth);
+      var score = need * fit;
+      var isHoved = !!hoved && pos === hoved;
+      var hFit = cm != null ? academyHeightFitForPos(pos, cm) : null;
+      var entry = {
+        pos: pos,
+        rank: info.rank,
+        depth: info.depth,
+        need: need,
+        fit: fit,
+        score: score,
+        thin: info.depth.length < 2,
+        isHoved: isHoved,
+        hFit: hFit,
+        hTier: hFit ? hFit.tier : null,
+        heightNote: ''
+      };
+      scored.push(entry);
+      if (!best || academyPreferTarget(entry, best)) best = entry;
+    }
+    if (!best) {
+      var p0 = hoved || 'SM';
+      var info0 = projectedAcademyRank(prospect, potHi, p0);
+      var h0 = cm != null ? academyHeightFitForPos(p0, cm) : null;
+      best = {
+        pos: p0,
+        rank: info0.rank,
+        depth: info0.depth,
+        need: academyPosNeedScore(info0.depth.length),
+        fit: academyPosFitScore(info0.rank, potHi, info0.depth),
+        score: 0,
+        thin: info0.depth.length < 2,
+        isHoved: true,
+        hFit: h0,
+        hTier: h0 ? h0.tier : null,
+        heightNote: ''
+      };
+      scored = [best];
+    }
+
+    // Height tip notes (only when hoyde known)
+    if (cm != null && best) {
+      var code = posDisplayCode(best.pos);
+      if (best.hTier != null && best.hTier >= 2) {
+        best.heightNote = 'høyden passer til ' + code;
+      } else if (best.hTier != null && best.hTier <= -1) {
+        var alt = null;
+        for (var j = 0; j < scored.length; j++) {
+          var e = scored[j];
+          if (e.pos === best.pos) continue;
+          if (e.hTier == null || e.hTier < 1) continue;
+          if (!alt || e.hTier > alt.hTier ||
+              (e.hTier === alt.hTier && e.score > alt.score)) {
+            alt = e;
+          }
+        }
+        var shortTall = (best.hFit && best.hFit.delta < 0) ? 'litt lav' : 'litt høy';
+        if (alt) {
+          best.heightNote = shortTall + ' for ' + code + ', bedre som ' + posDisplayCode(alt.pos);
+        } else {
+          best.heightNote = shortTall + ' for ' + code;
+        }
+      }
+    }
+    return best;
+  }
+
+  /** Short Norwegian lead naming best/needed pos for tip/reason. */
+  function academyBestPosLead(target, prospect) {
+    var code = posDisplayCode(target.pos);
+    var n = target.depth.length;
+    var lead;
+    if (target.thin) {
+      if (n <= 0) lead = 'Best på ' + code + ' (trengs mest — ingen i troppen)';
+      else lead = 'Best på ' + code + ' (trengs mest — bare ' + n + ' i troppen)';
+    } else if (target.rank === 2 && target.depth[0]) {
+      lead = 'Best som ' + code + '-reserve bak ' + target.depth[0].navn;
+    } else if (target.rank === 1) {
+      lead = 'Best på ' + code;
+    } else {
+      lead = 'Best på ' + code + ' (#' + target.rank + ' vs troppen)';
+    }
+    if (!target.isHoved) {
+      lead += ' — bruk/utvikle som ' + code + ' fremfor ' + posDisplayCode(prospect.hoved);
+    }
+    if (target.heightNote) {
+      lead += ' — ' + target.heightNote;
+    }
+    return lead;
   }
 
   function academyRankPhrase(pos, rank, depth) {
@@ -2435,13 +2642,16 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   }
 
   function academyVerdict(prospect, academyList) {
-    var pos = prospect.hoved;
     var potHi = academyOptimisticPot(prospect);
     var potLo = academyPessimisticPot(prospect);
     var span = academyPotSpan(prospect);
-    var info = projectedAcademyRank(prospect, potHi);
-    var depth = info.depth;
-    var rank = info.rank;
+    // Evaluate ALL hoved+ekstra; recommend where needed most / fit best
+    var target = pickBestAcademyTarget(prospect, potHi);
+    var pos = target.pos;
+    var bestTargetPos = pos;
+    var depth = target.depth;
+    var rank = target.rank;
+    var bestPosLead = academyBestPosLead(target, prospect);
     var age = prospect.alder != null ? prospect.alder : null;
     var ageKnown = age != null;
     var canSign = ageKnown && age >= ACADEMY_MIN_SIGN_AGE;
@@ -2455,7 +2665,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     var potLabel = fmtPotRange(prospect);
     var sub = '';
     if (span >= 10 && potLo !== potHi) {
-      var loInfo = projectedAcademyRank(prospect, potLo);
+      var loInfo = projectedAcademyRank(prospect, potLo, pos);
       if (rank <= 2) {
         sub = academyRankPhraseAtPot(pos, rank, depth, potHi) +
           '; ellers ' + academyRankPhraseAtPot(pos, loInfo.rank, depth, potLo).replace(/^blir /, '');
@@ -2471,10 +2681,16 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     var tipKind = '';
     var peer = findStrongestAcademyPeer(prospect, academyList);
     var peerCmp = peer ? compareAcademyToPeer(prospect, peer) : null;
-    var thinSigned = isSignedCoverageThin(pos);
+    var thinSigned = target.thin || isSignedCoverageThin(pos);
     var starterOvr = best ? best.rating : null;
     // For lav OVR vs A-lag-starter → lån etter opprykk (dynamisk pot trenger spilletid)
     var ovrTooLowForMinutes = starterOvr != null && ovr <= starterOvr - 8;
+
+    function withBestPos(text) {
+      if (!text) return bestPosLead + '.';
+      if (text.indexOf('Best på ') === 0 || text.indexOf('Best som ') === 0) return text;
+      return bestPosLead + '. ' + text;
+    }
 
     function pack(v) {
       if (sub) v.sub = sub;
@@ -2534,9 +2750,19 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
           }
         }
       }
+      tip = withBestPos(tip);
+      if (v.reason && v.reason.indexOf('Best på ') !== 0 && v.reason.indexOf('Best som ') !== 0) {
+        // Keep action verb; append best-pos cue when not already in phrase
+        if (v.reason.indexOf(posDisplayCode(pos)) < 0) {
+          v.reason = v.reason + ' · ' + bestPosLead;
+        } else if (!target.isHoved || target.thin) {
+          v.reason = bestPosLead + ' · ' + v.reason;
+        }
+      }
       v.tip = tip;
       v.tipKind = tipKind;
       v.canSign = !!canSign;
+      v.bestTargetPos = bestTargetPos;
       return v;
     }
 
@@ -5019,7 +5245,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   var POS_OCR_TOKENS = [
     'LWB', 'RWB', 'CDM', 'CAM', 'VWB', 'HWB', 'SDM', 'VMS', 'HMS', 'VSM', 'HSM',
     'GK', 'CB', 'LB', 'RB', 'CM', 'LM', 'RM', 'LW', 'RW', 'ST', 'CF', 'LF', 'RF',
-    'VB', 'MS', 'HB', 'SM', 'AM', 'VV', 'HV', 'K', 'S'
+    'VB', 'MS', 'HB', 'SM', 'SOM', 'AM', 'VV', 'HV', 'K', 'S'
   ];
 
   function ocrLettersOnly(s) {
@@ -5266,7 +5492,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
         [/\bmidtstopper\b/i, 'MS'], [/\bkeeper\b/i, 'K'], [/\bmålvakt\b/i, 'K'],
         [/\bvenstreback\b/i, 'VB'], [/\bhøyreback\b/i, 'HB'], [/\bhoyreback\b/i, 'HB'],
         [/\bvingback\b/i, 'VWB'], [/\bspiss\b/i, 'S'], [/\bvenstre\s*ving\b/i, 'VV'],
-        [/\bhøyre\s*ving\b/i, 'HV'], [/\bsittende\b/i, 'SDM'], [/\bangripende\b/i, 'AM']
+        [/\bhøyre\s*ving\b/i, 'HV'], [/\bsittende\b/i, 'SDM'], [/\bangripende\b/i, 'SOM'], [/\boffensiv\b/i, 'SOM'], [/\bsentral\s*offensiv\b/i, 'SOM']
       ];
       for (var ni = 0; ni < noMap.length; ni++) {
         if (noMap[ni][0].test(flat)) {
@@ -5529,8 +5755,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
     var nameW = Math.max(1, nameBox.x1 - nameBox.x0);
 
     // —— Position: short code above name. Prefer MS/CB; avoid false S from "PES"/noise ——
-    var AMBIGUOUS_POS = { S: 1, K: 1, ST: 1, CM: 1, AM: 1 };
-    var PREFERRED_POS = { MS: 30, CB: 28, SDM: 18, SM: 16, AM: 14, LM: 13, RM: 13, VB: 14, HB: 14, VV: 12, HV: 12, VWB: 12, HWB: 12, GK: 12, K: 4, S: 2, ST: 3 };
+    var AMBIGUOUS_POS = { S: 1, K: 1, ST: 1, CM: 1, AM: 1, SOM: 1 };
+    var PREFERRED_POS = { MS: 30, CB: 28, SDM: 18, SM: 16, SOM: 14, AM: 14, LM: 13, RM: 13, VB: 14, HB: 14, VV: 12, HV: 12, VWB: 12, HWB: 12, GK: 12, K: 4, S: 2, ST: 3 };
     var posCands = [];
     words.forEach(function (w) {
       var rawTok = w.text.replace(/[^A-Za-zÆØÅæøå]/g, '');
