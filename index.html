@@ -6364,7 +6364,27 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
    * Same spirit as anbefalt exclusive XI — no multi-count across hoved+ekstra.
    * Used for sell/surplus tips, role depth ranks, and «ikke brukt» list.
    */
+  /* Exclusive placement is a formation-wide O(players^2) scan whose result is the
+     same for every player in a render, yet troppVerdict asks for it per player.
+     Memoise on a cheap signature of its only inputs (formation + player fields)
+     so per-player verdicts reuse one computation instead of O(players^3) work. */
+  var _exclPlaceMemo = { sig: null, value: null };
+  function exclPlacementSig() {
+    var pl = state.players || [];
+    var parts = [state.formationId || ''];
+    for (var i = 0; i < pl.length; i++) {
+      var p = pl[i];
+      parts.push(p.id + ':' + (p.hoved || '') + ':' +
+        (Array.isArray(p.ekstra) ? p.ekstra.join('.') : '') + ':' +
+        (p.rating || 0) + ':' + (p.potensial || 0) + ':' +
+        (p.alder == null ? '' : p.alder) + ':' + (p.fot || ''));
+    }
+    return parts.join('|');
+  }
+
   function buildExclusiveTroppPlacement() {
+    var _sig = exclPlacementSig();
+    if (_exclPlaceMemo.sig === _sig) return _exclPlaceMemo.value;
     var formation = getFormation();
     var usedForm = formationUsedPlayerPositions();
     var roleList = [];
@@ -6479,7 +6499,10 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       byPos[bestRole].push(contested);
       roleOf[contested.id] = { pos: bestRole, rank: byPos[bestRole].length };
     }
-    return { byPos: byPos, roleOf: roleOf, roles: roleList };
+    var _res = { byPos: byPos, roleOf: roleOf, roles: roleList };
+    _exclPlaceMemo.sig = _sig;
+    _exclPlaceMemo.value = _res;
+    return _res;
   }
 
   function exclusiveDepthForPos(posCode) {
