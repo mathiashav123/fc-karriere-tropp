@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#121814">
 <title>FC Karriere-tropp</title>
-<meta name="app-build" content="20260924-fot-back">
-<!-- build: 20260924-fot-back — fullbacks: natural foot wins best-pos over depth (unless critically thin) -->
+<meta name="app-build" content="20260925-mammut-ui">
+<!-- build: 20260925-mammut-ui — Mammut A–M + Akademi rangering/slipp/vent/signer -->
 <style>
 :root {
   --bg: #121814;
@@ -380,6 +380,67 @@ label {
 .akademi-meta .p-phys { color: var(--muted); font-size: 12px; }
 .akademi-row .verdict { margin-top: 2px; }
 .akademi-row .verdict-tip { margin-top: 2px; }
+
+/* Mammut akademi-beslutningspanel */
+.mammut-panel {
+  margin: 10px 0 14px;
+  padding: 10px 12px;
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.mammut-panel-head {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin-bottom: 8px;
+}
+.mammut-panel-head label {
+  margin: 0; font-size: 12px; color: var(--muted); font-weight: 600;
+}
+.mammut-panel-head select {
+  width: auto; min-width: 140px; min-height: 36px;
+  background: var(--bg2); font-size: 13px; font-weight: 600;
+}
+.mammut-panel-sub {
+  margin: 0 0 8px; font-size: 11px; color: var(--muted); line-height: 1.35;
+}
+.mammut-list {
+  list-style: none; margin: 0; padding: 0;
+  max-height: 280px; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.mammut-list li {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  font-size: 13px;
+}
+.mammut-list li:last-child { border-bottom: none; padding-bottom: 0; }
+.mammut-list .mm-top {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px;
+}
+.mammut-list .mm-rank {
+  font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums;
+  min-width: 1.4em;
+}
+.mammut-list .mm-name { font-weight: 600; flex: 1 1 auto; }
+.mammut-list .mm-pos {
+  font-size: 11px; font-weight: 600; color: #cbb0ff;
+  background: rgba(180,140,255,.15); padding: 1px 6px; border-radius: 6px;
+}
+.mammut-list .mm-stats {
+  font-size: 12px; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.mammut-list .mm-why {
+  font-size: 11px; color: #b8c4ba; line-height: 1.35;
+}
+.mammut-list .mm-empty {
+  padding: 8px 0; color: var(--muted); font-size: 12px;
+}
+.mammut-list.mode-slipp .mm-rank { color: #ff8a8a; }
+.mammut-list.mode-vent .mm-rank { color: #9bc0ea; }
+.mammut-list.mode-signer .mm-rank { color: #7ddea0; }
+
 .akademi-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 2px; }
 .akademi-actions button { min-height: 36px; font-size: 12px; font-weight: 600; }
 
@@ -1455,8 +1516,21 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   <div id="view-akademi" class="view-page hidden" data-view-panel="akademi">
 <section class="card">
       <h2>Akademi <span id="akademi-count">(0)</span></h2>
-      <p class="hint" style="margin-top:0">Tips om beholde, slippe eller ta opp til A-laget (fra 16 år) — sammenlignet med troppen på samme posisjon.</p>
+      <p class="hint" style="margin-top:0">Tips om beholde, slippe eller ta opp til A-laget (fra 16 år) — sammenlignet med troppen. Tips følger Mammut akademiregler.</p>
       <div class="tips scout-tips" id="scout-tips-akademi" hidden></div>
+      <div class="mammut-panel" id="mammut-panel">
+        <div class="mammut-panel-head">
+          <label for="mammut-mode">Mammut-liste</label>
+          <select id="mammut-mode" aria-label="Mammut akademiliste">
+            <option value="rangering">Rangering</option>
+            <option value="slipp">Slipp</option>
+            <option value="vent">Vent</option>
+            <option value="signer">Signer / prioritet</option>
+          </select>
+        </div>
+        <p class="mammut-panel-sub" id="mammut-panel-sub">Viktigste først — hull, gulv, tak, kvote, TOT, alder, høyde.</p>
+        <ul class="mammut-list mode-rangering" id="mammut-list"></ul>
+      </div>
       <ul class="player-list" id="akademi-list"></ul>
       <div class="empty-state" id="akademi-empty">Ingen akademispillere. Gå til <strong>Legg til</strong> for å registrere YA-spillere.</div>
     </section>
@@ -1724,6 +1798,297 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   /* UI-only: anbefalt pitch junior overlay — does not touch squad STORAGE_KEY. */
   var REC_JUNIOR_KEY = 'fc-karriere-tropp-rec-junior-v1';
   var ACADEMY_MIN_SIGN_AGE = 16;
+
+  /**
+   * MAMMUT akademikalibrering (433 med 2 SM + 1 SDM).
+   * Driver tips, speiderplan, keep/slipp/opprykk, kvoter, gulv, høyde og speiderland.
+   * Ikke chat-rapport — bakeet inn i UI-anbefalinger.
+   */
+  var MAMMUT = {
+    formationNote: '433 · 2 SM + 1 SDM',
+    hardFloorCeiling: 80, /* A: skjerpet range + tak < 80 → slipp */
+    sharpenedSpanMax: 12, /* span ≤ dette = skjerpet nok til hard floor */
+    quotas: {
+      K:  { max: 2, minFloor: 82 },
+      VB: { max: 2, minFloor: 84 },
+      HB: { max: 2, minFloor: 84 },
+      MS: { max: 3, minFloor: 86 },
+      SDM:{ max: 2, minFloor: 84 },
+      SM: { max: 3, minFloor: 84 },
+      VV: { max: 2, minFloor: 86 },
+      HV: { max: 2, minFloor: 86 },
+      S:  { max: 2, minFloor: 86 }
+    },
+    msClosedCeiling: 92, /* MS stengt mens noen med tak ≥ 92 lever for MS */
+    somCamMinFloor: 88,
+    somCamMinTot: 62,
+    signTotByAge: { 14: 48, 15: 52, 16: 58, 17: 62 },
+    promoteTotByAge: { 15: null, 16: 58, 17: 63, 18: 66 },
+    neverPromoteSpans: [[67, 95], [72, 94]], /* E: aldri opprykk på disse */
+    wideSpanWait: 15,
+    height: {
+      important: { MS: true, S: true, K: true },
+      unimportant: { VB: true, HB: true, VWB: true, HWB: true, VV: true, HV: true, VM: true, HM: true, SM: true },
+      S_weakUnder: 170,
+      MS_disadvUnder: 180,
+      backAerialMinusUnder: 160,
+      eliteCeilingBeatsHeight: 92,
+      shortReleaseCm: 155,
+      shortReleasePotLo: 68,
+      shortReleasePotHi: 88
+    },
+    /* Høy + kan MS → ikke anbefal VB/HB med mindre back er eneste realistiske rolle */
+    tallMsPreferCm: 180,
+    scoutPriority: ['HB', 'VB', 'S'],
+    scoutNeverDefault: ['MS'], /* K: speid ikke MS (regel G/K) */
+    scoutCountries: {
+      K:   ['Tyskland', 'Spania', 'Nederland'],
+      VB:  ['Spania', 'Brasil', 'Nederland'],
+      HB:  ['Nederland', 'Spania', 'Brasil'],
+      MS:  [],
+      SDM: ['Brasil', 'Frankrike', 'Elfenbenskysten'],
+      SM:  ['Frankrike', 'Spania', 'Portugal'],
+      VV:  ['Brasil', 'Frankrike', 'Portugal'],
+      HV:  ['Brasil', 'Frankrike', 'Portugal'],
+      S:   ['Brasil', 'Argentina', 'Nigeria'],
+      /* aliases / related */
+      VWB: ['Spania', 'Brasil', 'Nederland'],
+      HWB: ['Nederland', 'Spania', 'Brasil'],
+      VM:  ['Brasil', 'Frankrike', 'Portugal'],
+      HM:  ['Brasil', 'Frankrike', 'Portugal'],
+      SOM: ['Frankrike', 'Spania', 'Portugal']
+    },
+    starterBackupMax: 2, /* L: 1 starter + 1 backup; 3. = selg/lån/slipp */
+    msRotateMax: 3,
+    sellAgeMidCeil: { age: 21, potLo: 80, potHi: 83 },
+    cantPlayBaseMax: 76,
+    cantPlayCeilingMin: 90
+  };
+
+  function mammutQuota(pos) {
+    var code = posDisplayCode(normalizePosCode(pos) || pos) || pos;
+    return MAMMUT.quotas[code] || null;
+  }
+
+  function mammutPosCode(pos) {
+    return posDisplayCode(normalizePosCode(pos) || pos) || pos;
+  }
+
+  /** Count academy + A-team usable at role (hoved/ekstra + remaps). */
+  function mammutRolePool(pos) {
+    var code = mammutPosCode(pos);
+    var pool = [];
+    (state.players || []).forEach(function (p) {
+      if (qualifies(p, code) || qualifies(p, scoutProbeSlot(code))) pool.push({ p: p, src: 'tropp', pot: p.potensial || 0, ovr: p.rating || 0 });
+    });
+    (state.akademi || []).forEach(function (a) {
+      var used = formationUsedPlayerPositions();
+      var positions = playerPositions(a);
+      if (!positions.length) positions = [normalizePosCode(a.hoved) || 'SM'];
+      var fits = false;
+      for (var i = 0; i < positions.length; i++) {
+        var eff = academyEffectivePos(positions[i], used);
+        if (eff.effective === code || mammutPosCode(eff.effective) === code) { fits = true; break; }
+      }
+      if (!fits && !qualifies(a, code) && !qualifies(a, scoutProbeSlot(code))) return;
+      pool.push({ p: a, src: 'akademi', pot: academyOptimisticPot(a) || 0, ovr: a.rating || 0 });
+    });
+    return pool;
+  }
+
+  function mammutRoleCount(pos) {
+    return mammutRolePool(pos).length;
+  }
+
+  function mammutHasMsEliteCeiling() {
+    var pool = mammutRolePool('MS');
+    for (var i = 0; i < pool.length; i++) {
+      if (pool[i].pot >= MAMMUT.msClosedCeiling) return true;
+    }
+    return false;
+  }
+
+  function mammutVvCoveredBy86() {
+    var n = 0;
+    mammutRolePool('VV').forEach(function (x) { if (x.pot >= 86) n++; });
+    return n >= 2;
+  }
+
+  function mammutRangeSharpened(prospect) {
+    var span = academyPotSpan(prospect);
+    return span != null && span <= MAMMUT.sharpenedSpanMax;
+  }
+
+  function mammutIsNeverPromoteRange(prospect) {
+    var lo = prospect.potMin != null ? prospect.potMin : prospect.potensial;
+    var hi = prospect.potMax != null ? prospect.potMax : prospect.potensial;
+    if (lo == null || hi == null) return false;
+    for (var i = 0; i < MAMMUT.neverPromoteSpans.length; i++) {
+      var sp = MAMMUT.neverPromoteSpans[i];
+      if (lo === sp[0] && hi === sp[1]) return true;
+    }
+    return false;
+  }
+
+  function mammutSignTotOk(age, tot) {
+    if (age == null || tot == null) return true;
+    var need = MAMMUT.signTotByAge[age];
+    if (need == null) {
+      if (age < 14) return false;
+      if (age > 17) return tot >= 62;
+      return true;
+    }
+    return tot >= need;
+  }
+
+  function mammutPromoteTotOk(age, tot) {
+    if (age == null) return false;
+    if (age <= 15) return false;
+    var need = MAMMUT.promoteTotByAge[age];
+    if (need == null && age >= 19) need = 66;
+    if (need == null) need = MAMMUT.promoteTotByAge[18] || 66;
+    if (MAMMUT.promoteTotByAge[age] === null) return false; /* 15: never */
+    return tot >= need;
+  }
+
+  function mammutPromoteGateReason(age, tot) {
+    if (age == null) return 'mangler alder';
+    if (age <= 15) return '15 år: aldri opprykk (Mammut)';
+    if (mammutPromoteTotOk(age, tot)) return null;
+    var need = MAMMUT.promoteTotByAge[age];
+    if (need == null) need = 66;
+    return 'TOT ' + tot + ' < ' + need + ' for ' + age + ' år → lån som #1 / behold';
+  }
+
+  /** Height hard flags (Mammut F). Does not suggest changing height. */
+  function mammutHeightVerdict(pos, cm, potHi, potLo) {
+    if (cm == null) return null;
+    var code = mammutPosCode(pos);
+    var h = MAMMUT.height;
+    if (code === 'S' && cm < h.S_weakUnder) {
+      return { bad: true, note: 'S under ' + h.S_weakUnder + ' cm = svak 9 (Mammut)' };
+    }
+    if (code === 'MS' && cm < h.MS_disadvUnder) {
+      return { bad: false, soft: true, note: 'MS under ' + h.MS_disadvUnder + ' cm = ulempe' };
+    }
+    var isBack = code === 'VB' || code === 'HB' || code === 'VWB' || code === 'HWB';
+    if (isBack && cm < h.backAerialMinusUnder) {
+      if (potHi >= h.eliteCeilingBeatsHeight) {
+        return { bad: false, note: 'lav for back, men tak ' + potHi + '+ slår høyde' };
+      }
+      var lo = potLo != null ? potLo : potHi;
+      if (cm <= h.shortReleaseCm && lo >= h.shortReleasePotLo && potHi <= h.shortReleasePotHi) {
+        return { bad: true, drop: true, note: cm + ' cm + tak ' + potHi + ' → slipp (Mammut høyde)' };
+      }
+      return { bad: false, soft: true, note: 'under ' + h.backAerialMinusUnder + ' cm = aerial-minus på back' };
+    }
+    return null;
+  }
+
+  /**
+   * Tall + can play MS → heavily prefer MS over VB/HB.
+   * Only allow back if no other viable non-back positions exist.
+   */
+  function mammutPlayerCanMs(player) {
+    if (!player) return false;
+    var set = academyRoleSet(player);
+    return !!(set.MS || set.CB);
+  }
+
+  function mammutIsTallForMs(cm) {
+    return cm != null && cm >= MAMMUT.tallMsPreferCm;
+  }
+
+  function mammutIsBackRole(pos) {
+    var c = mammutPosCode(pos);
+    return c === 'VB' || c === 'HB' || c === 'VWB' || c === 'HWB';
+  }
+
+  function mammutHasViableNonBack(player) {
+    var positions = playerPositions(player);
+    if (!positions.length) positions = [normalizePosCode(player.hoved) || 'SM'];
+    var used = formationUsedPlayerPositions();
+    for (var i = 0; i < positions.length; i++) {
+      var eff = academyEffectivePos(positions[i], used);
+      if (!mammutIsBackRole(eff.effective)) return true;
+    }
+    return false;
+  }
+
+  /** True when tall MS-capable should not be pushed to back. */
+  function mammutPreferMsOverBack(player, candidatePos) {
+    if (!mammutIsBackRole(candidatePos)) return false;
+    if (!mammutPlayerCanMs(player)) return false;
+    var cm = academyHeightCm(player);
+    if (!mammutIsTallForMs(cm)) return false;
+    return mammutHasViableNonBack(player);
+  }
+
+  function mammutOverQuota(pos) {
+    var q = mammutQuota(pos);
+    if (!q) return false;
+    return mammutRoleCount(pos) > q.max;
+  }
+
+  function mammutHoleOpen(pos) {
+    var q = mammutQuota(pos);
+    var n = mammutRoleCount(pos);
+    if (!q) return n < 2;
+    return n < q.max;
+  }
+
+  /**
+   * YA report / intake: Ja/Nei (Mammut G + C).
+   * Returns { ok, reason }.
+   */
+  function mammutYaSignAdvice(prospect) {
+    var potHi = academyOptimisticPot(prospect);
+    var potLo = academyPessimisticPot(prospect);
+    var age = prospect.alder;
+    var tot = prospect.rating != null ? prospect.rating : null;
+    var used = formationUsedPlayerPositions();
+    var eff = academyEffectivePos(normalizePosCode(prospect.hoved) || 'SM', used);
+    var pos = eff.effective;
+    var code = mammutPosCode(pos);
+    var q = mammutQuota(code);
+    var floor = q ? q.minFloor : 84;
+    var n = mammutRoleCount(code);
+
+    if (code === 'MS' && mammutHasMsEliteCeiling()) {
+      return { ok: false, reason: 'Nei — MS stengt (finnes 92+ tak) (Mammut)' };
+    }
+    if (code === 'VV' && mammutVvCoveredBy86()) {
+      return { ok: false, reason: 'Nei — VV allerede 2×86+ (Mammut)' };
+    }
+    if ((code === 'SOM' || code === 'AM' || code === 'CAM') && !used['SOM']) {
+      if (!(potLo >= MAMMUT.somCamMinFloor && tot != null && tot >= MAMMUT.somCamMinTot)) {
+        return { ok: false, reason: 'Nei — SOM ikke starter i 433 (trenger gulv ≥88 + TOT ≥62)' };
+      }
+    }
+    if (!mammutSignTotOk(age, tot)) {
+      var need = MAMMUT.signTotByAge[age] || 62;
+      return { ok: false, reason: 'Nei — TOT under alderskrav (' + need + ' ved ' + age + ')' };
+    }
+    if (q && n >= q.max && potLo < 88) {
+      return { ok: false, reason: 'Nei — ' + code + ' full og gulv < 88 (Mammut)' };
+    }
+    if (q && n >= q.max + 1) {
+      return { ok: false, reason: 'Nei — 4. mann i ' + code + ' (Mammut)' };
+    }
+    var hole = mammutHoleOpen(code);
+    var potOk = (potLo >= floor) || (potHi >= 92 && potLo >= 78);
+    if (hole && potOk && mammutSignTotOk(age, tot)) {
+      return { ok: true, reason: 'Ja — hull i ' + code + ' + pot/TOT OK (Mammut)' };
+    }
+    if (!hole && potLo < 88) {
+      return { ok: false, reason: 'Nei — posisjon full og gulv < 88' };
+    }
+    if (!potOk) {
+      return { ok: false, reason: 'Nei — pot under Mammut-gulv for ' + code + ' (' + floor + ')' };
+    }
+    return { ok: true, reason: 'Ja — Mammut-inntak OK' };
+  }
+
   var BACKUP_FILENAME = 'fc-tropp-backup.json';
   var EMPTY_SENTINEL = ''; // explicit vacant cell (no auto-fill until Auto-bygg)
   var RANKS = ['r1', 'r2', 'r3'];
@@ -4366,26 +4731,24 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
    */
 
   /**
-   * Soft YA nation lean by position (FC25/26 community + scout guides).
-   * K: tall northern/central European GK pipeline — never Brasil (often short YA).
-   * Prefer-list may be >3; pickScoutCountries takes 3 with weekly rotation.
+   * YA-land per posisjon — Mammut K-tabell (6 mnd, én posisjon per speider).
+   * MS speides ikke (tom liste). pickScoutCountries tar opptil 3; weekly rotasjon.
    */
   var SCOUT_POS_COUNTRIES = {
-    MS:  ['Frankrike', 'Tyskland', 'Nederland', 'Danmark'],
-    SM:  ['Spania', 'England', 'Nederland', 'Portugal'],
-    SOM: ['Colombia', 'Spania', 'Argentina', 'Brasil'],
-    VV:  ['Brasil', 'Nigeria', 'Nederland', 'Frankrike'],
-    HV:  ['Brasil', 'Nigeria', 'Nederland', 'Frankrike'],
-    VM:  ['Brasil', 'Nigeria', 'Frankrike', 'Nederland'],
-    HM:  ['Brasil', 'Nigeria', 'Frankrike', 'Nederland'],
-    S:   ['Argentina', 'Brasil', 'Frankrike', 'England'],
-    SDM: ['Frankrike', 'Tyskland', 'Danmark', 'Italia'],
-    VB:  ['Brasil', 'Spania', 'Nederland', 'Frankrike'],
-    HB:  ['Brasil', 'Spania', 'Nederland', 'Frankrike'],
-    VWB: ['Brasil', 'Spania', 'Nederland', 'Frankrike'],
-    HWB: ['Brasil', 'Spania', 'Nederland', 'Frankrike'],
-    /* Tall GK lean: DE/NL/DK + Balkans/PL — not Brasil/ES/EN */
-    K:   ['Tyskland', 'Nederland', 'Danmark', 'Serbia', 'Kroatia', 'Polen']
+    K:   MAMMUT.scoutCountries.K.slice(),
+    VB:  MAMMUT.scoutCountries.VB.slice(),
+    HB:  MAMMUT.scoutCountries.HB.slice(),
+    MS:  [], /* Mammut: speid ikke MS */
+    SDM: MAMMUT.scoutCountries.SDM.slice(),
+    SM:  MAMMUT.scoutCountries.SM.slice(),
+    SOM: MAMMUT.scoutCountries.SOM.slice(),
+    VV:  MAMMUT.scoutCountries.VV.slice(),
+    HV:  MAMMUT.scoutCountries.HV.slice(),
+    VM:  MAMMUT.scoutCountries.VM.slice(),
+    HM:  MAMMUT.scoutCountries.HM.slice(),
+    S:   MAMMUT.scoutCountries.S.slice(),
+    VWB: MAMMUT.scoutCountries.VWB.slice(),
+    HWB: MAMMUT.scoutCountries.HWB.slice()
   };
 
   /** Extra GK fill nations if prefer list is exhausted by avoid-set. */
@@ -4415,12 +4778,13 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   var YA_STRONG_POOL = [
     'Brasil', 'Argentina', 'Frankrike', 'Spania', 'Tyskland',
     'England', 'Portugal', 'Nederland', 'Italia', 'Colombia', 'Nigeria',
-    'Danmark', 'Serbia', 'Kroatia', 'Polen'
+    'Danmark', 'Serbia', 'Kroatia', 'Polen', 'Elfenbenskysten'
   ];
 
   var YA_CONTINENT = {
     Brasil: 'sa', Argentina: 'sa', Colombia: 'sa',
     Nigeria: 'af',
+    Elfenbenskysten: 'af',
     Frankrike: 'eu', Spania: 'eu', Tyskland: 'eu', England: 'eu',
     Portugal: 'eu', Nederland: 'eu', Italia: 'eu',
     Danmark: 'eu', Serbia: 'eu', Kroatia: 'eu', Polen: 'eu',
@@ -4609,8 +4973,15 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
 
   function pickScoutCountries(pos, avoidSet) {
     var seed = scoutWeekSeed();
-    var prefer = (SCOUT_POS_COUNTRIES[pos] || fillPoolForPos(pos)).slice();
-    if (!prefer.length) prefer = fillPoolForPos(pos);
+    var code = mammutPosCode(pos);
+    var mammutList = (MAMMUT.scoutCountries && MAMMUT.scoutCountries[code]) || null;
+    var prefer = (mammutList && mammutList.length)
+      ? mammutList.slice()
+      : (SCOUT_POS_COUNTRIES[pos] || SCOUT_POS_COUNTRIES[code] || fillPoolForPos(pos)).slice();
+    if (!prefer.length) {
+      if (code === 'MS') prefer = ['Nederland', 'Spania', 'Brasil'];
+      else prefer = fillPoolForPos(pos);
+    }
     var rot = seed % prefer.length;
     prefer = prefer.slice(rot).concat(prefer.slice(0, rot));
 
@@ -4910,6 +5281,42 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       why = 'styrk dybde (' + bestOvr + '→' + bestPot + ')';
     }
 
+    /* Mammut G/K: MS speides ikke når 92+ finnes; VV skip hvis 2×86+ */
+    var mammutSkip = false;
+    if (code === 'MS' && mammutHasMsEliteCeiling()) {
+      mammutSkip = true;
+      mustHunt = false;
+      gap = false;
+      severity = 0;
+      why = 'MS speides ikke (finnes 92+ tak) (Mammut)';
+    } else if (code === 'VV' && mammutVvCoveredBy86() && !mustHunt) {
+      mammutSkip = true;
+      gap = false;
+      severity = 0;
+      why = 'VV allerede 2×86+ — speid ikke (Mammut)';
+    } else if (code === 'MS') {
+      if (!mustHunt || usable >= 1) {
+        severity = Math.min(severity, 1);
+        if (!mustHunt) gap = false;
+      }
+    }
+    var prio = MAMMUT.scoutPriority.indexOf(code);
+    if (prio >= 0 && !mammutSkip && (mustHunt || gap || severity > 0)) {
+      if (prio === 0) severity += 2;
+      else if (prio === 1) severity += 2;
+      else severity += 1;
+      why = why + ' · Mammut-prioritet';
+    }
+    var q = mammutQuota(code);
+    if (q && !mammutSkip) {
+      var poolN = mammutRoleCount(code);
+      if (poolN < q.max && bestPot < q.minFloor) {
+        if (severity < 3) severity = Math.max(severity, 3);
+        gap = true;
+        why = why + ' · under Mammut-gulv ' + q.minFloor;
+      }
+    }
+
     return {
       pos: pos,
       label: label,
@@ -4924,6 +5331,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       shortfall: shortfall,
       yaCovered: yaCovered,
       yaStrong: yaStrong,
+      mammutSkip: mammutSkip,
       depth: depth.length,
       bestOvr: bestOvr,
       bestPot: bestPot,
@@ -4969,7 +5377,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
    * Broad «speid og se» pad ONLY for leftover scout(s) when fewer than 3 distinct thin roles.
    */
   function computeScoutPlan() {
-    var FALLBACK_ORDER = ['MS', 'S', 'SM', 'VB', 'VV', 'HV', 'SDM', 'HB', 'K', 'SOM', 'VM', 'HM'];
+    var FALLBACK_ORDER = ['HB', 'VB', 'S', 'SM', 'SDM', 'VV', 'HV', 'K', 'SOM', 'VM', 'HM']; /* Mammut: ikke MS */
     var usedForm = formationUsedPlayerPositions();
     invalidateScoutXiThinCache();
     var thinMap = scoutXiThinByPos();
@@ -4977,18 +5385,23 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       return scoreScoutPosition(pos, thinMap);
     });
     scored.sort(function (a, b) {
-      /* Must-hunt (anbefalt thin / <2 usable) before soft dybde / backs/wings */
+      if (a.mammutSkip && !b.mammutSkip) return 1;
+      if (b.mammutSkip && !a.mammutSkip) return -1;
       var ma = a.mustHunt ? 1 : 0, mb = b.mustHunt ? 1 : 0;
       if (mb !== ma) return mb - ma;
-      /* Prefer roles with missing #1, then more thin slots */
+      var pra = MAMMUT.scoutPriority.indexOf(a.pos); if (pra < 0) pra = 99;
+      var prb = MAMMUT.scoutPriority.indexOf(b.pos); if (prb < 0) prb = 99;
+      if (pra !== prb && (a.mustHunt || a.gap) && (b.mustHunt || b.gap)) return pra - prb;
       var xa = (a.xiThin ? 1 : 0), xb = (b.xiThin ? 1 : 0);
       if (xb !== xa) return xb - xa;
       if (b.shortfall !== a.shortfall) return b.shortfall - a.shortfall;
       return b.severity - a.severity || a.usable - b.usable || a.bestPot - b.bestPot || a.pos.localeCompare(b.pos);
     });
 
-    /* Prefer real needs; never skip mustHunt even if some YA exists */
+    /* Prefer real needs; Mammut: skip MS when 92+ / mammutSkip */
     var candidates = scored.filter(function (s) {
+      if (s.mammutSkip) return false;
+      if (s.pos === 'MS' && mammutHasMsEliteCeiling()) return false;
       return s.mustHunt || (s.severity > 0 && !s.yaStrong);
     });
     var seenPos = {};
@@ -4996,6 +5409,8 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
 
     function pushMission(s, forceWhy) {
       if (!s || seenPos[s.pos]) return false;
+      if (s.mammutSkip) return false;
+      if (s.pos === 'MS' && mammutHasMsEliteCeiling()) return false;
       seenPos[s.pos] = true;
       if (forceWhy) {
         s = Object.assign({}, s, {
@@ -5359,6 +5774,26 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       return age <= 22 && p.potensial >= 75 && growth >= 6;
     }
 
+    /* Mammut: over-kvote tips (lavest gulv/TOT) */
+    Object.keys(MAMMUT.quotas).forEach(function (code) {
+      if (tips.length >= 4) return;
+      var q = MAMMUT.quotas[code];
+      var depth = signedDepthForPos(code);
+      if (depth.length <= q.max) return;
+      var sorted = depth.slice().sort(function (a, b) {
+        var ap = a.potensial || 0, bp = b.potensial || 0;
+        if (ap !== bp) return ap - bp;
+        return (a.rating || 0) - (b.rating || 0);
+      });
+      var victim = sorted[0];
+      if (!victim || tips.some(function (t) { return t.text.indexOf(victim.navn) >= 0; })) return;
+      tips.push({
+        kind: 'selg',
+        text: 'Slipp/selg: ' + victim.navn + ' — over kvote ' + code +
+          ' (' + depth.length + '/' + q.max + '), lavest tak/TOT (Mammut)'
+      });
+    });
+
     var sellPool = surplus.filter(isSellCandidate).sort(function (a, b) {
       return sellScore(b) - sellScore(a);
     });
@@ -5379,10 +5814,12 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       if (tips.length >= 5) return;
       if (loanN >= 2) return;
       var age = p.alder != null ? p.alder : '?';
-      tips.push({
-        kind: 'lan',
-        text: 'Lån ut: ' + p.navn + ' (' + p.rating + '/' + p.potensial + ', ' + age + ') — ' + behindLabel(p)
-      });
+      var loanTxt = (p.potensial || 0) >= 90
+        ? ('Ikke lån som reserve: ' + p.navn + ' (tak ' + p.potensial +
+          ') — Essential/cup hjemme (Mammut H)')
+        : ('Lån som #1: ' + p.navn + ' (' + p.rating + '/' + p.potensial + ', ' + age +
+          ') — ' + behindLabel(p) + ' (kun hvis han starter)');
+      tips.push({ kind: 'lan', text: loanTxt });
       loanN++;
     });
     sellPool.forEach(function (p) {
@@ -5753,7 +6190,16 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     return aMatch;
   }
 
-  function academyPreferTarget(a, b, fot) {
+  function academyPreferTarget(a, b, fot, player) {
+    /* Mammut: høy + kan MS → ikke push til VB/HB når MS er tilgjengelig */
+    if (player && mammutPlayerCanMs(player) && mammutIsTallForMs(academyHeightCm(player))) {
+      var aBack = mammutIsBackRole(a.pos);
+      var bBack = mammutIsBackRole(b.pos);
+      var aMs = mammutPosCode(a.pos) === 'MS';
+      var bMs = mammutPosCode(b.pos) === 'MS';
+      if (aMs && bBack && mammutHasViableNonBack(player)) return true;
+      if (bMs && aBack && mammutHasViableNonBack(player)) return false;
+    }
     // Opposite fullbacks: natural foot BEFORE need/depth (unless critically thin override)
     var backFoot = academyBackFootPrefer(a, b, fot);
     if (backFoot !== null) return backFoot;
@@ -5868,6 +6314,13 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       var footMult = (foot.weight === 'strong') ? (isBackPosCode(pos) ? 6 : 2.5) : 0;
       var footBoost = footMult ? (foot.score * footMult) : 0;
       var score = need * fit + footBoost;
+      /* Mammut: tall MS-capable — heavy penalty for recommending as back */
+      if (mammutPreferMsOverBack(prospect, pos)) {
+        score -= 40;
+      } else if (mammutPosCode(pos) === 'MS' && mammutPlayerCanMs(prospect) &&
+                 mammutIsTallForMs(cm)) {
+        score += 18; /* boost MS for tall MS-capable */
+      }
       var isHoved = !!hoved && rawPos === hoved && !eff.remap;
       var hFit = cm != null ? academyHeightFitForPos(pos, cm) : null;
       var entry = {
@@ -5890,7 +6343,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
         footWeight: foot.weight || 'none'
       };
       scored.push(entry);
-      if (!best || academyPreferTarget(entry, best, prospect.fot)) best = entry;
+      if (!best || academyPreferTarget(entry, best, prospect.fot, prospect)) best = entry;
     }
     if (!best) {
       var p0raw = hoved || 'SM';
@@ -5918,6 +6371,10 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
 
     // Height tip notes (only when hoyde known) — use effective pos
     if (cm != null && best) {
+      if (mammutPosCode(best.pos) === 'MS' && mammutPlayerCanMs(prospect) &&
+          mammutIsTallForMs(cm) && mammutHasViableNonBack(prospect)) {
+        best.heightNote = best.heightNote || ('høy (' + cm + ' cm) + kan MS → ikke back (Mammut)');
+      }
       var code = posDisplayCode(best.pos);
       if (best.hTier != null && best.hTier >= 2) {
         best.heightNote = 'høyden passer til ' + code;
@@ -6355,6 +6812,60 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       return 'Behold i akademiet til 16: kan ikke tas opp ennå — utvikle mot pot ' + potLabel + '.';
     }
 
+    /* —— Mammut A/F/D/E/B hard gates (før generelle sign/drop) —— */
+    var hv = mammutHeightVerdict(pos, academyHeightCm(prospect), potHi, potLo);
+    if (hv && hv.drop) {
+      setTip('drop', 'Slipp — ' + hv.note + '.');
+      return pack({ level: 'drop', chip: 'Slipp', reason: 'Slipp — ' + hv.note + ' · ' + phrase });
+    }
+    /* A: skjerpet range + tak < 80 → slipp, ingen unntak */
+    if (mammutRangeSharpened(prospect) && potHi < MAMMUT.hardFloorCeiling) {
+      setTip('drop', 'Slipp — tak ' + potHi + ' < 80 (Mammut hard floor).');
+      return pack({
+        level: 'drop',
+        chip: 'Slipp',
+        reason: 'Slipp — tak < 80 (Mammut) · ' + phrase
+      });
+    }
+    /* E: bred 67–95 / 72–94 — aldri opprykk; vent */
+    if (mammutIsNeverPromoteRange(prospect)) {
+      setTip('wait', 'Behold i akademiet: bred Pot ' + potLabel +
+        ' — aldri opprykk på ' + potLabel + ' (Mammut). Vent til range smalner.');
+      /* fall through only if also hard-floor later; here force keep unless tak already doomed */
+      if (potHi < MAMMUT.hardFloorCeiling && mammutRangeSharpened(prospect)) {
+        /* unreachable if sharpened+ <80 already returned */
+      } else {
+        return pack({
+          level: 'keep',
+          chip: 'Behold (bred pot)',
+          reason: 'Behold — aldri opprykk på ' + potLabel + ' (Mammut) · ' + phrase
+        });
+      }
+    }
+    /* F soft height note appended later via tip */
+    var mammutHeightNote = (hv && hv.note) ? (' ' + hv.note + '.') : '';
+    /* B: over kvote + lavest gulv/TOT → slipp kandidat */
+    var qInfo = mammutQuota(pos);
+    if (qInfo && mammutOverQuota(pos) && potHi < qInfo.minFloor) {
+      setTip('drop', 'Slipp — over kvote ' + posDisplayCode(pos) +
+        ' og tak ' + potHi + ' < gulv ' + qInfo.minFloor + ' (Mammut).');
+      return pack({
+        level: 'drop',
+        chip: 'Slipp',
+        reason: 'Slipp — over kvote ' + posDisplayCode(pos) + ' (Mammut) · ' + phrase
+      });
+    }
+    /* B: MS stengt for nye lave når 92+ lever — slipp svake MS */
+    if (mammutPosCode(pos) === 'MS' && mammutHasMsEliteCeiling() && potHi < 88 &&
+        mammutRoleCount('MS') >= ((qInfo && qInfo.max) || MAMMUT.quotas.MS.max)) {
+      setTip('drop', 'Slipp — MS stengt (finnes 92+ tak) og du er under elite (Mammut).');
+      return pack({
+        level: 'drop',
+        chip: 'Slipp',
+        reason: 'Slipp — MS stengt pga 92+ (Mammut) · ' + phrase
+      });
+    }
+
     var clearlyWorseAtMax = rank >= 4 ||
       (rank >= 3 && second && potHi <= second.potensial - 5);
 
@@ -6395,6 +6906,33 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
           reason: 'Ser sterk ut — ' + phrase + ' · mangler alder (min. 16 for opprykk)'
         });
       }
+      /* Mammut D: TOT-gate for opprykk */
+      var promoBlock = mammutPromoteGateReason(age, ovr);
+      if (promoBlock) {
+        if (age >= 18 && ovr < (MAMMUT.promoteTotByAge[18] || 66)) {
+          setTip('loan', 'Lån som #1 (Mammut) — ' + promoBlock +
+            '. Ellers slipp hvis ingen startereplass.' + mammutHeightNote);
+          return pack({
+            level: 'loan',
+            chip: 'Lån som 1.',
+            reason: 'Lån som #1 — ' + promoBlock + ' · ' + phrase
+          });
+        }
+        setTip('wait', 'Behold i akademiet — ' + promoBlock + '.' + mammutHeightNote);
+        return pack({
+          level: 'keep',
+          chip: 'Behold (TOT-gate)',
+          reason: 'Behold — ' + promoBlock + ' · ' + phrase
+        });
+      }
+      if (mammutIsNeverPromoteRange(prospect)) {
+        setTip('wait', tipWideSpan() + ' Mammut: aldri opprykk på ' + potLabel + '.');
+        return pack({
+          level: 'keep',
+          chip: 'Behold (bred pot)',
+          reason: 'Behold — aldri opprykk på ' + potLabel + ' (Mammut) · ' + phrase
+        });
+      }
       // Bred range: behold i YA til pot lander (sikrere enn dynamisk pot på A-laget)
       if (span >= 15 && potHi >= 80) {
         var wideExtra = ovrTooLowForMinutes
@@ -6430,6 +6968,9 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     } else if (second && potHi <= second.potensial - 5 && rank >= 3) {
       wouldDrop = true;
       dropReason = 'Slipp — ' + phrase;
+    } else if (potHi < MAMMUT.hardFloorCeiling && mammutRangeSharpened(prospect)) {
+      wouldDrop = true;
+      dropReason = 'Slipp — tak < 80 (Mammut) · ' + phrase;
     } else if (potHi < 74 && (age == null || age >= 18)) {
       wouldDrop = true;
       dropReason = 'Slipp — for lavt potensial · ' + phrase;
@@ -6602,9 +7143,247 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     if (t) t.textContent = n ? '(' + n + ')' : '';
   }
 
+  var MAMMUT_PANEL_MODE_KEY = 'fc-karriere-tropp-mammut-mode-v1';
+  var mammutPanelMode = 'rangering';
+  try {
+    var _mm = localStorage.getItem(MAMMUT_PANEL_MODE_KEY);
+    if (_mm === 'rangering' || _mm === 'slipp' || _mm === 'vent' || _mm === 'signer') {
+      mammutPanelMode = _mm;
+    }
+  } catch (eMm) {}
+
+  /**
+   * Score how important an academy prospect is to keep/develop (higher = more important).
+   * Uses Mammut holes, floors, ceilings, quotas, TOT, age, height, position priority.
+   */
+  function mammutRankScore(prospect) {
+    var potHi = academyOptimisticPot(prospect) || 0;
+    var potLo = academyPessimisticPot(prospect) || potHi;
+    var span = academyPotSpan(prospect) || 0;
+    var age = prospect.alder;
+    var tot = prospect.rating != null ? prospect.rating : 50;
+    var target = pickBestAcademyTarget(prospect, potHi);
+    var pos = target.pos;
+    var code = mammutPosCode(pos);
+    var q = mammutQuota(code);
+    var floor = q ? q.minFloor : 84;
+    var hole = mammutHoleOpen(code);
+    var score = 0;
+
+    score += potHi * 2;
+    score += Math.max(0, potLo - 70);
+    if (hole) score += 30;
+    if (q && mammutRoleCount(code) < q.max) score += 12;
+    if (potLo >= floor) score += 20;
+    else if (potHi >= 92 && potLo >= 78) score += 24;
+    else if (potHi >= floor) score += 8;
+    if (potHi >= 92) score += 18;
+    else if (potHi >= 88) score += 12;
+    else if (potHi >= 84) score += 6;
+
+    var prio = MAMMUT.scoutPriority.indexOf(code);
+    if (prio === 0) score += 16;
+    else if (prio === 1) score += 14;
+    else if (prio === 2) score += 12;
+    if (code === 'MS') {
+      if (target.thin || mammutRoleCount('MS') < 2) score += 8;
+      else score -= 10;
+    }
+
+    if (age != null) {
+      if (age <= 15) score += 6;
+      else if (age === 16) score += 8;
+      else if (age === 17) score += 5;
+      else if (age >= 19) score -= 4;
+    }
+    if (mammutSignTotOk(age, tot)) score += 6;
+    if (mammutPromoteTotOk(age, tot) && potHi >= 82) score += 10;
+
+    var cm = academyHeightCm(prospect);
+    var hv = mammutHeightVerdict(pos, cm, potHi, potLo);
+    if (hv && hv.drop) score -= 40;
+    else if (hv && hv.bad) score -= 12;
+    else if (code === 'MS' && mammutIsTallForMs(cm)) score += 8;
+    else if (code === 'S' && cm != null && cm >= 175) score += 4;
+    else if (code === 'K' && cm != null && cm >= 190) score += 4;
+
+    if (mammutRangeSharpened(prospect) && potHi < MAMMUT.hardFloorCeiling) score -= 80;
+    if (span >= MAMMUT.wideSpanWait) score -= 4;
+
+    if (target.rank === 1) score += 14;
+    else if (target.rank === 2) score += 8;
+    else if (target.rank >= 4) score -= 15;
+
+    return {
+      score: score,
+      pos: pos,
+      code: code,
+      potHi: potHi,
+      potLo: potLo,
+      span: span,
+      tot: tot,
+      age: age,
+      hole: hole,
+      floor: floor,
+      target: target
+    };
+  }
+
+  /** Classify academy prospect into Mammut decision bucket. */
+  function mammutDecisionBucket(prospect, academyList) {
+    var v = academyVerdict(prospect, academyList || state.akademi);
+    var potHi = academyOptimisticPot(prospect) || 0;
+    var potLo = academyPessimisticPot(prospect) || potHi;
+    var span = academyPotSpan(prospect) || 0;
+    var age = prospect.alder;
+    var tot = prospect.rating != null ? prospect.rating : 50;
+    var meta = mammutRankScore(prospect);
+    var why = '';
+
+    if (mammutRangeSharpened(prospect) && potHi < MAMMUT.hardFloorCeiling) {
+      return { bucket: 'slipp', why: 'tak ' + potHi + ' < 80 (skjerpet)', meta: meta, verdict: v };
+    }
+    var hv = mammutHeightVerdict(meta.pos, academyHeightCm(prospect), potHi, potLo);
+    if (hv && hv.drop) {
+      return { bucket: 'slipp', why: hv.note, meta: meta, verdict: v };
+    }
+    if (v.level === 'drop' || v.tipKind === 'drop') {
+      why = (v.chip || 'Slipp') + (v.reason ? ' — ' + String(v.reason).replace(/^Slipp — /, '') : '');
+      if (why.length > 90) why = why.slice(0, 87) + '\u2026';
+      return { bucket: 'slipp', why: why, meta: meta, verdict: v };
+    }
+    var q = mammutQuota(meta.code);
+    if (q && mammutOverQuota(meta.code) && potHi < q.minFloor) {
+      return { bucket: 'slipp', why: 'over kvote ' + meta.code + ', tak < gulv', meta: meta, verdict: v };
+    }
+
+    var signAdv = mammutYaSignAdvice(prospect);
+    var promoteOk = mammutPromoteTotOk(age, tot) && potHi >= 82 && !mammutIsNeverPromoteRange(prospect);
+    if (signAdv.ok && (meta.hole || potHi >= 88) && potLo >= Math.min(meta.floor, 78)) {
+      why = String(signAdv.reason || '').replace(/^Ja — /, '');
+      if (promoteOk && age != null && age >= 16) why = 'prioriter beholde/opprykk — ' + why;
+      else why = 'prioriter beholde — ' + why;
+      return { bucket: 'signer', why: why, meta: meta, verdict: v };
+    }
+    if (v.level === 'sign' || (v.canSign && potHi >= 85 && meta.target.rank <= 2)) {
+      return { bucket: 'signer', why: 'sterk vs tropp / opprykksklar', meta: meta, verdict: v };
+    }
+
+    if (mammutIsNeverPromoteRange(prospect) || span >= 10) {
+      return { bucket: 'vent', why: 'bred pot ' + fmtPotRange(prospect) + ' — vent til smalner', meta: meta, verdict: v };
+    }
+    if (age != null && age <= 15) {
+      return { bucket: 'vent', why: 'under 16 — utvikle i YA', meta: meta, verdict: v };
+    }
+    var promoBlock = mammutPromoteGateReason(age, tot);
+    if (promoBlock && potHi >= 80) {
+      return { bucket: 'vent', why: promoBlock, meta: meta, verdict: v };
+    }
+    if (v.level === 'watch' || v.level === 'keep' || v.tipKind === 'wait' || v.tipKind === 'risk') {
+      why = v.chip || 'Behold / vent';
+      if (span >= 8) why += ' · range smalner';
+      return { bucket: 'vent', why: why, meta: meta, verdict: v };
+    }
+
+    return { bucket: 'vent', why: v.chip || 'Følg med', meta: meta, verdict: v };
+  }
+
+  function computeMammutAcademyLists() {
+    var list = Array.isArray(state.akademi) ? state.akademi : [];
+    var ranked = [];
+    var slipp = [];
+    var vent = [];
+    var signer = [];
+    list.forEach(function (p) {
+      var d = mammutDecisionBucket(p, list);
+      var row = { p: p, d: d, score: d.meta.score };
+      ranked.push(row);
+      if (d.bucket === 'slipp') slipp.push(row);
+      else if (d.bucket === 'signer') signer.push(row);
+      else vent.push(row);
+    });
+    function byScore(a, b) {
+      if (b.score !== a.score) return b.score - a.score;
+      var ah = a.d.meta.potHi, bh = b.d.meta.potHi;
+      if (bh !== ah) return bh - ah;
+      return (a.p.navn || '').localeCompare(b.p.navn || '', 'nb');
+    }
+    ranked.sort(byScore);
+    slipp.sort(function (a, b) { return a.score - b.score || byScore(b, a); });
+    vent.sort(byScore);
+    signer.sort(byScore);
+    return { rangering: ranked, slipp: slipp, vent: vent, signer: signer };
+  }
+
+  function mammutPanelSubtext(mode) {
+    if (mode === 'slipp') return 'Kandidater til slipp — tak < 80, over kvote, svak høyde/tak (Mammut).';
+    if (mode === 'vent') return 'Vent — bred range, gulv som stiger, ikke klar for opprykk.';
+    if (mode === 'signer') return 'Prioritet å beholde / kontrakt-fokus — åpent hull + gulv/TOT (Mammut G/C).';
+    return 'Rangering — viktigst først (hull, gulv, tak, kvote, TOT, alder, høyde).';
+  }
+
+  function renderMammutAcademyPanel() {
+    var listEl = document.getElementById('mammut-list');
+    var subEl = document.getElementById('mammut-panel-sub');
+    var sel = document.getElementById('mammut-mode');
+    var panel = document.getElementById('mammut-panel');
+    if (!listEl || !panel) return;
+    if (sel && sel.value !== mammutPanelMode) sel.value = mammutPanelMode;
+    var mode = mammutPanelMode || 'rangering';
+    if (subEl) subEl.textContent = mammutPanelSubtext(mode);
+    listEl.className = 'mammut-list mode-' + mode;
+
+    var lists = computeMammutAcademyLists();
+    var rows = lists[mode] || [];
+    if (!state.akademi || !state.akademi.length) {
+      listEl.innerHTML = '<li class="mm-empty">Ingen akademispillere ennå.</li>';
+      return;
+    }
+    if (!rows.length) {
+      var emptyMsg = mode === 'slipp' ? 'Ingen klare slipp-kandidater.'
+        : mode === 'signer' ? 'Ingen sterke signer-/prioritetstreff akkurat nå.'
+        : mode === 'vent' ? 'Ingen i vent-kø.'
+        : 'Ingen å rangere.';
+      listEl.innerHTML = '<li class="mm-empty">' + emptyMsg + '</li>';
+      return;
+    }
+    listEl.innerHTML = rows.map(function (row, i) {
+      var p = row.p;
+      var d = row.d;
+      var potLabel = fmtPotRange(p);
+      var age = p.alder != null ? p.alder : '?';
+      var tot = p.rating != null ? p.rating : '?';
+      var pos = posDisplayCode(d.meta.pos || p.hoved);
+      var why = d.why || '';
+      return '<li>' +
+        '<div class="mm-top">' +
+        '<span class="mm-rank">' + (i + 1) + '</span>' +
+        '<span class="mm-name">' + esc(p.navn) + '</span>' +
+        '<span class="mm-pos">' + esc(pos) + '</span>' +
+        '</div>' +
+        '<div class="mm-stats">' + age + 'år · TOT ' + tot + ' · pot ' + esc(potLabel) + '</div>' +
+        (why ? '<div class="mm-why">' + esc(why) + '</div>' : '') +
+        '</li>';
+    }).join('');
+  }
+
+  function bindMammutPanel() {
+    var sel = document.getElementById('mammut-mode');
+    if (!sel || sel.getAttribute('data-mm-bound')) return;
+    sel.setAttribute('data-mm-bound', '1');
+    sel.value = mammutPanelMode;
+    sel.addEventListener('change', function () {
+      mammutPanelMode = sel.value || 'rangering';
+      try { localStorage.setItem(MAMMUT_PANEL_MODE_KEY, mammutPanelMode); } catch (e) {}
+      renderMammutAcademyPanel();
+    });
+  }
+
   function renderAcademy() {
     updateAcademyCounts();
     renderScoutTips();
+    bindMammutPanel();
+    renderMammutAcademyPanel();
     var list = document.getElementById('akademi-list');
     var empty = document.getElementById('akademi-empty');
     if (!list) return;
@@ -6712,7 +7491,8 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     state.akademi.push(p);
     saveState();
     render();
-    flashMsg('Lagt til i akademi: ' + p.navn, 'success');
+    var adv = mammutYaSignAdvice(p);
+    flashMsg('Lagt til i akademi: ' + p.navn + ' — ' + adv.reason, adv.ok ? 'success' : 'error');
     return p;
   }
 
@@ -7078,9 +7858,19 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
       };
       // Prefer hoved unless remap makes ekstra clearly better for used formation.
       // Opposite fullbacks: natural foot before «thin side» (unless critically empty).
+      // Mammut: høy + kan MS → ikke anbefal som VB/HB.
       if (!best) {
         best = entry;
       } else {
+        if (mammutPlayerCanMs(player) && mammutIsTallForMs(academyHeightCm(player)) &&
+            mammutHasViableNonBack(player)) {
+          var eMs = mammutPosCode(entry.pos) === 'MS';
+          var bMs = mammutPosCode(best.pos) === 'MS';
+          var eBack = mammutIsBackRole(entry.pos);
+          var bBack = mammutIsBackRole(best.pos);
+          if (eMs && bBack) { best = entry; continue; }
+          if (bMs && eBack) { continue; }
+        }
         var backPick = academyBackFootPrefer(entry, best, player.fot);
         if (backPick === true) best = entry;
         else if (backPick === false) { /* keep best */ }
@@ -7351,6 +8141,63 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     if (role.remap === 'som_unused') remapNote = ' (bruk som SM — SOM ikke i formasjonen)';
     else if (role.remap === 'hm_unused') remapNote = ' (bruk som HV — HM ikke i formasjonen)';
     else if (role.remap === 'vm_unused') remapNote = ' (bruk som VV — VM ikke i formasjonen)';
+
+    var pot = player.potensial != null ? player.potensial : (player.rating || 0);
+    var ovr = player.rating != null ? player.rating : 0;
+    var qInfo = mammutQuota(pos);
+    var roleMax = (mammutPosCode(pos) === 'MS') ? MAMMUT.msRotateMax : MAMMUT.starterBackupMax;
+
+    /* Mammut J: 21 år + tak 80–83 → selg */
+    if (age != null && age >= MAMMUT.sellAgeMidCeil.age &&
+        pot >= MAMMUT.sellAgeMidCeil.potLo && pot <= MAMMUT.sellAgeMidCeil.potHi &&
+        !role.thin && depthN >= 2) {
+      return pack('sell', 'Selg', 'sell',
+        'Selg — ' + age + ' år med tak ' + pot + ' (Mammut 21+ / 80–83).',
+        'Selg — Mammut alder/tak');
+    }
+    /* Mammut J: ferdig tak (TOT≈POT) under neste nivå → selg etter sesong */
+    if (nearPot && pot < 84 && !role.thin && depthN >= 2 && (isBackup || unused || role.rank >= 2)) {
+      /* soft — only when replacement-ish depth */
+      if (replName || depthN >= 3) {
+        return pack('sell', 'Selg etter sesong', 'sell',
+          'Selg etter sesong — ferdig tak ' + pot + ' under neste nivå (Mammut)' +
+          (replName ? '; ' + replName + ' klar' : '') + '.',
+          'Selg — ferdig tak (Mammut)');
+      }
+    }
+    /* Mammut L: 3. mann = selg/lån/slipp (MS unntak 3 rotate) */
+    if (depthN > roleMax && role.rank >= roleMax + 1) {
+      if ((age == null || age <= 22) && pot >= 84 && growth >= 6) {
+        return pack('loan', 'Lån som 1.', 'loan',
+          'Lån som #1 — over kvote/dybde på ' + posLabel + ' (#' + role.rank +
+          '); kun lån hvis han starter (Mammut H).',
+          'Lån som #1 (Mammut)');
+      }
+      return pack('sell', 'Selg / slipp', 'sell',
+        'Selg/slipp — 3. mann på ' + posLabel + ' (Mammut starter+backup' +
+        (mammutPosCode(pos) === 'MS' ? ', MS maks 3' : '') + ').',
+        'Over dybde (Mammut L)');
+    }
+    /* Mammut B: over kvote → slipp lavest gulv/TOT */
+    if (qInfo && depthN > qInfo.max && role.rank >= qInfo.max && pot < qInfo.minFloor) {
+      return pack('sell', 'Slipp / selg', 'sell',
+        'Slipp/selg — over kvote ' + posLabel + ' og tak ' + pot +
+        ' < gulv ' + qInfo.minFloor + ' (Mammut).',
+        'Over kvote (Mammut)');
+    }
+    /* Mammut H: aldri lån 90+ som reserve — utvikle / Essential */
+    if ((age == null || age <= 23) && pot >= 90 && !isStarter && growth >= 5) {
+      return pack('develop', 'Essential / cup', 'develop',
+        'Ikke lån som reserve — tak ' + pot + '+ (Mammut H). Essential/cup-minutter hjemme.',
+        'Ikke reserve-lån 90+');
+    }
+    /* Mammut J: 90-tak men base < 76 «can't play» */
+    if (pot >= MAMMUT.cantPlayCeilingMin && ovr < MAMMUT.cantPlayBaseMax && isStarter) {
+      return pack('start', 'Essential + kontrakt', 'start',
+        'Essential + kontrakt — tak ' + pot + ' men OVR ' + ovr +
+        ' (Mammut). Ved nei → selg med % neste salg.',
+        'Essential (Mammut J)');
+    }
 
     // 1) Thin depth — protect regardless of pot; nudge scout if no replacement
     if (role.thin || depthN < 2) {

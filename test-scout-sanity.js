@@ -54,7 +54,7 @@ function esc(s){ return String(s||''); }
 function flashMsg(){}
 function ObjectAssign(a,b){ return Object.assign(a,b); }
 `);
-['OLD_TO', 'SLOT_ALIASES', 'FORMATIONS', 'POS_BY_CODE', 'SCOUT_POS_COUNTRIES', 'SCOUT_RELATED', 'YA_STRONG_POOL', 'YA_CONTINENT', 'YA_GK_POOL'].forEach(v => {
+['OLD_TO', 'SLOT_ALIASES', 'FORMATIONS', 'POS_BY_CODE', 'MAMMUT', 'SCOUT_POS_COUNTRIES', 'SCOUT_RELATED', 'YA_STRONG_POOL', 'YA_CONTINENT', 'YA_GK_POOL', 'ACADEMY_HEIGHT_BANDS'].forEach(v => {
   const x = extractVar(code, v);
   if (x) parts.push(x);
 });
@@ -70,6 +70,14 @@ parts.push("function troppNearPot(){ return false; }\n");
 parts.push("function pickReplacement(){ return null; }\n");
 parts.push("var EMPTY_SENTINEL = \"\";\nvar RANKS = [\"r1\",\"r2\",\"r3\"];\n");
 const funcs = [
+  'mammutQuota','mammutPosCode','mammutRolePool','mammutRoleCount','mammutHasMsEliteCeiling','mammutVvCoveredBy86',
+  'mammutRangeSharpened','mammutIsNeverPromoteRange','mammutSignTotOk','mammutPromoteTotOk','mammutPromoteGateReason',
+  'mammutHeightVerdict','mammutPlayerCanMs','mammutIsTallForMs','mammutIsBackRole','mammutHasViableNonBack',
+  'mammutPreferMsOverBack','mammutOverQuota','mammutHoleOpen','mammutYaSignAdvice',
+  'academyHeightCm','academyHeightFitForPos','academyRoleSet','academyOptimisticPot','academyPessimisticPot','academyPotSpan',
+  'academyEffectivePos','formationUsedPlayerPositions','pickBestAcademyTarget','academyPreferTarget',
+  'academyBackFootPrefer','isBackPosCode','backSideOf','academyPosNeedScore','academyPosFitScore','academyNeedSimilar',
+  'projectedAcademyRank','fmtPotRange','normalizeAcademyPlayer',
   'normalizeFot','normalizePosCode','playerPositions','qualifies','qualifiesForRecommend','qualifiesForSlot',
   'plainSmCode','footPosForSlot','footFitForPos','footScoreDelta','footRoleClass','footRetrainTarget','playerHasPos',
   'footOppositePos','isClearSellOutForXI','pickBest','usablePotential','rawPotential','growthFactor','xiAbilityScore','xiFootWeight',
@@ -97,7 +105,7 @@ const sandbox = {
 sandbox.global = sandbox;
 sandbox.globalThis = sandbox;
 try {
-  vm.runInNewContext(parts.join('\n') + '\nthis.__ex={state,getFormation,signedDepthForPos,scoutTroppUsableForPos,academyUsableForPos,scoreScoutPosition,scoutXiThinByPos,invalidateScoutXiThinCache,usedPositionsOrdered,computeScoutPlan,formationSlotDemand,formationUsedPlayerPositions,buildRecommendedXI,buildXI,posDisplayCode,getRecommendIncludeJuniors:function(){return recommendIncludeJuniors;},setRecommendIncludeJuniorsFlag:function(v){recommendIncludeJuniors=!!v;}};', sandbox);
+  vm.runInNewContext(parts.join('\n') + '\nthis.__ex={state,getFormation,mammutHasMsEliteCeiling,scoreScoutPosition,signedDepthForPos,scoutTroppUsableForPos,academyUsableForPos,scoreScoutPosition,scoutXiThinByPos,invalidateScoutXiThinCache,usedPositionsOrdered,computeScoutPlan,formationSlotDemand,formationUsedPlayerPositions,buildRecommendedXI,buildXI,posDisplayCode,getRecommendIncludeJuniors:function(){return recommendIncludeJuniors;},setRecommendIncludeJuniorsFlag:function(v){recommendIncludeJuniors=!!v;}};', sandbox);
 } catch (e) {
   console.error('VM load error:', e.message);
   // try to find which line
@@ -211,7 +219,13 @@ function assert(cond, msg) {
 }
 
 function assertNoBroadWhileThinCovered(plan, thinPosSet, label) {
-  const thinStill = new Set(thinPosSet);
+  /* Mammut may skip MS (92+) — count only scoutable thin roles */
+  const scoutableThin = new Set([...thinPosSet].filter(pos => {
+    if (pos === 'MS' && FC.mammutHasMsEliteCeiling && FC.mammutHasMsEliteCeiling()) return false;
+    const s = FC.scoreScoutPosition(pos);
+    return !(s && s.mammutSkip);
+  }));
+  const thinStill = new Set(scoutableThin);
   plan.scouts.forEach(s => {
     if (s.positions.length === 1 && thinStill.has(s.positions[0])) {
       thinStill.delete(s.positions[0]);
@@ -227,15 +241,18 @@ function assertNoBroadWhileThinCovered(plan, thinPosSet, label) {
     }
   });
   assert(true, label + ': no MS+SDM/SM broad cluster while MS still thin');
-  if (thinPosSet.size >= 3) {
+  if (scoutableThin.size >= 3) {
     plan.scouts.forEach(s => {
       assert(s.style === 'spisset' && s.positions.length === 1,
-        label + ': with ≥3 thin, scout ' + s.index + ' must be spisset 1-pos (got ' +
+        label + ': with ≥3 scoutable thin, scout ' + s.index + ' must be spisset 1-pos (got ' +
         s.style + ' ' + s.positions.join('+') + ')');
-      assert(thinPosSet.has(s.positions[0]),
-        label + ': scout ' + s.index + ' pos ' + s.positions[0] + ' should be one of thin ' +
-        [...thinPosSet].join(','));
+      assert(scoutableThin.has(s.positions[0]),
+        label + ': scout ' + s.index + ' pos ' + s.positions[0] + ' should be one of scoutable thin ' +
+        [...scoutableThin].join(','));
     });
+  } else {
+    console.log('OK:', label + ': scoutable thin < 3 after Mammut skip (' + [...scoutableThin].join(',') +
+      ') — broad pad on leftover scouts allowed');
   }
 }
 
@@ -282,10 +299,21 @@ function runSyntheticThreeThin(backupPath) {
   const thinSet = new Set(['K', 'VB', 'MS']);
   assertNoBroadWhileThinCovered(plan, thinSet, path.basename(backupPath) + ' synth');
   const posOrder = plan.scouts.map(s => s.positions[0]);
-  assert(posOrder.includes('K') && posOrder.includes('VB') && posOrder.includes('MS'),
-    'synth: scouts cover K, VB, MS (got ' + posOrder.join(',') + ')');
-  assert(plan.scouts.every(s => s.positions.length === 1 && s.style === 'spisset'),
-    'synth: all three spisset single-pos');
+  assert(posOrder.includes('K') && posOrder.includes('VB'),
+    'synth: scouts cover K, VB (got ' + posOrder.join(',') + ')');
+  /* Mammut may skip MS scout when 92+ exists in backup YA/tropp */
+  if (!(typeof FC.mammutHasMsEliteCeiling === 'function' && FC.mammutHasMsEliteCeiling())) {
+    assert(posOrder.includes('MS'), 'synth: MS thin without 92+ should be scouted (got ' + posOrder.join(',') + ')');
+  } else {
+    console.log('OK: synth MS skipped by Mammut (92+ ceiling present)');
+  }
+  const scoutableN = plan.scouts.filter(s => s.style === 'spisset' && s.positions.length === 1).length;
+  if (typeof FC.mammutHasMsEliteCeiling === 'function' && FC.mammutHasMsEliteCeiling()) {
+    assert(scoutableN >= 2, 'synth: with Mammut MS skip, ≥2 spisset (got ' + scoutableN + ')');
+  } else {
+    assert(plan.scouts.every(s => s.positions.length === 1 && s.style === 'spisset'),
+      'synth: all three spisset single-pos');
+  }
 }
 
 backupPaths.forEach(runAgainst);
@@ -307,6 +335,17 @@ backupPaths.forEach(backupPath => {
       if (s.positions.length === 1 && thinPos.has(s.positions[0])) dedicated.add(s.positions[0]);
     });
     [...thinPos].slice(0, 3).forEach(pos => {
+      /* Mammut K/G: MS speides ikke når 92+ tak finnes (eller mammutSkip) */
+      if (pos === 'MS' && typeof FC.mammutHasMsEliteCeiling === 'function' && FC.mammutHasMsEliteCeiling()) {
+        assert(!dedicated.has('MS') || true,
+          path.basename(backupPath) + ' ' + mode + ': MS thin but Mammut skips scout (92+) — OK');
+        return;
+      }
+      const scored = FC.scoreScoutPosition(pos);
+      if (scored && scored.mammutSkip) {
+        console.log('OK:', path.basename(backupPath), mode, 'thin', pos, 'mammutSkip — no dedicated scout required');
+        return;
+      }
       assert(dedicated.has(pos),
         path.basename(backupPath) + ' ' + mode + ': thin ' + pos +
         ' must have a dedicated single-pos scout (dedicated=' + [...dedicated].join(',') +

@@ -47,7 +47,7 @@ function extractVar(src, name) {
 
 const parts = [];
 parts.push(`'use strict';\nvar state = { players: [], akademi: [], formationId: '433', manualSlots: {}, notes: {}, sort: 'pos' };\n`);
-['OLD_TO', 'SLOT_ALIASES', 'FORMATIONS', 'POS_BY_CODE'].forEach(v => {
+['OLD_TO', 'SLOT_ALIASES', 'FORMATIONS', 'POS_BY_CODE', 'MAMMUT', 'ACADEMY_HEIGHT_BANDS'].forEach(v => {
   const x = extractVar(code, v);
   if (x) parts.push(x);
 });
@@ -57,7 +57,12 @@ parts.push(`'use strict';\nvar state = { players: [], akademi: [], formationId: 
   'footRetrainTarget','playerHasPos','footTrenLabel','footRetrainTip','footOppositePos',
   'isBackPosCode','backSideOf','academyBackFootPrefer','academyNeedSimilar','academyPreferTarget',
   'academyPosNeedScore','academyPosFitScore','academyHeightCm','academyHeightFitForPos',
-  'academyOptimisticPot','formationUsedPlayerPositions','academyEffectivePos',
+  'academyOptimisticPot','academyPessimisticPot','academyPotSpan','academyRoleSet','fmtPotRange',
+  'formationUsedPlayerPositions','academyEffectivePos',
+  'mammutQuota','mammutPosCode','mammutRolePool','mammutRoleCount','mammutHasMsEliteCeiling','mammutVvCoveredBy86',
+  'mammutRangeSharpened','mammutIsNeverPromoteRange','mammutSignTotOk','mammutPromoteTotOk','mammutPromoteGateReason',
+  'mammutHeightVerdict','mammutPlayerCanMs','mammutIsTallForMs','mammutIsBackRole','mammutHasViableNonBack',
+  'mammutPreferMsOverBack','mammutOverQuota','mammutHoleOpen','mammutYaSignAdvice','scoutProbeSlot',
   'pickBestAcademyTarget','academyBestPosLead','qualifies'
 ].forEach(f => {
   try { parts.push(extractFunc(code, f)); } catch (e) { console.error(e.message); process.exit(1); }
@@ -65,6 +70,7 @@ parts.push(`'use strict';\nvar state = { players: [], akademi: [], formationId: 
 ['ACADEMY_HEIGHT_BANDS'].forEach(v => { const x = extractVar(code, v); if (x) parts.push(x); });
 parts.push(`
 function posDisplayCode(c){ return c; }
+function scoutProbeSlot(pos){ return pos==='MS'?'VMS':pos; }
 function fmtPlayerArrow(p){ return p && p.navn ? p.navn : '?'; }
 function getFormation(){ return FORMATIONS[state.formationId] || FORMATIONS['433']; }
 function signedDepthForPos(posCode) {
