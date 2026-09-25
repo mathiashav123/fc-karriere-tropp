@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#121814">
 <title>FC Karriere-tropp</title>
-<meta name="app-build" content="20260925-mammut-lavms">
+<meta name="app-build" content="20260925-scout-sell-unused">
 <!-- build: 20260925-mammut-lavms — lav MS→back + tip-gjort setter hoved + Akademi-lister -->
 <style>
 :root {
@@ -270,6 +270,39 @@ label {
 }
 .formasjon-toolbar select { width: auto; min-width: 140px; flex: 1 1 160px; }
 #view-formasjon .pitch-card { margin-bottom: 8px; }
+/* Ubrukt-i-dybden panel (formasjon) */
+.unused-stall-card { margin-top: 8px; }
+.unused-stall-card h3 {
+  margin: 0 0 4px; font-size: 14px; font-weight: 650;
+}
+.unused-stall-card .unused-stall-sub {
+  margin: 0 0 8px; font-size: 12px; opacity: .72; line-height: 1.35;
+}
+.unused-stall-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.unused-stall-list li {
+  display: flex; align-items: baseline; gap: 6px;
+  padding: 4px 8px; border-radius: 8px;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
+  font-size: 12px; line-height: 1.3;
+}
+.unused-stall-list .us-name { font-weight: 600; }
+.unused-stall-list .us-meta { opacity: .7; font-variant-numeric: tabular-nums; }
+.unused-stall-empty { margin: 0; font-size: 12px; opacity: .65; }
+.formasjon-layout {
+  display: flex; flex-direction: column; gap: 8px;
+}
+@media (min-width: 960px) {
+  .formasjon-with-unused {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+    gap: 10px; align-items: start;
+  }
+  .formasjon-with-unused .unused-stall-card { margin-top: 0; position: sticky; top: 8px; }
+}
+
 #view-formasjon .pitch-card.recommended {
   border-color: rgba(180,140,255,.35);
   background: linear-gradient(180deg, rgba(154,122,212,.08), transparent 48px);
@@ -1499,7 +1532,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   </section>
 <section class="card pitch-card recommended" style="padding:10px">
     <h2 style="padding:4px 4px 8px">Anbefalt oppstilling
-      <span class="rec-build" title="App build" style="font-size:11px;font-weight:500;opacity:.55;margin-left:6px">build 20260924-fot-back</span>
+      <span class="rec-build" title="App build" style="font-size:11px;font-weight:500;opacity:.55;margin-left:6px">build 20260925-scout-sell-unused</span>
       <span class="rec-actions">
         <span class="rec-junior-toggle" role="group" aria-label="Vis juniorer i anbefaling">
           <button type="button" id="btn-rec-no-junior" class="active" aria-pressed="true" title="Kun A-lag — hvem som starter nå">Uten junior</button>
@@ -1511,7 +1544,13 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     <p class="rec-hint" id="rec-hint">OVR + brukbart potensial (aldersjustert). <strong>Uten junior</strong> = A-lag nå. <strong>Med junior</strong> = opprykksforslag (maks 1 junior per plass). <strong>Bruk anbefaling</strong> kopierer det du ser.</p>
     <div class="pitch readonly" id="pitch-recommended" aria-label="Anbefalt oppstilling"></div>
   </section>
-  </div>
+<section class="card unused-stall-card" id="unused-stall-card" aria-label="Spillere ikke brukt i dybden">
+  <h3>Ikke brukt i dybden <span id="unused-stall-count"></span></h3>
+  <p class="unused-stall-sub">Etter eksklusiv plassering i anbefalt #1–#3 — spillere som fortsatt står igjen i stallen.</p>
+  <ul class="unused-stall-list" id="unused-stall-list"></ul>
+  <p class="unused-stall-empty" id="unused-stall-empty" hidden>Alle i stallen er plassert i dybden.</p>
+</section>
+</div>
 
   <div id="view-akademi" class="view-page hidden" data-view-panel="akademi">
 <section class="card">
@@ -1842,6 +1881,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     /* Lav for MS (<180) → vurder VB/HB (fot + dybde) — motsatt av høy MS */
     shortMsPreferBackCm: 180,
     scoutPriority: ['HB', 'VB', 'S'],
+    starterBackupMax: 2, /* L: 1 starter + 1 backup; 3.+ = selg/lån */
     scoutNeverDefault: ['MS'], /* K: speid ikke MS (regel G/K) */
     scoutCountries: {
       K:   ['Tyskland', 'Spania', 'Nederland'],
@@ -4756,12 +4796,55 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
    * Always rebuilds auto #1/#2/#3 depth (buildXI), anbefalt XI, tips — no stale order.
    * Any edit to OVR/pot/age/foot/pos, add/remove, promote, or formation → saveState + render.
    */
+
+  function renderUnusedStall() {
+    var listEl = document.getElementById('unused-stall-list');
+    var emptyEl = document.getElementById('unused-stall-empty');
+    var countEl = document.getElementById('unused-stall-count');
+    var card = document.getElementById('unused-stall-card');
+    if (!listEl || !card) return;
+    var xi;
+    try {
+      xi = buildRecommendedXI({ includeAcademy: !!recommendIncludeJuniors });
+    } catch (eUn) {
+      listEl.innerHTML = '';
+      if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = 'Kunne ikke beregne dybde.'; }
+      if (countEl) countEl.textContent = '';
+      return;
+    }
+    var usage = playerUsage(xi);
+    var unused = (state.players || []).filter(function (p) { return !usage[p.id]; });
+    /* Sort by exclusive-role surplus first, then pot */
+    var place = buildExclusiveTroppPlacement();
+    unused.sort(function (a, b) {
+      var ia = place.roleOf[a.id], ib = place.roleOf[b.id];
+      var ra = ia && ia.rank || 99, rb = ib && ib.rank || 99;
+      if (ra !== rb) return rb - ra;
+      return (b.potensial || 0) - (a.potensial || 0) || (b.rating || 0) - (a.rating || 0);
+    });
+    listEl.innerHTML = unused.map(function (p) {
+      var info = place.roleOf[p.id];
+      var pos = (info && info.pos) ? posDisplayCode(info.pos) : posDisplayCode(p.hoved || '?');
+      var meta = pos + ' · ' + (p.rating != null ? p.rating : '?') +
+        (p.potensial != null ? ('→' + p.potensial) : '');
+      return '<li><span class="us-name">' + esc(p.navn) + '</span>' +
+        '<span class="us-meta">' + esc(meta) + '</span></li>';
+    }).join('');
+    if (countEl) countEl.textContent = unused.length ? '(' + unused.length + ')' : '';
+    if (emptyEl) {
+      emptyEl.hidden = unused.length > 0;
+      emptyEl.textContent = 'Alle i stallen er plassert i dybden.';
+    }
+    card.hidden = false;
+  }
+
   function render() {
     try {
       var xi = buildXI();
       renderSummary(xi);
       renderPitch(xi);
       renderRecommendedPitch();
+      renderUnusedStall();
       renderSquad(xi);
       renderAcademy();
       var hint = document.getElementById('formation-hint');
@@ -5104,11 +5187,16 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   function relatedPositionsFor(pos, maxN, usedFormation) {
     var rel = (SCOUT_RELATED[pos] || [pos]).slice();
     var used = usedFormation || formationUsedPlayerPositions();
-    /* Prefer related roles that are actually used in the formation */
+    /* Only related roles that map to slots in the selected formation.
+       Never fall back to SOM/WB/etc. outside the formation. */
     var filtered = rel.filter(function (p) {
-      return p === pos || used[p];
+      return !!used[p] || p === pos;
+    }).filter(function (p, i, arr) {
+      /* Drop primary if somehow not in formation (pad callers should avoid this) */
+      if (p === pos && !used[p]) return false;
+      return arr.indexOf(p) === i;
     });
-    if (filtered.length < 2) filtered = rel.slice();
+    if (!filtered.length && used[pos]) filtered = [pos];
     return filtered.slice(0, maxN || 3);
   }
 
@@ -5207,8 +5295,9 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   }
 
   /**
-   * Anbefalt XI thin map (same #1/#2 bar as pitch «thin» slots).
-   * Respects Med/Uten junior toggle. Maps VMS/HMS→MS etc. via posDisplayCode.
+   * Anbefalt XI thin map for Speiderplan (same #1/#2 bar as pitch «thin» slots).
+   * Always includes akademi (scout holes = stall+YA), independent of Med/Uten junior.
+   * Maps VMS/HMS→MS etc. via posDisplayCode.
    * A role is thin when ANY formation slot of that role lacks r1 or r2 —
    * catches midtstoppere short after exclusive assign (Vlasic on SDM ≠ MS #2).
    */
@@ -5217,7 +5306,9 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     var map = {};
     var xi;
     try {
-      xi = buildRecommendedXI({ includeAcademy: !!recommendIncludeJuniors });
+      /* Speiderplan always counts akademi for thin holes (stall+YA),
+         independent of Med/Uten junior pitch toggle. */
+      xi = buildRecommendedXI({ includeAcademy: true });
     } catch (eThin) {
       scoutXiThinByPos._cache = map;
       return map;
@@ -5268,20 +5359,25 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     /* Ideal #1+#2 per slot (MS/VMS/HMS → 4). Soft target when XI already fills #1+#2. */
     var needMin = 2 * slots;
     var yaList = academyUsableForPos(pos);
+    var code = posDisplayCode(normalizePosCode(pos) || pos) || pos;
+    var qEarly = mammutQuota(code);
+    var floor = (qEarly && qEarly.minFloor) || 84;
+    /* Speiderplan ALWAYS counts akademi for holes — Med/Uten junior is pitch-only. */
+    var usable = depth.length + yaList.length;
     var yaGood = yaList.filter(function (y) { return y.potHi >= 78; });
-    /* Med junior: YA counts toward soft usable. Uten junior: tropp only (toggle). */
-    var withJunior = !!recommendIncludeJuniors;
-    var usable = depth.length + (withJunior ? yaList.length : 0);
+    var yaMeetsFloor = yaList.some(function (y) { return y.potHi >= floor; });
+    var yaGoodCeiling = yaList.some(function (y) { return y.potHi >= 82; });
+    var bestYaPot = yaList.length ? (yaList[0].potHi || 0) : 0;
+    var combinedBestPot = Math.max(bestPot, bestYaPot);
     var shortfall = Math.max(0, needMin - usable);
     var thinTropp = depth.length < 2;
     var thinSlots = usable < needMin; /* soft under-depth vs ideal 2/slot */
 
-    var code = posDisplayCode(normalizePosCode(pos) || pos) || pos;
     var thinMap = thinMapOpt || scoutXiThinByPos();
     var xiThin = thinMap[code] || thinMap[pos] || null;
     /* Must-hunt = same thin bar as anbefalt pitch: any slot of this role lacks #1 or #2.
        Shared-pool count alone misses this (e.g. 4 MS-qualifiers but VMS without #2
-       because Vlasic is exclusive on SDM). */
+       because Vlasic is exclusive on SDM). XI thin map already includes akademi. */
     var xiRoleThin = !!(xiThin && xiThin.thinSlots > 0);
     var mustHunt = xiRoleThin || usable < 2;
     var weak = depth.length === 0 ||
@@ -5289,14 +5385,27 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       (bestPot < 76 && bestOvr < 75) ||
       (depth.length === 1 && bestPot < 82 && bestOvr < 78);
 
-    /* YA cover/skip only when Med junior — Uten junior ignores akademi for priority */
-    var yaCovered = withJunior && yaGood.length > 0;
-    var yaStrong = withJunior && !mustHunt && (
-      yaGood.some(function (y) { return y.potHi >= 82; }) ||
-      (yaGood.length >= 2 && yaGood[0].potHi >= 78)
-    );
+    /* Strong YA / Mammut-floor cover → do not hunt this hole */
+    var akademiCovers = yaMeetsFloor || yaGoodCeiling ||
+      (yaGood.length >= 2 && yaGood[0].potHi >= 78);
+    var stallCovers = depth.length >= 2 && bestPot >= Math.min(floor, 82) && !xiRoleThin;
+    var coveredByStallOrYa = akademiCovers || stallCovers ||
+      (usable >= needMin && combinedBestPot >= Math.min(floor, 80) && !xiRoleThin);
 
-    var gap = mustHunt || ((thinTropp || weak) && !yaCovered);
+    if (mustHunt && akademiCovers) {
+      /* YA who can become good at this role → skip scout hole */
+      mustHunt = false;
+    }
+    if (mustHunt && stallCovers) {
+      mustHunt = false;
+    }
+
+    var yaCovered = yaGood.length > 0 || yaMeetsFloor;
+    var yaStrong = !mustHunt && (akademiCovers || (yaCovered && usable >= 2));
+
+    var gap = mustHunt || ((thinTropp || weak) && !yaCovered && !stallCovers);
+    if (coveredByStallOrYa && !mustHunt) gap = false;
+
     var severity;
     if (mustHunt && xiThin && xiThin.missR1 > 0) {
       severity = 6; /* mangler #1 on a formation slot of this role */
@@ -5304,7 +5413,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       severity = 6;
     } else if (mustHunt) {
       severity = 5; /* mangler #2 / under 2 usable — must-hunt */
-    } else if (yaStrong) {
+    } else if (yaStrong || coveredByStallOrYa) {
       severity = 0;
     } else if (thinSlots && shortfall >= 2) {
       severity = 2; /* soft: under ideal 2/slot — not must-hunt when XI #1+#2 filled */
@@ -5314,7 +5423,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       severity = 3;
     } else if (depth.length <= 1 && !yaCovered) {
       severity = 2;
-    } else if (!yaCovered && bestPot < 82) {
+    } else if (!yaCovered && combinedBestPot < 82) {
       severity = 1;
     } else if (yaCovered && (thinTropp || weak || thinSlots)) {
       severity = 1;
@@ -5326,29 +5435,31 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
 
     var why;
     var label = posDisplayCode(pos);
-    var juniorBit = withJunior ? ' (med junior)' : ' (uten junior)';
-    if (mustHunt && xiThin && xiThin.missR1 > 0) {
-      why = 'mangler ' + label + ' #1 i anbefalt XI' + juniorBit;
+    if (coveredByStallOrYa && !mustHunt && severity === 0) {
+      if (akademiCovers && stallCovers) why = 'dekket i stall/akademi';
+      else if (akademiCovers) why = 'dekket i akademi (godt tak / Mammut-gulv)';
+      else if (stallCovers) why = 'dekket i stall';
+      else why = 'dekket i stall/akademi';
+    } else if (mustHunt && xiThin && xiThin.missR1 > 0) {
+      why = 'mangler ' + label + ' #1 i anbefalt XI (stall+akademi)';
     } else if (mustHunt && xiRoleThin) {
       why = 'tynn ' + label + '-dybde i anbefalt XI (mangler #2' +
         (xiThin.thinSlots > 1 ? ' på ' + xiThin.thinSlots + ' plasser' : '') +
-        juniorBit + ')';
+        ' — stall+akademi)';
     } else if (mustHunt && usable === 0) {
-      why = 'mangler ' + label + ' — 0 brukbare i tropp' +
-        (withJunior ? '/akademi' : '') + ' (anbefalt XI-dybde)';
+      why = 'mangler ' + label + ' — 0 brukbare i tropp/akademi (anbefalt XI-dybde)';
     } else if (mustHunt) {
       why = 'tynn ' + label + '-dybde (' + usable + ' brukbar' + (usable === 1 ? '' : 'e') +
-        ' etter anbefalt-regler, trenger minst 2' +
+        ' i stall+akademi, trenger minst 2' +
         (slots > 1 ? ' for ' + slots + ' plasser' : '') + ')';
     } else if (yaStrong) {
-      why = 'god YA-dekning (skip)';
+      why = 'dekket i akademi (skip)';
     } else if (depth.length === 0) {
       why = yaCovered ? 'ingen i tropp (YA dekker delvis)' : 'ingen i tropp eller akademi med bra potensial';
     } else if (thinTropp && !yaCovered) {
-      why = 'mangler dybde / ingen god nok i tropp' + (withJunior ? ' eller akademi' : '');
+      why = 'mangler dybde / ingen god nok i tropp eller akademi';
     } else if (weak && !yaCovered) {
-      why = 'svak dekning (' + bestOvr + '→' + bestPot + ')' +
-        (withJunior ? ', ingen god YA' : '');
+      why = 'svak dekning (' + bestOvr + '→' + bestPot + '), ingen god YA';
     } else if (thinSlots) {
       why = 'dybdeforsikring (' + usable + '/' + needMin +
         ' mot 2 per plass — anbefalt har #1+#2, speid valgfritt)';
@@ -5384,10 +5495,11 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       else severity += 1;
       why = why + ' · Mammut-prioritet';
     }
-    var q = mammutQuota(code);
+    var q = qEarly || mammutQuota(code);
     if (q && !mammutSkip) {
       var poolN = mammutRoleCount(code);
-      if (poolN < q.max && bestPot < q.minFloor) {
+      /* Combined stall+YA ceiling vs Mammut gulv */
+      if (poolN < q.max && combinedBestPot < q.minFloor) {
         if (severity < 3) severity = Math.max(severity, 3);
         gap = true;
         why = why + ' · under Mammut-gulv ' + q.minFloor;
@@ -5408,10 +5520,12 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       shortfall: shortfall,
       yaCovered: yaCovered,
       yaStrong: yaStrong,
+      coveredByStallOrYa: coveredByStallOrYa,
       mammutSkip: mammutSkip,
       depth: depth.length,
       bestOvr: bestOvr,
       bestPot: bestPot,
+      combinedBestPot: combinedBestPot,
       why: why,
       severity: severity,
       text: 'Speid etter ' + label + ' — ' + why,
@@ -5454,12 +5568,19 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
    * Broad «speid og se» pad ONLY for leftover scout(s) when fewer than 3 distinct thin roles.
    */
   function computeScoutPlan() {
-    var FALLBACK_ORDER = ['HB', 'VB', 'S', 'SM', 'SDM', 'VV', 'HV', 'K', 'SOM', 'VM', 'HM']; /* Mammut: ikke MS */
     var usedForm = formationUsedPlayerPositions();
+    /* Only roles that map to slots in the selected formation — never SOM/WB/etc. if unused. */
+    var FALLBACK_ALL = ['HB', 'VB', 'S', 'SM', 'SDM', 'VV', 'HV', 'K', 'SOM', 'VM', 'HM']; /* Mammut: ikke MS */
+    var FALLBACK_ORDER = FALLBACK_ALL.filter(function (p) { return !!usedForm[p]; });
+    if (!FALLBACK_ORDER.length) {
+      FALLBACK_ORDER = usedPositionsOrdered().filter(function (p) { return p !== 'MS'; });
+    }
     invalidateScoutXiThinCache();
     var thinMap = scoutXiThinByPos();
     var scored = usedPositionsOrdered().map(function (pos) {
       return scoreScoutPosition(pos, thinMap);
+    }).filter(function (s) {
+      return s && usedForm[s.pos];
     });
     scored.sort(function (a, b) {
       if (a.mammutSkip && !b.mammutSkip) return 1;
@@ -5475,9 +5596,12 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       return b.severity - a.severity || a.usable - b.usable || a.bestPot - b.bestPot || a.pos.localeCompare(b.pos);
     });
 
-    /* Prefer real needs; Mammut: skip MS when 92+ / mammutSkip */
+    /* Prefer real needs; Mammut: skip MS when 92+ / mammutSkip.
+       Skip roles already dekket i stall/akademi. Formation-only. */
     var candidates = scored.filter(function (s) {
+      if (!s || !usedForm[s.pos]) return false;
       if (s.mammutSkip) return false;
+      if (s.coveredByStallOrYa && !s.mustHunt) return false;
       if (s.pos === 'MS' && mammutHasMsEliteCeiling()) return false;
       return s.mustHunt || (s.severity > 0 && !s.yaStrong);
     });
@@ -5486,7 +5610,9 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
 
     function pushMission(s, forceWhy) {
       if (!s || seenPos[s.pos]) return false;
+      if (!usedForm[s.pos]) return false; /* never scout outside formation */
       if (s.mammutSkip) return false;
+      if (s.coveredByStallOrYa && !s.mustHunt && !forceWhy) return false;
       if (s.pos === 'MS' && mammutHasMsEliteCeiling()) return false;
       seenPos[s.pos] = true;
       if (forceWhy) {
@@ -5508,11 +5634,11 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     /* 2) Other real needs */
     candidates.forEach(function (s) { if (picked.length < 3) pushMission(s); });
 
-    /* Mild opportunistic: used formation roles without strong YA */
+    /* Mild opportunistic: used formation roles without strong YA / stall cover */
     if (picked.length < 3) {
       scored.forEach(function (s) {
         if (picked.length >= 3) return;
-        if (s.yaStrong) return;
+        if (s.yaStrong || s.coveredByStallOrYa) return;
         pushMission(s, s.severity > 0 ? null : 'dybdeforsikring / speid og se');
       });
     }
@@ -5590,19 +5716,31 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
 
       var positions;
       if (maxPos === 1) {
-        positions = [mission.pos];
+        positions = usedForm[mission.pos] ? [mission.pos] : [];
       } else {
         positions = relatedPositionsFor(mission.pos, maxPos, usedForm);
         positions = positions.filter(function (p, i) {
+          if (!usedForm[p]) return false; /* formation-only */
           if (i === 0) return true;
-          return !scoreScoutPosition(p).yaStrong;
+          var sp = scoreScoutPosition(p);
+          return !(sp.yaStrong || sp.coveredByStallOrYa);
         });
-        if (!positions.length) positions = [mission.pos];
-        /* Broad scout: ensure 2–3 roles when cluster exists */
+        if (!positions.length && usedForm[mission.pos]) positions = [mission.pos];
+        /* Broad scout: ensure 2–3 formation roles when cluster exists */
         if (style === 'speid' && positions.length < 2) {
-          var broad = relatedPositionsFor(mission.pos, 3, usedForm);
+          var broad = relatedPositionsFor(mission.pos, 3, usedForm).filter(function (p) {
+            return !!usedForm[p];
+          });
           if (broad.length >= 2) positions = broad.slice(0, 3);
         }
+      }
+      if (!positions.length) {
+        /* Last resort: first unused formation role from fallback */
+        for (var fi = 0; fi < FALLBACK_ORDER.length; fi++) {
+          if (!seenPos[FALLBACK_ORDER[fi]]) { positions = [FALLBACK_ORDER[fi]]; break; }
+        }
+        if (!positions.length && FALLBACK_ORDER.length) positions = [FALLBACK_ORDER[0]];
+        if (!positions.length) positions = [mission.pos];
       }
 
       var countries = pickScoutCountries(mission.pos, usedCountries);
@@ -5688,7 +5826,9 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
         if (rel.length >= 2) alt = { mission: s, positions: rel.slice(0, 3) };
       });
       if (alt) {
-        s3.positions = alt.positions;
+        s3.positions = (alt.positions || []).filter(function (p) { return !!usedForm[p]; });
+        if (!s3.positions.length && usedForm[alt.mission.pos]) s3.positions = [alt.mission.pos];
+        if (!s3.positions.length) s3.positions = relatedPositionsFor(alt.mission.pos, 3, usedForm);
         s3.why = 'bred pad (kun ' + thinMissionCount +
           ' tynn' + (thinMissionCount === 1 ? '' : 'e') +
           ' posisjon' + (thinMissionCount === 1 ? '' : 'er') +
@@ -5715,12 +5855,25 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       s3.focused = false;
     }
 
-    /* Hard invariant: exactly 3 speidere */
+    /* Hard invariant: exactly 3 speidere; formation-only positions */
     scouts = scouts.slice(0, 3);
     while (scouts.length < 3) {
       scouts.push(buildScout(scouts.length + 1, null, scouts.length === 2 ? 'speid' : 'trengs'));
     }
-    scouts.forEach(function (s, i) { s.index = i + 1; });
+    scouts.forEach(function (s, i) {
+      s.index = i + 1;
+      s.positions = (s.positions || []).filter(function (p) { return !!usedForm[p]; });
+      if (!s.positions.length) {
+        for (var ui = 0; ui < FALLBACK_ORDER.length; ui++) {
+          if (!FALLBACK_ORDER[ui]) continue;
+          s.positions = [FALLBACK_ORDER[ui]];
+          break;
+        }
+      }
+      if (!s.positions.length) s.positions = usedPositionsOrdered().slice(0, 1);
+      s.labels = s.positions.map(posDisplayCode);
+      s.targets = scoutTargetsForPositions(s.positions);
+    });
 
     return { scouts: scouts, targets: targets, missions: scouts };
   }
@@ -5761,7 +5914,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       var merk = hasMulti
         ? '<p class="sp-merk">Merk: flere posisjoner = færre av hver — greit når du bare speider bredt.</p>'
         : '';
-      var avgNote = '<p class="sp-hint">OVR/pot per speider fra tropp+akademi-dybde (samme bar som anbefalt). Land er rolle-tilpasset — K: høye keeper-nasjoner (ikke Brasil). Ikke fast 58/88.</p>';
+      var avgNote = '<p class="sp-hint">OVR/pot og hull fra stall+akademi (speiderplan teller alltid YA). Kun posisjoner i valgt formasjon. Land er rolle-tilpasset — K: høye keeper-nasjoner (ikke Brasil). Ikke fast 58/88.</p>';
       el.innerHTML =
         '<h3>Speiderplan (3 speidere)</h3>' +
         cards +
@@ -5824,7 +5977,14 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       return 'utenom minste dekning på ' + best.pos;
     }
 
-    var surplus = state.players.filter(function (p) { return !usedMin2[p.id]; });
+    /* Surplus = not in anbefalt min-2 seats, OR exclusive-role extras beyond Mammut max */
+    var exclPlaceTips = buildExclusiveTroppPlacement();
+    var surplus = state.players.filter(function (p) {
+      if (!usedMin2[p.id]) return true;
+      var info = exclPlaceTips.roleOf[p.id];
+      if (!info || !info.pos || info.unplaced) return !!info && info.unplaced;
+      return info.rank > mammutMaxForRole(info.pos);
+    });
 
     function sellScore(p) {
       var age = p.alder != null ? p.alder : 24;
@@ -5851,23 +6011,24 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       return age <= 22 && p.potensial >= 75 && growth >= 6;
     }
 
-    /* Mammut: over-kvote tips (lavest gulv/TOT) */
+    /* Mammut: over-kvote tips — EXCLUSIVE role depth (no multi-count hoved+ekstra) */
     Object.keys(MAMMUT.quotas).forEach(function (code) {
       if (tips.length >= 4) return;
       var q = MAMMUT.quotas[code];
-      var depth = signedDepthForPos(code);
+      var depth = exclusiveDepthForPos(code);
       if (depth.length <= q.max) return;
-      var sorted = depth.slice().sort(function (a, b) {
+      /* Extras after exclusive place = sell/loan candidates (lowest floor/TOT) */
+      var extras = depth.slice(q.max).slice().sort(function (a, b) {
         var ap = a.potensial || 0, bp = b.potensial || 0;
         if (ap !== bp) return ap - bp;
         return (a.rating || 0) - (b.rating || 0);
       });
-      var victim = sorted[0];
+      var victim = extras[0] || null;
       if (!victim || tips.some(function (t) { return t.text.indexOf(victim.navn) >= 0; })) return;
       tips.push({
         kind: 'selg',
         text: 'Slipp/selg: ' + victim.navn + ' — over kvote ' + code +
-          ' (' + depth.length + '/' + q.max + '), lavest tak/TOT (Mammut)'
+          ' (' + depth.length + '/' + q.max + ' etter eksklusiv plassering), lavest tak/TOT (Mammut)'
       });
     });
 
@@ -6106,6 +6267,144 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     if (!pl) return '';
     return pl.navn + ' (' + pl.rating + '→' + pl.potensial + ')';
   }
+
+
+  /**
+   * Exclusive tropp placement: every stall player in exactly ONE role.
+   * Same spirit as anbefalt exclusive XI — no multi-count across hoved+ekstra.
+   * Used for sell/surplus tips, role depth ranks, and «ikke brukt» list.
+   */
+  function buildExclusiveTroppPlacement() {
+    var formation = getFormation();
+    var usedForm = formationUsedPlayerPositions();
+    var roleList = [];
+    Object.keys(usedForm).forEach(function (r) {
+      var c = posDisplayCode(r) || r;
+      if (c && roleList.indexOf(c) < 0) roleList.push(c);
+    });
+    if (!roleList.length) {
+      usedPositionsOrdered().forEach(function (r) {
+        if (roleList.indexOf(r) < 0) roleList.push(r);
+      });
+    }
+    var byPos = {};
+    roleList.forEach(function (r) { byPos[r] = []; });
+    var roleOf = {};
+    var pool = (state.players || []).slice();
+    var used = {};
+    var guard = 0;
+    function qualifiesRole(p, role) {
+      var probe = scoutProbeSlot(role);
+      return qualifiesForRecommend(p, probe) || qualifiesForRecommend(p, role) ||
+        qualifies(p, probe) || qualifies(p, role);
+    }
+    function rankKeyFor(role) {
+      var n = (byPos[role] && byPos[role].length) || 0;
+      if (n <= 0) return 'r1';
+      if (n === 1) return 'r2';
+      return 'r3';
+    }
+    while (Object.keys(used).length < pool.length && guard++ < pool.length + 4) {
+      var bestByRole = {};
+      roleList.forEach(function (role) {
+        var cands = [];
+        for (var i = 0; i < pool.length; i++) {
+          var p = pool[i];
+          if (used[p.id]) continue;
+          if (!qualifiesRole(p, role)) continue;
+          cands.push(p);
+        }
+        if (!cands.length) return;
+        var rk = rankKeyFor(role);
+        cands.sort(function (a, b) {
+          return compareRecommendPair(a, b, role, rk, formation);
+        });
+        bestByRole[role] = cands[0];
+      });
+      var claims = {};
+      Object.keys(bestByRole).forEach(function (role) {
+        var p = bestByRole[role];
+        if (!p) return;
+        if (!claims[p.id]) claims[p.id] = [];
+        claims[p.id].push(role);
+      });
+      var progressed = false;
+      Object.keys(bestByRole).forEach(function (role) {
+        var p = bestByRole[role];
+        if (!p || used[p.id]) return;
+        if (claims[p.id].length !== 1) return;
+        used[p.id] = true;
+        byPos[role].push(p);
+        roleOf[p.id] = { pos: role, rank: byPos[role].length };
+        progressed = true;
+      });
+      if (progressed) continue;
+      var contested = null;
+      Object.keys(claims).forEach(function (pid) {
+        if (claims[pid].length < 2) return;
+        var p = null;
+        for (var i = 0; i < pool.length; i++) {
+          if (String(pool[i].id) === String(pid)) { p = pool[i]; break; }
+        }
+        if (!p || used[p.id]) return;
+        if (!contested ||
+            usablePotential(p) > usablePotential(contested) ||
+            (usablePotential(p) === usablePotential(contested) &&
+              (p.rating || 0) > (contested.rating || 0))) {
+          contested = p;
+        }
+      });
+      if (!contested) {
+        /* Leftovers: assign to hoved-in-formation or first qualifying role */
+        pool.forEach(function (p) {
+          if (used[p.id]) return;
+          var prefer = posDisplayCode(normalizePosCode(p.hoved) || p.hoved) || null;
+          if (prefer && !byPos[prefer]) prefer = null;
+          if (prefer && !qualifiesRole(p, prefer)) prefer = null;
+          if (!prefer) {
+            for (var ri = 0; ri < roleList.length; ri++) {
+              if (qualifiesRole(p, roleList[ri])) { prefer = roleList[ri]; break; }
+            }
+          }
+          used[p.id] = true;
+          if (!prefer) {
+            roleOf[p.id] = { pos: null, rank: 0, unplaced: true };
+            return;
+          }
+          byPos[prefer].push(p);
+          roleOf[p.id] = { pos: prefer, rank: byPos[prefer].length };
+        });
+        break;
+      }
+      var opts = claims[contested.id];
+      var bestRole = opts[0];
+      var bestScore = -Infinity;
+      for (var si = 0; si < opts.length; si++) {
+        var role = opts[si];
+        var rk = rankKeyFor(role);
+        var sc = recommendSlotScore(contested, role, rk, formation, null);
+        if (sc > bestScore) { bestScore = sc; bestRole = role; }
+      }
+      used[contested.id] = true;
+      byPos[bestRole].push(contested);
+      roleOf[contested.id] = { pos: bestRole, rank: byPos[bestRole].length };
+    }
+    return { byPos: byPos, roleOf: roleOf, roles: roleList };
+  }
+
+  function exclusiveDepthForPos(posCode) {
+    var code = posDisplayCode(normalizePosCode(posCode) || posCode) || posCode;
+    var place = buildExclusiveTroppPlacement();
+    return (place.byPos[code] || []).slice();
+  }
+
+  function mammutMaxForRole(code) {
+    var q = mammutQuota(code);
+    if (q && q.max) return q.max;
+    if (code === 'MS' || code === 'SM') return 3;
+    return MAMMUT.starterBackupMax || 2;
+  }
+
 
   /** Signed players who qualify for pos, sorted by potensial then rating (long-term depth). */
   function signedDepthForPos(posCode) {
@@ -7958,6 +8257,26 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
 
   /** Best used/effective role for a signed player (formation remaps: SOM→SM, HM→HV, VM→VV). */
   function troppRoleForPlayer(player) {
+    /* Fast path: exclusive stall placement (one role each) drives sell/surplus ranks */
+    var exclPlace = buildExclusiveTroppPlacement();
+    var exclInfo = exclPlace.roleOf && player ? exclPlace.roleOf[player.id] : null;
+    if (exclInfo && exclInfo.pos && !exclInfo.unplaced) {
+      var depthEx = (exclPlace.byPos[exclInfo.pos] || []).slice();
+      var maxEx = mammutMaxForRole(exclInfo.pos);
+      var usedEx = formationUsedPlayerPositions();
+      var hovedEx = normalizePosCode(player.hoved);
+      var effEx = academyEffectivePos(hovedEx || exclInfo.pos, usedEx);
+      return {
+        raw: effEx.raw || exclInfo.pos,
+        pos: exclInfo.pos,
+        remap: (effEx.effective === exclInfo.pos) ? effEx.remap : null,
+        depth: depthEx,
+        rank: exclInfo.rank,
+        thin: depthEx.length < 2,
+        crowded: depthEx.length > maxEx,
+        isHoved: !!hovedEx && (posDisplayCode(hovedEx) === exclInfo.pos || hovedEx === exclInfo.pos)
+      };
+    }
     var used = formationUsedPlayerPositions();
     var positions = playerPositions(player);
     if (!positions.length) {
@@ -7970,20 +8289,27 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
       var raw = normalizePosCode(positions[i]) || positions[i];
       if (!raw) continue;
       var eff = academyEffectivePos(raw, used);
-      var depth = signedDepthForPos(eff.effective);
-      var rank = 1;
+      /* Exclusive depth for this effective role — player counts in ONE role only */
+      var depth = exclusiveDepthForPos(eff.effective);
+      var rank = 0;
       for (var d = 0; d < depth.length; d++) {
         if (depth[d].id === player.id) { rank = d + 1; break; }
-        rank = d + 2;
       }
+      var place = buildExclusiveTroppPlacement();
+      var excl = place.roleOf[player.id];
+      /* Prefer the role exclusive assign actually put them in */
+      if (excl && excl.pos && excl.pos !== eff.effective && !excl.unplaced) {
+        /* skip non-assigned candidates unless hoved probe */
+      }
+      var maxN = mammutMaxForRole(posDisplayCode(eff.effective) || eff.effective);
       var entry = {
         raw: eff.raw,
         pos: eff.effective,
         remap: eff.remap,
         depth: depth,
-        rank: rank,
+        rank: rank || (excl && excl.pos === eff.effective ? excl.rank : depth.length + 1),
         thin: depth.length < 2,
-        crowded: depth.length >= 3,
+        crowded: depth.length > maxN,
         isHoved: !!hoved && raw === hoved
       };
       // Prefer hoved unless remap makes ekstra clearly better for used formation.
