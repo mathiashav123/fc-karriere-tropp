@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#121814">
 <title>FC Karriere-tropp</title>
-<meta name="app-build" content="20260925-scout-sell-unused">
-<!-- build: 20260925-mammut-lavms — lav MS→back + tip-gjort setter hoved + Akademi-lister -->
+<meta name="app-build" content="20260925-unused-right">
+<!-- build: 20260925-unused-right — unused lists right of each pitch (din + anbefalt) -->
 <style>
 :root {
   --bg: #121814;
@@ -270,37 +270,45 @@ label {
 }
 .formasjon-toolbar select { width: auto; min-width: 140px; flex: 1 1 160px; }
 #view-formasjon .pitch-card { margin-bottom: 8px; }
-/* Ubrukt-i-dybden panel (formasjon) */
-.unused-stall-card { margin-top: 8px; }
+/* Ubrukt-spillere paneler (høyre for hver pitch) */
+.formasjon-block { margin-bottom: 8px; }
+.unused-stall-card {
+  margin-top: 8px; padding: 10px;
+  max-height: none;
+}
 .unused-stall-card h3 {
-  margin: 0 0 4px; font-size: 14px; font-weight: 650;
+  margin: 0 0 4px; font-size: 13px; font-weight: 650;
 }
 .unused-stall-card .unused-stall-sub {
-  margin: 0 0 8px; font-size: 12px; opacity: .72; line-height: 1.35;
+  margin: 0 0 8px; font-size: 11px; opacity: .72; line-height: 1.35;
 }
 .unused-stall-list {
   list-style: none; margin: 0; padding: 0;
-  display: flex; flex-wrap: wrap; gap: 6px;
+  display: flex; flex-direction: column; gap: 4px;
 }
 .unused-stall-list li {
-  display: flex; align-items: baseline; gap: 6px;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
   padding: 4px 8px; border-radius: 8px;
   background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
   font-size: 12px; line-height: 1.3;
 }
-.unused-stall-list .us-name { font-weight: 600; }
-.unused-stall-list .us-meta { opacity: .7; font-variant-numeric: tabular-nums; }
+.unused-stall-list .us-name { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.unused-stall-list .us-meta { opacity: .7; font-variant-numeric: tabular-nums; flex-shrink: 0; }
 .unused-stall-empty { margin: 0; font-size: 12px; opacity: .65; }
-.formasjon-layout {
+.formasjon-with-unused {
   display: flex; flex-direction: column; gap: 8px;
 }
-@media (min-width: 960px) {
+@media (min-width: 900px) {
   .formasjon-with-unused {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+    grid-template-columns: minmax(0, 1fr) minmax(170px, 220px);
     gap: 10px; align-items: start;
   }
-  .formasjon-with-unused .unused-stall-card { margin-top: 0; position: sticky; top: 8px; }
+  .formasjon-with-unused .unused-stall-card {
+    margin-top: 0; position: sticky; top: 8px;
+    max-height: calc(100vh - 24px); overflow: auto;
+  }
+  .formasjon-with-unused .pitch-card { margin-bottom: 0; }
 }
 
 #view-formasjon .pitch-card.recommended {
@@ -1526,13 +1534,22 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       <p class="desktop-hint" style="display:block;margin:0 0 8px">Dra spillere mellom plasser · klikk tom plass for å velge · klikk spiller for meny</p>
       <p class="hint" id="formation-hint"></p>
     </section>
+<div class="formasjon-block formasjon-with-unused">
 <section class="card pitch-card" style="padding:10px">
     <h2 style="padding:4px 4px 8px">Din oppstilling · #1 · #2 · #3</h2>
     <div class="pitch" id="pitch" aria-label="Formasjonsdiagram"></div>
   </section>
+<section class="card unused-stall-card" id="unused-din-card" aria-label="Spillere ikke brukt i din oppstilling">
+  <h3>Ikke brukt her <span id="unused-din-count"></span></h3>
+  <p class="unused-stall-sub">I stallen, men ikke plassert i din #1–#3.</p>
+  <ul class="unused-stall-list" id="unused-din-list"></ul>
+  <p class="unused-stall-empty" id="unused-din-empty" hidden>Alle i stallen er brukt her.</p>
+</section>
+</div>
+<div class="formasjon-block formasjon-with-unused">
 <section class="card pitch-card recommended" style="padding:10px">
     <h2 style="padding:4px 4px 8px">Anbefalt oppstilling
-      <span class="rec-build" title="App build" style="font-size:11px;font-weight:500;opacity:.55;margin-left:6px">build 20260925-scout-sell-unused</span>
+      <span class="rec-build" title="App build" style="font-size:11px;font-weight:500;opacity:.55;margin-left:6px">build 20260925-unused-right</span>
       <span class="rec-actions">
         <span class="rec-junior-toggle" role="group" aria-label="Vis juniorer i anbefaling">
           <button type="button" id="btn-rec-no-junior" class="active" aria-pressed="true" title="Kun A-lag — hvem som starter nå">Uten junior</button>
@@ -1544,12 +1561,13 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     <p class="rec-hint" id="rec-hint">OVR + brukbart potensial (aldersjustert). <strong>Uten junior</strong> = A-lag nå. <strong>Med junior</strong> = opprykksforslag (maks 1 junior per plass). <strong>Bruk anbefaling</strong> kopierer det du ser.</p>
     <div class="pitch readonly" id="pitch-recommended" aria-label="Anbefalt oppstilling"></div>
   </section>
-<section class="card unused-stall-card" id="unused-stall-card" aria-label="Spillere ikke brukt i dybden">
-  <h3>Ikke brukt i dybden <span id="unused-stall-count"></span></h3>
-  <p class="unused-stall-sub">Etter eksklusiv plassering i anbefalt #1–#3 — spillere som fortsatt står igjen i stallen.</p>
-  <ul class="unused-stall-list" id="unused-stall-list"></ul>
-  <p class="unused-stall-empty" id="unused-stall-empty" hidden>Alle i stallen er plassert i dybden.</p>
+<section class="card unused-stall-card" id="unused-rec-card" aria-label="Spillere ikke brukt i anbefalt dybde">
+  <h3>Ikke brukt i anbefalt <span id="unused-rec-count"></span></h3>
+  <p class="unused-stall-sub">Etter eksklusiv plassering i anbefalt #1–#3.</p>
+  <ul class="unused-stall-list" id="unused-rec-list"></ul>
+  <p class="unused-stall-empty" id="unused-rec-empty" hidden>Alle i stallen er plassert i anbefalt.</p>
 </section>
+</div>
 </div>
 
   <div id="view-akademi" class="view-page hidden" data-view-panel="akademi">
@@ -4797,31 +4815,14 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
    * Any edit to OVR/pot/age/foot/pos, add/remove, promote, or formation → saveState + render.
    */
 
-  function renderUnusedStall() {
-    var listEl = document.getElementById('unused-stall-list');
-    var emptyEl = document.getElementById('unused-stall-empty');
-    var countEl = document.getElementById('unused-stall-count');
-    var card = document.getElementById('unused-stall-card');
+  function fillUnusedList(opts) {
+    var listEl = document.getElementById(opts.listId);
+    var emptyEl = document.getElementById(opts.emptyId);
+    var countEl = document.getElementById(opts.countId);
+    var card = document.getElementById(opts.cardId);
     if (!listEl || !card) return;
-    var xi;
-    try {
-      xi = buildRecommendedXI({ includeAcademy: !!recommendIncludeJuniors });
-    } catch (eUn) {
-      listEl.innerHTML = '';
-      if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = 'Kunne ikke beregne dybde.'; }
-      if (countEl) countEl.textContent = '';
-      return;
-    }
-    var usage = playerUsage(xi);
-    var unused = (state.players || []).filter(function (p) { return !usage[p.id]; });
-    /* Sort by exclusive-role surplus first, then pot */
-    var place = buildExclusiveTroppPlacement();
-    unused.sort(function (a, b) {
-      var ia = place.roleOf[a.id], ib = place.roleOf[b.id];
-      var ra = ia && ia.rank || 99, rb = ib && ib.rank || 99;
-      if (ra !== rb) return rb - ra;
-      return (b.potensial || 0) - (a.potensial || 0) || (b.rating || 0) - (a.rating || 0);
-    });
+    var unused = opts.unused || [];
+    var place = opts.place || { roleOf: {} };
     listEl.innerHTML = unused.map(function (p) {
       var info = place.roleOf[p.id];
       var pos = (info && info.pos) ? posDisplayCode(info.pos) : posDisplayCode(p.hoved || '?');
@@ -4833,9 +4834,74 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     if (countEl) countEl.textContent = unused.length ? '(' + unused.length + ')' : '';
     if (emptyEl) {
       emptyEl.hidden = unused.length > 0;
-      emptyEl.textContent = 'Alle i stallen er plassert i dybden.';
+      emptyEl.textContent = opts.emptyText || 'Ingen igjen.';
     }
     card.hidden = false;
+  }
+
+  function sortUnusedPlayers(unused, place) {
+    unused.sort(function (a, b) {
+      var ia = place.roleOf[a.id], ib = place.roleOf[b.id];
+      var ra = ia && ia.rank || 99, rb = ib && ib.rank || 99;
+      if (ra !== rb) return rb - ra;
+      return (b.potensial || 0) - (a.potensial || 0) || (b.rating || 0) - (a.rating || 0);
+    });
+    return unused;
+  }
+
+  /**
+   * Two unused panels beside pitches:
+   * - Din: stall minus players on his #1–#3 (buildXI / exclusive depth).
+   * - Anbefalt: stall minus exclusive #1–#3 in recommended XI.
+   */
+  function renderUnusedStall(dinXi) {
+    var place;
+    try { place = buildExclusiveTroppPlacement(); }
+    catch (ePl) { place = { roleOf: {} }; }
+
+    /* —— Din oppstilling —— */
+    var dinUsage = {};
+    try {
+      var xiDin = dinXi || buildXI();
+      dinUsage = playerUsage(xiDin) || {};
+    } catch (eDin) { dinUsage = {}; }
+    var unusedDin = (state.players || []).filter(function (p) {
+      return !dinUsage[p.id] && !String(p.id).startsWith('acad:');
+    });
+    sortUnusedPlayers(unusedDin, place);
+    fillUnusedList({
+      listId: 'unused-din-list', emptyId: 'unused-din-empty',
+      countId: 'unused-din-count', cardId: 'unused-din-card',
+      unused: unusedDin, place: place,
+      emptyText: 'Alle i stallen er brukt her.'
+    });
+
+    /* —— Anbefalt —— */
+    var recUsage = {};
+    try {
+      var xiRec = buildRecommendedXI({ includeAcademy: !!recommendIncludeJuniors });
+      recUsage = playerUsage(xiRec) || {};
+    } catch (eRec) {
+      fillUnusedList({
+        listId: 'unused-rec-list', emptyId: 'unused-rec-empty',
+        countId: 'unused-rec-count', cardId: 'unused-rec-card',
+        unused: [], place: place,
+        emptyText: 'Kunne ikke beregne dybde.'
+      });
+      var emptyRec = document.getElementById('unused-rec-empty');
+      if (emptyRec) emptyRec.hidden = false;
+      return;
+    }
+    var unusedRec = (state.players || []).filter(function (p) {
+      return !recUsage[p.id] && !String(p.id).startsWith('acad:');
+    });
+    sortUnusedPlayers(unusedRec, place);
+    fillUnusedList({
+      listId: 'unused-rec-list', emptyId: 'unused-rec-empty',
+      countId: 'unused-rec-count', cardId: 'unused-rec-card',
+      unused: unusedRec, place: place,
+      emptyText: 'Alle i stallen er plassert i anbefalt.'
+    });
   }
 
   function render() {
@@ -4844,7 +4910,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       renderSummary(xi);
       renderPitch(xi);
       renderRecommendedPitch();
-      renderUnusedStall();
+      renderUnusedStall(xi);
       renderSquad(xi);
       renderAcademy();
       var hint = document.getElementById('formation-hint');
