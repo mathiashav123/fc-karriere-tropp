@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#121814">
 <title>FC Karriere-tropp</title>
-<meta name="app-build" content="20260925-mammut-ui">
-<!-- build: 20260925-mammut-ui — Mammut A–M + Akademi rangering/slipp/vent/signer -->
+<meta name="app-build" content="20260925-mammut-lavms">
+<!-- build: 20260925-mammut-lavms — lav MS→back + tip-gjort setter hoved + Akademi-lister -->
 <style>
 :root {
   --bg: #121814;
@@ -1839,6 +1839,8 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     },
     /* Høy + kan MS → ikke anbefal VB/HB med mindre back er eneste realistiske rolle */
     tallMsPreferCm: 180,
+    /* Lav for MS (<180) → vurder VB/HB (fot + dybde) — motsatt av høy MS */
+    shortMsPreferBackCm: 180,
     scoutPriority: ['HB', 'VB', 'S'],
     scoutNeverDefault: ['MS'], /* K: speid ikke MS (regel G/K) */
     scoutCountries: {
@@ -1999,6 +2001,51 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     return cm != null && cm >= MAMMUT.tallMsPreferCm;
   }
 
+  /** Lav for MS (under Mammut MS_disadv / shortMsPreferBackCm). */
+  function mammutIsShortForMs(cm) {
+    if (cm == null) return false;
+    var lim = MAMMUT.shortMsPreferBackCm != null
+      ? MAMMUT.shortMsPreferBackCm
+      : (MAMMUT.height && MAMMUT.height.MS_disadvUnder) || 180;
+    return cm < lim;
+  }
+
+  /** Natural back pos for fot: H→HB, V→VB (wingback aliases only if no plain back). */
+  function mammutNaturalBackPos(fot) {
+    var f = normalizeFot(fot);
+    if (f === 'H') return 'HB';
+    if (f === 'V') return 'VB';
+    return null;
+  }
+
+  /** True when player has VB/HB (or wingback) among positions. */
+  function mammutPlayerCanBack(player) {
+    if (!player) return false;
+    var set = academyRoleSet(player);
+    return !!(set.VB || set.HB || set.VWB || set.HWB || set.LB || set.RB || set.LWB || set.RWB);
+  }
+
+  /**
+   * Lav MS-capable + kan back → prefer natural-foot back over MS.
+   * Opposite of mammutPreferMsOverBack (tall).
+   */
+  function mammutPreferBackOverMs(player, candidatePos) {
+    if (!mammutPlayerCanMs(player)) return false;
+    if (!mammutPlayerCanBack(player)) return false;
+    var cm = academyHeightCm(player);
+    if (!mammutIsShortForMs(cm)) return false;
+    if (mammutIsTallForMs(cm)) return false;
+    var code = mammutPosCode(candidatePos);
+    if (code === 'MS') return true; /* penalize MS when short */
+    if (!mammutIsBackRole(candidatePos)) return false;
+    var nat = mammutNaturalBackPos(player.fot);
+    if (nat && code !== nat && code !== (nat === 'HB' ? 'HWB' : 'VWB')) {
+      /* wrong-foot back — soft, still prefer over MS but natural side wins in preferTarget */
+      return true;
+    }
+    return true;
+  }
+
   function mammutIsBackRole(pos) {
     var c = mammutPosCode(pos);
     return c === 'VB' || c === 'HB' || c === 'VWB' || c === 'HWB';
@@ -2021,6 +2068,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     if (!mammutPlayerCanMs(player)) return false;
     var cm = academyHeightCm(player);
     if (!mammutIsTallForMs(cm)) return false;
+    if (mammutIsShortForMs(cm)) return false;
     return mammutHasViableNonBack(player);
   }
 
@@ -2733,21 +2781,50 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     return true;
   }
 
+  /**
+   * Tip «gjort» for pos-bytte / Tren til / Best på:
+   * ny pos → hoved; gammel hoved → ekstra; fjern ny fra ekstra.
+   * Tropp + akademi. Persist via saveState.
+   */
+  function applyPosChangeAsHoved(player, posCode) {
+    if (!player || !posCode) return { ok: false, reason: 'mangler' };
+    var target = normalizePosCode(posCode) || String(posCode || '').toUpperCase();
+    if (!target || !POS_BY_CODE[target]) return { ok: false, reason: 'ugyldig pos' };
+    var oldHoved = normalizePosCode(player.hoved) || player.hoved || 'SM';
+    if (oldHoved === target) {
+      return { ok: false, reason: 'already', label: posDisplayCode(target), oldLabel: posDisplayCode(oldHoved) };
+    }
+    var ekstra = normalizeEkstra(player.ekstra || []).filter(function (c) {
+      return c && c !== target && c !== oldHoved;
+    });
+    if (oldHoved && oldHoved !== target && ekstra.indexOf(oldHoved) < 0) {
+      ekstra.push(oldHoved);
+    }
+    player.hoved = target;
+    player.ekstra = ekstra;
+    return {
+      ok: true,
+      label: posDisplayCode(target),
+      oldLabel: posDisplayCode(oldHoved)
+    };
+  }
+
   function applyTrenTipDone(playerId, posCode) {
     var hit = findPlayerById(playerId);
     if (!hit) {
       flashMsg('Fant ikke spilleren', 'warn');
       return;
     }
-    var target = normalizePosCode(posCode) || String(posCode || '').toUpperCase();
-    var label = posDisplayCode(target);
-    var added = addEkstraPosToPlayer(hit.player, target);
+    var result = applyPosChangeAsHoved(hit.player, posCode);
     saveState();
     render();
-    if (added) {
-      flashMsg(hit.player.navn + ': ' + label + ' lagt til som ekstra ✓', 'success');
+    if (result.ok) {
+      flashMsg(hit.player.navn + ': hoved → ' + result.label +
+        ' (tidligere ' + result.oldLabel + ' som ekstra) ✓', 'success');
+    } else if (result.reason === 'already') {
+      flashMsg(hit.player.navn + ' har allerede ' + (result.label || '') + ' som hoved');
     } else {
-      flashMsg(hit.player.navn + ' har allerede ' + label);
+      flashMsg('Kunne ikke sette posisjon', 'warn');
     }
   }
 
@@ -5968,8 +6045,8 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       if (t.action === 'tren' && t.playerId && t.pos) {
         action = '<button type="button" class="tip-check" data-tren-id="' + esc(t.playerId) +
           '" data-tren-pos="' + esc(t.pos) +
-          '" title="Merk gjort — legg til ' + esc(posDisplayCode(t.pos)) +
-          ' som ekstra" aria-label="Merk Tren til ' + esc(posDisplayCode(t.pos)) +
+          '" title="Merk gjort — sett ' + esc(posDisplayCode(t.pos)) +
+          ' som hoved" aria-label="Merk Tren til ' + esc(posDisplayCode(t.pos)) +
           ' gjort">☐</button>';
       } else if (t.action === 'fill' && t.playerId && t.field) {
         action = '<button type="button" class="tip-fill" data-fill-id="' + esc(t.playerId) +
@@ -6200,6 +6277,27 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       if (aMs && bBack && mammutHasViableNonBack(player)) return true;
       if (bMs && aBack && mammutHasViableNonBack(player)) return false;
     }
+    /* Mammut: lav for MS → prefer VB/HB (natural foot) over MS */
+    if (player && mammutPlayerCanMs(player) && mammutPlayerCanBack(player) &&
+        mammutIsShortForMs(academyHeightCm(player))) {
+      var aBack2 = mammutIsBackRole(a.pos);
+      var bBack2 = mammutIsBackRole(b.pos);
+      var aMs2 = mammutPosCode(a.pos) === 'MS';
+      var bMs2 = mammutPosCode(b.pos) === 'MS';
+      var nat = mammutNaturalBackPos(fot || player.fot);
+      if (aBack2 && bMs2) {
+        if (nat && mammutPosCode(a.pos) !== nat && mammutPosCode(a.pos) !== (nat === 'HB' ? 'HWB' : 'VWB')) {
+          /* wrong-foot back vs MS: still prefer back over MS, foot resolved below */
+        }
+        return true;
+      }
+      if (bBack2 && aMs2) return false;
+      if (aBack2 && bBack2 && nat) {
+        var aNat = mammutPosCode(a.pos) === nat || mammutPosCode(a.pos) === (nat === 'HB' ? 'HWB' : 'VWB');
+        var bNat = mammutPosCode(b.pos) === nat || mammutPosCode(b.pos) === (nat === 'HB' ? 'HWB' : 'VWB');
+        if (aNat !== bNat) return aNat;
+      }
+    }
     // Opposite fullbacks: natural foot BEFORE need/depth (unless critically thin override)
     var backFoot = academyBackFootPrefer(a, b, fot);
     if (backFoot !== null) return backFoot;
@@ -6321,6 +6419,20 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
                  mammutIsTallForMs(cm)) {
         score += 18; /* boost MS for tall MS-capable */
       }
+      /* Mammut: lav for MS → boost natural-foot back, penalize MS */
+      if (mammutPlayerCanMs(prospect) && mammutPlayerCanBack(prospect) && mammutIsShortForMs(cm)) {
+        if (mammutPosCode(pos) === 'MS') {
+          score -= 28;
+        } else if (mammutIsBackRole(pos)) {
+          var natB = mammutNaturalBackPos(prospect.fot);
+          var codeB = mammutPosCode(pos);
+          if (natB && (codeB === natB || codeB === (natB === 'HB' ? 'HWB' : 'VWB'))) {
+            score += 22;
+          } else {
+            score += 10; /* wrong-foot back still better than lav MS */
+          }
+        }
+      }
       var isHoved = !!hoved && rawPos === hoved && !eff.remap;
       var hFit = cm != null ? academyHeightFitForPos(pos, cm) : null;
       var entry = {
@@ -6374,6 +6486,10 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       if (mammutPosCode(best.pos) === 'MS' && mammutPlayerCanMs(prospect) &&
           mammutIsTallForMs(cm) && mammutHasViableNonBack(prospect)) {
         best.heightNote = best.heightNote || ('høy (' + cm + ' cm) + kan MS → ikke back (Mammut)');
+      } else if (mammutIsBackRole(best.pos) && mammutPlayerCanMs(prospect) &&
+                 mammutIsShortForMs(cm)) {
+        best.heightNote = best.heightNote ||
+          ('lav for MS (' + cm + ' cm) — vurder ' + posDisplayCode(best.pos) + ' (Mammut)');
       }
       var code = posDisplayCode(best.pos);
       if (best.hTier != null && best.hTier >= 2) {
@@ -7410,12 +7526,26 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
           ('Behold i akademiet: utvikle videre mot pot ' + potLabel + '.');
         var acadTrenBtn = '';
         var acadTrenPos = footRetrainTarget(p);
-        if (acadTrenPos && tipText.indexOf('Tren til') >= 0) {
+        var acadBestPos = v.bestTargetPos ? normalizePosCode(v.bestTargetPos) : null;
+        var acadHoved = normalizePosCode(p.hoved) || p.hoved;
+        /* Prefer Best på / anbefalt rolle; else foot Tren til */
+        var acadApplyPos = null;
+        if (acadBestPos && acadBestPos !== acadHoved &&
+            (tipText.indexOf('Best på ') >= 0 || tipText.indexOf('Best som ') >= 0 ||
+             tipText.indexOf('bruk/utvikle') >= 0 || tipText.indexOf('anbefalt som') >= 0 ||
+             tipText.indexOf('vurder ') >= 0 || tipText.indexOf('lav for MS') >= 0)) {
+          acadApplyPos = acadBestPos;
+        } else if (acadTrenPos && tipText.indexOf('Tren til') >= 0) {
+          acadApplyPos = acadTrenPos;
+        } else if (acadBestPos && acadBestPos !== acadHoved) {
+          acadApplyPos = acadBestPos;
+        }
+        if (acadApplyPos) {
           acadTrenBtn = '<button type="button" class="tip-check-inline" data-tren-id="' + esc(p.id) +
-            '" data-tren-pos="' + esc(acadTrenPos) +
-            '" title="Merk gjort — legg til ' + esc(posDisplayCode(acadTrenPos)) +
-            ' som ekstra" aria-label="Merk Tren til ' + esc(posDisplayCode(acadTrenPos)) +
-            ' gjort">☐</button>';
+            '" data-tren-pos="' + esc(acadApplyPos) +
+            '" title="Merk gjort — sett ' + esc(posDisplayCode(acadApplyPos)) +
+            ' som hoved" aria-label="Sett ' + esc(posDisplayCode(acadApplyPos)) +
+            ' som hoved">☐</button>';
         }
         var tipHtml = '<span class="verdict-tip ' + esc(v.tipKind || 'wait') + '">' +
           esc(tipText) + acadTrenBtn + '</span>';
@@ -7870,6 +8000,24 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
           var bBack = mammutIsBackRole(best.pos);
           if (eMs && bBack) { best = entry; continue; }
           if (bMs && eBack) { continue; }
+        }
+        if (mammutPlayerCanMs(player) && mammutPlayerCanBack(player) &&
+            mammutIsShortForMs(academyHeightCm(player))) {
+          var eMs2 = mammutPosCode(entry.pos) === 'MS';
+          var bMs2 = mammutPosCode(best.pos) === 'MS';
+          var eBack2 = mammutIsBackRole(entry.pos);
+          var bBack2 = mammutIsBackRole(best.pos);
+          var nat2 = mammutNaturalBackPos(player.fot);
+          if (eBack2 && bMs2) { best = entry; continue; }
+          if (bBack2 && eMs2) { continue; }
+          if (eBack2 && bBack2 && nat2) {
+            var eNat2 = mammutPosCode(entry.pos) === nat2 ||
+              mammutPosCode(entry.pos) === (nat2 === 'HB' ? 'HWB' : 'VWB');
+            var bNat2 = mammutPosCode(best.pos) === nat2 ||
+              mammutPosCode(best.pos) === (nat2 === 'HB' ? 'HWB' : 'VWB');
+            if (eNat2 && !bNat2) { best = entry; continue; }
+            if (bNat2 && !eNat2) { continue; }
+          }
         }
         var backPick = academyBackFootPrefer(entry, best, player.fot);
         if (backPick === true) best = entry;

@@ -55,7 +55,7 @@ function assert(cond, msg) {
   }
 }
 
-assert(/app-build" content="20260925-mammut-ui"/.test(html), 'app-build stamp 20260925-mammut-ui');
+assert(/app-build" content="20260925-mammut-lavms"/.test(html), 'app-build stamp 20260925-mammut-lavms');
 assert(html.includes('id="mammut-panel"'), 'mammut panel in HTML');
 assert(html.includes('var MAMMUT = {'), 'MAMMUT config present');
 assert(html.includes('mammutPreferMsOverBack'), 'tall MS helper present');
@@ -76,6 +76,14 @@ function clampNum(n,lo,hi){ n=Number(n); if(!Number.isFinite(n)) return lo; retu
   const x = extractVar(code, v);
   if (x) parts.push(x);
 });
+
+parts.push(`
+if (typeof KARRIERE_POSITIONS !== 'undefined' && KARRIERE_POSITIONS.length) {
+  POS_BY_CODE = POS_BY_CODE || {};
+  KARRIERE_POSITIONS.forEach(function (p) { POS_BY_CODE[p.code] = p; });
+}
+`);
+
 const acadMin = code.match(/  var ACADEMY_MIN_SIGN_AGE = [^;]+;/);
 if (acadMin) parts.push(acadMin[0] + '\n');
 const hp = code.match(/  var HIGH_POT_USE_SPREAD = [^;]+;/);
@@ -99,8 +107,8 @@ const funcs = [
   'compareAcademyToPeer','isSignedCoverageThin','academyVerdict',
   'mammutQuota','mammutPosCode','mammutRolePool','mammutRoleCount','mammutHasMsEliteCeiling','mammutVvCoveredBy86',
   'mammutRangeSharpened','mammutIsNeverPromoteRange','mammutSignTotOk','mammutPromoteTotOk','mammutPromoteGateReason',
-  'mammutHeightVerdict','mammutPlayerCanMs','mammutIsTallForMs','mammutIsBackRole','mammutHasViableNonBack',
-  'mammutPreferMsOverBack','mammutOverQuota','mammutHoleOpen','mammutYaSignAdvice',
+  'mammutHeightVerdict','mammutPlayerCanMs','mammutIsTallForMs','mammutPreferBackOverMs','mammutNaturalBackPos','mammutPlayerCanBack','mammutIsShortForMs','mammutIsBackRole','mammutHasViableNonBack',
+  'mammutPreferMsOverBack','mammutOverQuota','mammutHoleOpen','mammutYaSignAdvice','applyPosChangeAsHoved','addEkstraPosToPlayer',
   'mammutRankScore','mammutDecisionBucket','computeMammutAcademyLists',
   'scoutProbeSlot','scoutWeekSeed','pickScoutCountries','fillPoolForPos',
   'formationSlotDemand','scoutTroppUsableForPos','academyUsableForPos','scoreScoutPosition',
@@ -133,7 +141,7 @@ function fmtPlayerArrow(pl){ return pl? (pl.navn+' ('+pl.rating+'→'+pl.potensi
 
 const sandbox = { console, Set, Map, Math, Number, String, Array, Object, Date, JSON, parseInt, isNaN };
 try {
-  vm.runInNewContext(parts.join('\n') + '\nthis.__ex={MAMMUT,state,academyVerdict,pickBestAcademyTarget,mammutPreferMsOverBack,mammutYaSignAdvice,mammutPromoteTotOk,mammutSignTotOk,mammutHasMsEliteCeiling,mammutDecisionBucket,computeMammutAcademyLists,pickScoutCountries,scoreScoutPosition,computeScoutPlan,SCOUT_POS_COUNTRIES,normalizeAcademyPlayer,mammutIsTallForMs,mammutPlayerCanMs};', sandbox);
+  vm.runInNewContext(parts.join('\n') + '\nthis.__ex={MAMMUT,state,academyVerdict,pickBestAcademyTarget,mammutPreferMsOverBack,mammutYaSignAdvice,mammutPromoteTotOk,mammutSignTotOk,mammutHasMsEliteCeiling,mammutDecisionBucket,computeMammutAcademyLists,pickScoutCountries,scoreScoutPosition,computeScoutPlan,SCOUT_POS_COUNTRIES,normalizeAcademyPlayer,mammutIsTallForMs,mammutIsShortForMs,mammutPlayerCanMs,mammutPlayerCanBack,mammutNaturalBackPos,mammutPreferBackOverMs,applyPosChangeAsHoved};', sandbox);
 } catch (e) {
   console.error('VM load error', e);
   process.exit(1);
@@ -231,6 +239,49 @@ assert(FC.mammutSignTotOk(17, 62) === true, 'C: 17 @62 ok');
   assert(lists.vent.some(r => r.p.navn === 'VentMeg'), 'vent list has VentMeg');
   assert(lists.signer.some(r => r.p.navn === 'Prioritet') || lists.rangering[0].p.navn === 'Prioritet',
     'Prioritet is signer or top rank');
+}
+
+
+// --- Short/lav MS+back → prefer natural-foot back ---
+{
+  const p = FC.normalizeAcademyPlayer({
+    id: 'short', navn: 'LavMS', rating: 56, potMin: 80, potMax: 88, alder: 16, hoyde: 172, fot: 'H',
+    hoved: 'MS', ekstra: ['HB']
+  });
+  state.akademi = [p];
+  state.players = [];
+  assert(FC.mammutIsShortForMs(172) === true, '172 cm is short for MS');
+  assert(FC.mammutPreferMsOverBack(p, 'HB') === false, 'short: do not prefer MS over back');
+  const t = FC.pickBestAcademyTarget(p, 88);
+  assert(t.pos === 'HB', 'lav MS+HB fot=H → Best på HB (got ' + t.pos + ')');
+  assert((t.heightNote || '').toLowerCase().indexOf('lav') >= 0 ||
+         (t.heightNote || '').indexOf('VB/HB') >= 0 ||
+         (t.heightNote || '').indexOf('vurder') >= 0,
+    'tip mentions lav for MS (got: ' + (t.heightNote || '') + ')');
+}
+{
+  const p = FC.normalizeAcademyPlayer({
+    id: 'shortV', navn: 'LavMSV', rating: 55, potMin: 78, potMax: 86, alder: 16, hoyde: 175, fot: 'V',
+    hoved: 'MS', ekstra: ['VB', 'HB']
+  });
+  state.akademi = [p];
+  state.players = [];
+  const t = FC.pickBestAcademyTarget(p, 86);
+  assert(t.pos === 'VB', 'lav MS dual backs fot=V → VB (got ' + t.pos + ')');
+}
+
+
+// --- Tip done: set recommended as hoved, old → ekstra ---
+{
+  const p = FC.normalizeAcademyPlayer({
+    id: 'swap', navn: 'ByttPos', rating: 60, potMin: 80, potMax: 88, alder: 17, hoyde: 178, fot: 'H',
+    hoved: 'VB', ekstra: ['HB']
+  });
+  const r = FC.applyPosChangeAsHoved(p, 'HB');
+  assert(r.ok === true, 'applyPosChangeAsHoved ok');
+  assert(p.hoved === 'HB', 'hoved becomes HB (got ' + p.hoved + ')');
+  assert((p.ekstra || []).indexOf('VB') >= 0, 'old VB in ekstra');
+  assert((p.ekstra || []).indexOf('HB') < 0, 'HB not duplicated in ekstra');
 }
 
 console.log('\nDone.' + (failed ? ' WITH FAILURES ('+failed+')' : ' all asserts passed.'));
