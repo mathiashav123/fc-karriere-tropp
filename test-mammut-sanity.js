@@ -55,7 +55,7 @@ function assert(cond, msg) {
   }
 }
 
-assert(/app-build" content="20260925-mammut-lavms"/.test(html), 'app-build stamp 20260925-mammut-lavms');
+assert(/app-build" content="20260925-perf-click"/.test(html), 'app-build stamp 20260925-perf-click');
 assert(html.includes('id="mammut-panel"'), 'mammut panel in HTML');
 assert(html.includes('var MAMMUT = {'), 'MAMMUT config present');
 assert(html.includes('mammutPreferMsOverBack'), 'tall MS helper present');

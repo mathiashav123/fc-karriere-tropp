@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#121814">
 <title>FC Karriere-tropp</title>
-<meta name="app-build" content="20260925-unused-right">
-<!-- build: 20260925-unused-right — unused lists right of each pitch (din + anbefalt) -->
+<meta name="app-build" content="20260925-perf-click">
+<!-- build: 20260925-perf-click — raskere klikk: render() oppdaterer kun synlig fane, skjulte faner bygges på nytt ved bytte -->
 <style>
 :root {
   --bg: #121814;
@@ -3179,6 +3179,9 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   if (!Array.isArray(state.akademi)) state.akademi = [];
   var VALID_VIEWS = ['leggtil', 'tropp', 'formasjon', 'akademi', 'sky'];
   var currentView = 'tropp';
+  /* Per-view render staleness: render() only rebuilds the visible view's panels
+     for snappy clicks; hidden views are flagged here and rebuilt lazily on setView. */
+  var viewRenderDirty = { tropp: true, formasjon: true, akademi: true };
   try {
     var savedView = localStorage.getItem(VIEW_KEY);
     if (savedView && VALID_VIEWS.indexOf(savedView) !== -1 && savedView !== 'sky') {
@@ -4904,17 +4907,38 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     });
   }
 
-  function render() {
-    try {
-      var xi = buildXI();
+  /* Rebuild just the panels that belong to one view. Splitting render() this way
+     lets a click repaint only the visible view instead of every view at once. */
+  function renderViewPanels(view, xi) {
+    if (view === 'tropp') {
       renderSummary(xi);
+      renderSquad(xi);
+    } else if (view === 'formasjon') {
       renderPitch(xi);
       renderRecommendedPitch();
       renderUnusedStall(xi);
-      renderSquad(xi);
+    } else if (view === 'akademi') {
       renderAcademy();
+    }
+  }
+
+  function render() {
+    try {
+      var xi = buildXI();
+      /* Academy nav badge shows on every view, so keep it fresh cheaply. */
+      try { updateAcademyCounts(); } catch (eCounts) {}
       var hint = document.getElementById('formation-hint');
       if (hint) hint.textContent = xi.formation.hint || '';
+      /* Only the visible view is rebuilt now; the others are marked stale and
+         rebuilt on demand when their tab is selected (see setView). */
+      ['tropp', 'formasjon', 'akademi'].forEach(function (v) {
+        if (v === currentView) {
+          renderViewPanels(v, xi);
+          viewRenderDirty[v] = false;
+        } else {
+          viewRenderDirty[v] = true;
+        }
+      });
       return true;
     } catch (err) {
       console.error('render failed:', err);
@@ -7586,6 +7610,19 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       tab.classList.toggle('active', on);
       tab.setAttribute('aria-selected', on ? 'true' : 'false');
     });
+    /* The newly shown view may have gone stale while hidden (edits, drops, sync)
+       — rebuild it now, once, instead of on every earlier click. */
+    if (currentView !== 'sky' && viewRenderDirty[currentView]) {
+      try {
+        var xiView = buildXI();
+        renderViewPanels(currentView, xiView);
+        viewRenderDirty[currentView] = false;
+        var hintView = document.getElementById('formation-hint');
+        if (hintView) hintView.textContent = xiView.formation.hint || '';
+      } catch (eViewRender) {
+        console.error('view render failed:', eViewRender);
+      }
+    }
     try {
       if (currentView !== 'sky') localStorage.setItem(VIEW_KEY, currentView);
     } catch (eViewSave) {}
