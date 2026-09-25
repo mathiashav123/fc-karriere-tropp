@@ -6377,7 +6377,8 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       parts.push(p.id + ':' + (p.hoved || '') + ':' +
         (Array.isArray(p.ekstra) ? p.ekstra.join('.') : '') + ':' +
         (p.rating || 0) + ':' + (p.potensial || 0) + ':' +
-        (p.alder == null ? '' : p.alder) + ':' + (p.fot || ''));
+        (p.alder == null ? '' : p.alder) + ':' + (p.fot || '') + ':' +
+        (p.hoyde == null ? '' : p.hoyde));
     }
     return parts.join('|');
   }
