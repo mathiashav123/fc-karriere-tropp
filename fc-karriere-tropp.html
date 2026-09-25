@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#121814">
 <title>FC Karriere-tropp</title>
-<meta name="app-build" content="20260925-perf-click">
-<!-- build: 20260925-perf-click — raskere klikk: render() oppdaterer kun synlig fane, skjulte faner bygges på nytt ved bytte -->
+<meta name="app-build" content="20260925-sm-depth">
+<!-- build: 20260925-sm-depth — slot-aware dybde: 2-plass-roller (SM/MS i 4-3-3) trenger 2 starter + 2 backup; ikke selg når tynn, speid/hent opp i stedet -->
 <style>
 :root {
   --bg: #121814;
@@ -2133,14 +2133,15 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   function mammutOverQuota(pos) {
     var q = mammutQuota(pos);
     if (!q) return false;
-    return mammutRoleCount(pos) > q.max;
+    /* Slot-aware: 2-plass-roller (SM/MS i 4-3-3) er ikke «over kvote» før de har
+       mer enn 2 starter + 2 backup — ellers vil vi heller hente opp / speide. */
+    return mammutRoleCount(pos) > mammutMaxForRole(pos);
   }
 
   function mammutHoleOpen(pos) {
-    var q = mammutQuota(pos);
-    var n = mammutRoleCount(pos);
-    if (!q) return n < 2;
-    return n < q.max;
+    /* Slot-aware hull: 2-plass-roller (SM/MS i 4-3-3) har hull helt til de har
+       2 starter + 2 backup — da bør vi speide / hente opp én til. */
+    return mammutRoleCount(pos) < mammutMaxForRole(pos);
   }
 
   /**
@@ -2175,11 +2176,12 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       var need = MAMMUT.signTotByAge[age] || 62;
       return { ok: false, reason: 'Nei — TOT under alderskrav (' + need + ' ved ' + age + ')' };
     }
-    if (q && n >= q.max && potLo < 88) {
+    var roleCap = mammutMaxForRole(code);
+    if (q && n >= roleCap && potLo < 88) {
       return { ok: false, reason: 'Nei — ' + code + ' full og gulv < 88 (Mammut)' };
     }
-    if (q && n >= q.max + 1) {
-      return { ok: false, reason: 'Nei — 4. mann i ' + code + ' (Mammut)' };
+    if (q && n >= roleCap + 1) {
+      return { ok: false, reason: 'Nei — over kvote i ' + code + ' (Mammut)' };
     }
     var hole = mammutHoleOpen(code);
     var potOk = (potLo >= floor) || (potHi >= 92 && potLo >= 78);
@@ -5588,8 +5590,8 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     var q = qEarly || mammutQuota(code);
     if (q && !mammutSkip) {
       var poolN = mammutRoleCount(code);
-      /* Combined stall+YA ceiling vs Mammut gulv */
-      if (poolN < q.max && combinedBestPot < q.minFloor) {
+      /* Combined stall+YA ceiling vs Mammut gulv (slot-aware kvote) */
+      if (poolN < mammutMaxForRole(code) && combinedBestPot < q.minFloor) {
         if (severity < 3) severity = Math.max(severity, 3);
         gap = true;
         why = why + ' · under Mammut-gulv ' + q.minFloor;
@@ -6101,14 +6103,15 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       return age <= 22 && p.potensial >= 75 && growth >= 6;
     }
 
-    /* Mammut: over-kvote tips — EXCLUSIVE role depth (no multi-count hoved+ekstra) */
+    /* Mammut: over-kvote tips — EXCLUSIVE role depth (no multi-count hoved+ekstra).
+       Kvoten er slot-aware: 2 starter + 2 backup for 2-plass-roller (SM/MS i 4-3-3). */
     Object.keys(MAMMUT.quotas).forEach(function (code) {
       if (tips.length >= 4) return;
-      var q = MAMMUT.quotas[code];
+      var qmax = mammutMaxForRole(code);
       var depth = exclusiveDepthForPos(code);
-      if (depth.length <= q.max) return;
+      if (depth.length <= qmax) return;
       /* Extras after exclusive place = sell/loan candidates (lowest floor/TOT) */
-      var extras = depth.slice(q.max).slice().sort(function (a, b) {
+      var extras = depth.slice(qmax).slice().sort(function (a, b) {
         var ap = a.potensial || 0, bp = b.potensial || 0;
         if (ap !== bp) return ap - bp;
         return (a.rating || 0) - (b.rating || 0);
@@ -6118,7 +6121,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
       tips.push({
         kind: 'selg',
         text: 'Slipp/selg: ' + victim.navn + ' — over kvote ' + code +
-          ' (' + depth.length + '/' + q.max + ' etter eksklusiv plassering), lavest tak/TOT (Mammut)'
+          ' (' + depth.length + '/' + qmax + ' etter eksklusiv plassering), lavest tak/TOT (Mammut)'
       });
     });
 
@@ -6513,10 +6516,9 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
   }
 
   function mammutMaxForRole(code) {
-    var q = mammutQuota(code);
-    if (q && q.max) return q.max;
-    if (code === 'MS' || code === 'SM') return 3;
-    return MAMMUT.starterBackupMax || 2;
+    /* Slot-aware: a role that fills 2 formation slots (e.g. SM/MS in 4-3-3)
+       allows 2 starters + 2 backups before anyone is «overskudd». */
+    return roleDepthTarget(code);
   }
 
 
@@ -6734,46 +6736,59 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
    * Maps formation slot codes → canonical player codes.
    * VMS/HMS → MS; VSM → VM (midtbanekant); HSM → HM; HM ≠ HMS.
    */
+  /* Player-facing role code(s) a formation slot position fills. Shared by
+     «used positions» and the per-role slot count that drives depth targets. */
+  function slotRoleCodes(slotPos) {
+    var code = slotPos ? String(slotPos).toUpperCase() : '';
+    if (!code) return [];
+    if (code === 'VMS' || code === 'HMS' || code === 'CB') return ['MS'];
+    if (code === 'VSM') return ['VM', 'SM']; /* VM-ish wing mid — også SM */
+    if (code === 'HSM') return ['HM', 'SM']; /* HM-ish wing mid — også SM */
+    if (code === 'LM') return ['VM'];
+    if (code === 'RM') return ['HM'];
+    if (code === 'AM' || code === 'CAM') return ['SOM'];
+    if (code === 'CM') return ['SM'];
+    if (code === 'CDM') return ['SDM'];
+    if (code === 'GK') return ['K'];
+    if (code === 'LB') return ['VB'];
+    if (code === 'RB') return ['HB'];
+    if (code === 'LWB') return ['VWB'];
+    if (code === 'RWB') return ['HWB'];
+    if (code === 'LW' || code === 'LF') return ['VV'];
+    if (code === 'RW' || code === 'RF') return ['HV'];
+    if (code === 'ST' || code === 'CF') return ['S'];
+    /* Already player-facing: K VB VWB MS HB HWB SDM SM SOM VM HM VV S HV */
+    return [normalizePosCode(code) || code];
+  }
+
   function formationUsedPlayerPositions() {
     var formation = getFormation();
     var used = {};
-    function mark(code) {
-      if (code) used[code] = true;
-    }
     (formation.slots || []).forEach(function (slot) {
-      var code = slot && slot.pos ? String(slot.pos).toUpperCase() : '';
-      if (!code) return;
-      if (code === 'VMS' || code === 'HMS' || code === 'CB') {
-        mark('MS');
-        return;
-      }
-      if (code === 'VSM') {
-        mark('VM'); /* VM-ish wing mid — counts as using VM */
-        mark('SM');
-        return;
-      }
-      if (code === 'HSM') {
-        mark('HM'); /* HM-ish wing mid — counts as using HM (≠ HMS) */
-        mark('SM');
-        return;
-      }
-      if (code === 'LM') { mark('VM'); return; }
-      if (code === 'RM') { mark('HM'); return; }
-      if (code === 'AM' || code === 'CAM') { mark('SOM'); return; }
-      if (code === 'CM') { mark('SM'); return; }
-      if (code === 'CDM') { mark('SDM'); return; }
-      if (code === 'GK') { mark('K'); return; }
-      if (code === 'LB') { mark('VB'); return; }
-      if (code === 'RB') { mark('HB'); return; }
-      if (code === 'LWB') { mark('VWB'); return; }
-      if (code === 'RWB') { mark('HWB'); return; }
-      if (code === 'LW' || code === 'LF') { mark('VV'); return; }
-      if (code === 'RW' || code === 'RF') { mark('HV'); return; }
-      if (code === 'ST' || code === 'CF') { mark('S'); return; }
-      /* Already player-facing: K VB VWB MS HB HWB SDM SM SOM VM HM VV S HV */
-      mark(normalizePosCode(code) || code);
+      slotRoleCodes(slot && slot.pos).forEach(function (code) {
+        if (code) used[code] = true;
+      });
     });
     return used;
+  }
+
+  /* How many current-formation slots this role fills (≥1). 4-3-3 uses two SM and
+     two MS slots, so their healthy depth is higher than a single-slot role's. */
+  function slotsForRole(pos) {
+    var target = mammutPosCode(pos);
+    if (!target) return 1;
+    var formation = getFormation();
+    var n = 0;
+    (formation.slots || []).forEach(function (slot) {
+      if (slotRoleCodes(slot && slot.pos).indexOf(target) >= 0) n++;
+    });
+    return n > 0 ? n : 1;
+  }
+
+  /* Healthy depth for a role: one starter + one backup per slot it fills.
+     Below this = «tynn» (behold + speid/hent opp); above = overskudd. */
+  function roleDepthTarget(pos) {
+    return slotsForRole(pos) * (MAMMUT.starterBackupMax || 2);
   }
 
   /**
@@ -7386,7 +7401,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     }
     /* B: MS stengt for nye lave når 92+ lever — slipp svake MS */
     if (mammutPosCode(pos) === 'MS' && mammutHasMsEliteCeiling() && potHi < 88 &&
-        mammutRoleCount('MS') >= ((qInfo && qInfo.max) || MAMMUT.quotas.MS.max)) {
+        mammutRoleCount('MS') >= mammutMaxForRole('MS')) {
       setTip('drop', 'Slipp — MS stengt (finnes 92+ tak) og du er under elite (Mammut).');
       return pack({
         level: 'drop',
@@ -7715,7 +7730,7 @@ button.badge-miss:active { transform: scale(.97); background: rgba(212,160,84,.2
     score += potHi * 2;
     score += Math.max(0, potLo - 70);
     if (hole) score += 30;
-    if (q && mammutRoleCount(code) < q.max) score += 12;
+    if (q && mammutRoleCount(code) < mammutMaxForRole(code)) score += 12;
     if (potLo >= floor) score += 20;
     else if (potHi >= 92 && potLo >= 78) score += 24;
     else if (potHi >= floor) score += 8;
@@ -8399,7 +8414,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
         remap: (effEx.effective === exclInfo.pos) ? effEx.remap : null,
         depth: depthEx,
         rank: exclInfo.rank,
-        thin: depthEx.length < 2,
+        thin: depthEx.length < roleDepthTarget(exclInfo.pos),
         crowded: depthEx.length > maxEx,
         isHoved: !!hovedEx && (posDisplayCode(hovedEx) === exclInfo.pos || hovedEx === exclInfo.pos)
       };
@@ -8435,7 +8450,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
         remap: eff.remap,
         depth: depth,
         rank: rank || (excl && excl.pos === eff.effective ? excl.rank : depth.length + 1),
-        thin: depth.length < 2,
+        thin: depth.length < roleDepthTarget(eff.effective),
         crowded: depth.length > maxN,
         isHoved: !!hoved && raw === hoved
       };
@@ -8746,7 +8761,8 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
     var pot = player.potensial != null ? player.potensial : (player.rating || 0);
     var ovr = player.rating != null ? player.rating : 0;
     var qInfo = mammutQuota(pos);
-    var roleMax = (mammutPosCode(pos) === 'MS') ? MAMMUT.msRotateMax : MAMMUT.starterBackupMax;
+    /* Slot-aware kvote: to SM/MS-plasser i 4-3-3 tåler 2 starter + 2 backup før overskudd. */
+    var roleMax = mammutMaxForRole(pos);
 
     /* Mammut J: 21 år + tak 80–83 → selg */
     if (age != null && age >= MAMMUT.sellAgeMidCeil.age &&
@@ -8766,7 +8782,7 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
           'Selg — ferdig tak (Mammut)');
       }
     }
-    /* Mammut L: 3. mann = selg/lån/slipp (MS unntak 3 rotate) */
+    /* Mammut L: over starter+backup per plass = selg/lån/slipp (slot-aware: 4-3-3 tåler 4 SM/MS) */
     if (depthN > roleMax && role.rank >= roleMax + 1) {
       if ((age == null || age <= 22) && pot >= 84 && growth >= 6) {
         return pack('loan', 'Lån som 1.', 'loan',
@@ -8775,12 +8791,12 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
           'Lån som #1 (Mammut)');
       }
       return pack('sell', 'Selg / slipp', 'sell',
-        'Selg/slipp — 3. mann på ' + posLabel + ' (Mammut starter+backup' +
-        (mammutPosCode(pos) === 'MS' ? ', MS maks 3' : '') + ').',
+        'Selg/slipp — #' + role.rank + ' på ' + posLabel + ' (over ' + roleMax +
+        ' = starter+backup per plass).',
         'Over dybde (Mammut L)');
     }
-    /* Mammut B: over kvote → slipp lavest gulv/TOT */
-    if (qInfo && depthN > qInfo.max && role.rank >= qInfo.max && pot < qInfo.minFloor) {
+    /* Mammut B: over kvote → slipp lavest gulv/TOT (slot-aware kvote) */
+    if (qInfo && depthN > roleMax && role.rank > roleMax && pot < qInfo.minFloor) {
       return pack('sell', 'Slipp / selg', 'sell',
         'Slipp/selg — over kvote ' + posLabel + ' og tak ' + pot +
         ' < gulv ' + qInfo.minFloor + ' (Mammut).',
@@ -8800,21 +8816,26 @@ list.querySelectorAll('[data-aedit]').forEach(function (btn) {
         'Essential (Mammut J)');
     }
 
-    // 1) Thin depth — protect regardless of pot; nudge scout if no replacement
+    // 1) Thin depth — protect regardless of pot; nudge scout/promote if short
     if (role.thin || depthN < 2) {
-      var scoutNudge = !replName
-        ? (' Speid etter ' + posLabel + ' først.')
-        : '';
+      var need = roleDepthTarget(pos);
+      /* Show shortfall for multi-slot roles (e.g. 3 av 4 SM), or «bare N» when ≤1. */
+      var depthNote = depthN <= 1
+        ? (' (bare ' + depthN + ')')
+        : (need > 2 ? ' (' + depthN + ' av ' + need + ')' : '');
+      /* Short on this role (below starter+backup per slot) → always nudge to get
+         more, even if a nominal backup exists: scout AND/OR promote from academy. */
+      var scoutNudge = ' Speid etter ' + posLabel + ' — eller hent opp en fra akademiet.';
       var thinTip = nearPot
-        ? ('Ikke selg — tynn ' + posLabel + '-dybde' + (depthN <= 1 ? ' (bare ' + depthN + ')' : '') +
+        ? ('Ikke selg — tynn ' + posLabel + '-dybde' + depthNote +
           ', selv om nær potensialet' + remapNote + '.' + scoutNudge)
-        : ('Behold — tynn ' + posLabel + '-dybde; ikke selg' + remapNote + '.' + scoutNudge);
+        : ('Behold — tynn ' + posLabel + '-dybde' + depthNote + '; ikke selg' + remapNote + '.' + scoutNudge);
       if (isStarter && growth >= 5 && (age == null || age <= 24)) {
         return pack('start', 'Start / gi minutter', 'start',
           'Start/gi minutter på ' + posLabel + ' — tynn dybde, rom til å vokse' + remapNote + '.' + scoutNudge,
           thinTip);
       }
-      return pack('hold', 'Ikke selg', !replName ? 'scout' : 'wait', thinTip, thinTip);
+      return pack('hold', 'Ikke selg', 'scout', thinTip, thinTip);
     }
 
     // 2) Near pot + replacement → vurder salg / selg (stronger if crowded)

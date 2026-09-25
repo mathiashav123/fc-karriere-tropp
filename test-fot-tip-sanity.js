@@ -58,7 +58,7 @@ parts.push(`'use strict';\nvar state = { players: [], akademi: [], formationId: 
   'isBackPosCode','backSideOf','academyBackFootPrefer','academyNeedSimilar','academyPreferTarget',
   'academyPosNeedScore','academyPosFitScore','academyHeightCm','academyHeightFitForPos',
   'academyOptimisticPot','academyPessimisticPot','academyPotSpan','academyRoleSet','fmtPotRange',
-  'formationUsedPlayerPositions','academyEffectivePos',
+  'formationUsedPlayerPositions','slotRoleCodes','slotsForRole','roleDepthTarget','mammutMaxForRole','academyEffectivePos',
   'mammutQuota','mammutPosCode','mammutRolePool','mammutRoleCount','mammutHasMsEliteCeiling','mammutVvCoveredBy86',
   'mammutRangeSharpened','mammutIsNeverPromoteRange','mammutSignTotOk','mammutPromoteTotOk','mammutPromoteGateReason',
   'mammutHeightVerdict','mammutPlayerCanMs','mammutIsTallForMs','mammutIsBackRole','mammutHasViableNonBack',

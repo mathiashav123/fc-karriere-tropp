@@ -55,7 +55,7 @@ function assert(cond, msg) {
   }
 }
 
-assert(/app-build" content="20260925-perf-click"/.test(html), 'app-build stamp 20260925-perf-click');
+assert(/app-build" content="20260925-sm-depth"/.test(html), 'app-build stamp 20260925-sm-depth');
 assert(html.includes('id="mammut-panel"'), 'mammut panel in HTML');
 assert(html.includes('var MAMMUT = {'), 'MAMMUT config present');
 assert(html.includes('mammutPreferMsOverBack'), 'tall MS helper present');
@@ -100,6 +100,7 @@ const funcs = [
   'normalizeFot','normalizePosCode','posDisplayCode','playerPositions','qualifies','qualifiesForRecommend',
   'academyPotSpan','academyOptimisticPot','academyPessimisticPot','fmtPotRange','normalizeAcademyPlayer',
   'academyHeightCm','academyHeightFitForPos','academyRoleSet','academyEffectivePos','formationUsedPlayerPositions',
+  'slotRoleCodes','slotsForRole','roleDepthTarget','mammutMaxForRole',
   'getFormation','signedDepthForPos','projectedAcademyRank','academyPosNeedScore','academyPosFitScore',
   'academyNeedSimilar','isBackPosCode','backSideOf','academyBackFootPrefer','academyPreferTarget',
   'footFitForPos','footScoreDelta','footRoleClass','pickBestAcademyTarget','academyBestPosLead',
